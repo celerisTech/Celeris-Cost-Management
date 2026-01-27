@@ -1,0 +1,92 @@
+/* src/app/dashboard/components/StatCardLoop.css */
+.statcardloop {
+  position: relative;
+  overflow: hidden;
+  --statcardloop-gap: 20px;
+  --statcardloop-fadeColorAuto: #ffffff;
+}
+
+.statcardloop--scale-hover {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .statcardloop {
+    --statcardloop-fadeColorAuto: #f5f4f4;
+  }
+}
+
+.statcardloop__track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  user-select: none;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.statcardloop__track--loaded {
+  opacity: 50;
+  transform: translateY(0);
+}
+
+.statcardloop__list {
+  display: flex;
+  align-items: stretch;
+}
+
+.statcardloop__item {
+  flex: 0 0 auto;
+  margin-right: var(--statcardloop-gap);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.statcardloop__item:last-child {
+  margin-right: var(--statcardloop-gap);
+}
+
+.statcardloop--scale-hover .statcardloop__item:hover {
+  transform: translateY(-8px);
+  z-index: 2;
+}
+
+.statcardloop--fade::before,
+.statcardloop--fade::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.statcardloop--fade::before {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    var(--statcardloop-fadeColor, var(--statcardloop-fadeColorAuto)) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.statcardloop--fade::after {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    var(--statcardloop-fadeColor, var(--statcardloop-fadeColorAuto)) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statcardloop__track {
+    transform: translate3d(0, 0, 0) !important;
+  }
+
+  .statcardloop__item {
+    transition: none !important;
+  }
+}
