@@ -142,7 +142,7 @@ export default function TeamsPage() {
 
   const handleSave = async () => {
     try {
-      const res = await fetch("/api/teams", {
+      const res = await fetch("/api/teams?_method=PUT", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

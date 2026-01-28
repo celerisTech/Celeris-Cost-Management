@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import getDb from "@/app/utils/db";
 import jwt from "jsonwebtoken";
 
-// In-memory cache for navigation data
-const navCache = new Map();
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
-
 export async function GET(request: NextRequest) {
   try {
     // 1. Read cookie
@@ -45,31 +41,7 @@ export async function GET(request: NextRequest) {
       return res;
     }
 
-    // 4. Check cache before hitting the database
-    const cacheKey = `nav_${userId}`;
-    const cachedData = navCache.get(cacheKey);
-
-    if (cachedData && (Date.now() - cachedData.timestamp < CACHE_DURATION)) {
-      // Return cached data with proper cache control headers
-      const res = NextResponse.json(
-        {
-          success: true,
-          data: cachedData.data,
-          count: Object.keys(cachedData.data).length,
-          cached: true,
-        },
-        {
-          headers: {
-            "Cache-Control": "max-age=3600",
-            Expires: new Date(Date.now() + CACHE_DURATION).toUTCString(),
-          },
-        }
-      );
-      res.headers.set('Cache-Control', 'no-store');
-      return res;
-    }
-
-    // 5. Fetch from DB - optimized query
+    // 4. Fetch from DB - optimized query
     const db = await getDb();
     const [rows] = await db.query(
       `SELECT 
@@ -92,7 +64,7 @@ export async function GET(request: NextRequest) {
       [userId]
     );
 
-    // 6. Group into sections
+    // 5. Group into sections
     const grouped: Record<string, { href: string; label: string }[]> = {};
     if (Array.isArray(rows) && rows.length > 0) {
       rows.forEach((item: any) => {
@@ -105,27 +77,17 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 7. Store in cache
-    navCache.set(cacheKey, {
-      data: grouped,
-      timestamp: Date.now(),
-    });
-
-    // 8. Return with cache headers
+    // 6. Return with no-store cache headers
     const res = NextResponse.json(
       {
         success: true,
         data: grouped,
         count: Object.keys(grouped).length,
-      },
-      {
-        headers: {
-          "Cache-Control": "max-age=3600",
-          Expires: new Date(Date.now() + CACHE_DURATION).toUTCString(),
-        },
       }
     );
-    res.headers.set('Cache-Control', 'no-store');
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.headers.set('Pragma', 'no-cache');
+    res.headers.set('Expires', '0');
     return res;
   } catch (err: any) {
     console.error("Error fetching nav links:", err);

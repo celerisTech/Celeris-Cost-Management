@@ -500,19 +500,14 @@ export default function ProjectsTab({
     return (
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
         {/* Main Card Content */}
-        <div className="flex justify-between items-start gap-2 mb-2">
+        <div className="flex justify-between items-center gap-2 mb-2">
+          <ActionDropdown project={project} />
           <div className="flex items-center flex-1 min-w-0">
-            <div className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0 bg-blue-100 rounded-lg flex items-center justify-center mr-2 sm:mr-3">
-              <svg className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 justify-between items-center">
               <h3 className="font-medium text-gray-900 text-sm truncate">{project.CM_Project_Name}</h3>
               <p className="text-xs text-gray-500 mt-0.5">{project.CM_Project_Code}</p>
             </div>
           </div>
-          <ActionDropdown project={project} />
         </div>
 
         {/* Status and Type Row */}
@@ -708,14 +703,14 @@ export default function ProjectsTab({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full">
       {/* Filter and Search Bar */}
-      <div className="p-3 sm:p-4 border-b border-gray-200">
+      <div className="p-3 sm:p-4 border-b border-gray-200 bg-white">
         <div className="flex flex-col gap-3 sm:gap-4">
-          {/* First Row: Filters */}
-          <div className="w-full flex sm:flex-row sm:items-center gap-2 sm:gap-3">
-             {/* Search Bar */}
+          {/* First Row: Filters + Search */}
+          <div className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            {/* Search Bar */}
             <div className="flex-1 w-full">
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
                   <svg className="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                   </svg>
@@ -725,39 +720,42 @@ export default function ProjectsTab({
                   ref={searchInputRef}
                   value={searchTerm}
                   onChange={handleSearchChange}
-                  className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-8 sm:pl-10 pr-10 py-2 sm:py-2.5 text-xs sm:text-sm border border-blue-300 rounded-md text-black placeholder-gray-500 transition-colors duration-200"
+                  className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-8 sm:pl-10 pr-10 py-2 sm:py-2.5 text-xs sm:text-sm border border-gray-300 rounded-md text-black placeholder-gray-500 transition-colors duration-200"
                   placeholder="Search... (Ctrl+K)"
+                  aria-label="Search projects"
                 />
                 {searchTerm && (
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                    <button
-                      onClick={clearSearch}
-                      className="text-gray-400 focus:outline-none  transition-colors duration-200 border border-blue-300"
-                      aria-label="Clear search"
-                    >
-                      <svg className="h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
+                  <button
+                    onClick={clearSearch}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none transition-colors duration-200"
+                    aria-label="Clear search"
+                  >
+                    <svg className="h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </button>
                 )}
               </div>
             </div>
+
             {/* Project Type Filter */}
-            <div className="relative inline-block text-left flex-1 sm:flex-initial">
+            <div className="relative inline-block text-left w-full sm:w-auto">
               <button
                 onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className="inline-flex items-center justify-between w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="inline-flex items-center justify-between w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                aria-haspopup="true"
+                aria-expanded={showFilterMenu}
               >
-                <div className="flex items-center">
-                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex items-center truncate">
+                  <svg className="h-4 w-4 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  <span className="hidden xs:inline">{projectTypeFilter === 'all' ? 'All Types' : `${projectTypeFilter}`}</span>
-                  <span className="xs:hidden">Projet Type</span>
+                  <span className="truncate max-w-[120px] sm:max-w-none">
+                    {projectTypeFilter === 'all' ? 'All Types' : projectTypeFilter}
+                  </span>
                 </div>
                 <svg
-                  className={`ml-2 h-4 w-4 transition-transform duration-200 ${showFilterMenu ? 'rotate-180' : ''}`}
+                  className={`ml-2 h-4 w-4 flex-shrink-0 transition-transform duration-200 ${showFilterMenu ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -767,14 +765,11 @@ export default function ProjectsTab({
               </button>
 
               {showFilterMenu && (
-                <div className="absolute left-0 mt-2 w-56 origin-top-left bg-white rounded-xl shadow-lg ring-1 ring-blue-500 ring-opacity-5 focus:outline-none z-20">
+                <div className="absolute left-0 mt-2 w-56 origin-top-left bg-white rounded-xl shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
                   <div className="p-2">
                     <button
                       onClick={() => { setProjectTypeFilter('all'); setShowFilterMenu(false); }}
-                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${projectTypeFilter === 'all'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                        }`}
+                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${projectTypeFilter === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
                       <div className="w-2 h-2 rounded-full bg-gray-400 mr-3"></div>
                       <div className="flex-1 text-left">
@@ -790,95 +785,51 @@ export default function ProjectsTab({
 
                     <div className="border-t border-gray-100 my-1"></div>
 
-                    <button
-                      onClick={() => { setProjectTypeFilter('Web Application'); setShowFilterMenu(false); }}
-                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${projectTypeFilter === 'Web Application'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      <div className="flex-1 text-left">
-                        <div className="font-medium">🌐 Web Application</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{projectTypeCounts['Web Application']} projects</div>
-                      </div>
-                      {projectTypeFilter === 'Web Application' && (
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => { setProjectTypeFilter('Mobile Application'); setShowFilterMenu(false); }}
-                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${projectTypeFilter === 'Mega Watts'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      <div className="flex-1 text-left">
-                        <div className="font-medium">📱 Mobile Application</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{projectTypeCounts['Mobile Application']} projects</div>
-                      </div>
-                      {projectTypeFilter === 'Mobile Application' && (
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => { setProjectTypeFilter('Web Development'); setShowFilterMenu(false); }}
-                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${projectTypeFilter === 'Mega Watts'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      <div className="flex-1 text-left">
-                        <div className="font-medium">💻 Web Development</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{projectTypeCounts['Web Development']} projects</div>
-                      </div>
-                      {projectTypeFilter === 'Web Development' && (
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => { setProjectTypeFilter('Others'); setShowFilterMenu(false); }}
-                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${projectTypeFilter === 'Others'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      <div className="flex-1 text-left">
-                        <div className="font-medium">📁 Others</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{projectTypeCounts['Others']} projects</div>
-                      </div>
-                      {projectTypeFilter === 'Others' && (
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
+                    {[
+                      { key: 'Web Application', label: '🌐 Web Application' },
+                      { key: 'Mobile Application', label: '📱 Mobile Application' },
+                      { key: 'Web Development', label: '💻 Web Development' },
+                      { key: 'Others', label: '📁 Others' }
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => { setProjectTypeFilter(key); setShowFilterMenu(false); }}
+                        className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${projectTypeFilter === key ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        <div className="flex-1 text-left">
+                          <div className="font-medium">{label}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{projectTypeCounts[key] || 0} projects</div>
+                        </div>
+                        {projectTypeFilter === key && (
+                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
 
             {/* Status Filter */}
-            <div className="relative inline-block text-left flex-1 sm:flex-initial">
+            <div className="relative inline-block text-left w-full sm:w-auto">
               <button
                 onClick={() => setShowStatusFilterMenu(!showStatusFilterMenu)}
-                className="inline-flex items-center justify-between w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="inline-flex items-center justify-between w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                aria-haspopup="true"
+                aria-expanded={showStatusFilterMenu}
               >
-                <div className="flex items-center">
-                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex items-center truncate">
+                  <svg className="h-4 w-4 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="hidden xs:inline">{statusFilter === 'all' ? 'All Statuses' : `${statusFilter}`}</span>
-                  <span className="xs:hidden">Status</span>
+                  <span className="truncate max-w-[120px] sm:max-w-none">
+                    {statusFilter === 'all' ? 'All Statuses' : statusFilter}
+                  </span>
                 </div>
                 <svg
-                  className={`ml-2 h-4 w-4 transition-transform duration-200 ${showStatusFilterMenu ? 'rotate-180' : ''}`}
+                  className={`ml-2 h-4 w-4 flex-shrink-0 transition-transform duration-200 ${showStatusFilterMenu ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -888,14 +839,11 @@ export default function ProjectsTab({
               </button>
 
               {showStatusFilterMenu && (
-                <div className="absolute left-0 mt-2 w-56 origin-top-left bg-white rounded-xl shadow-lg ring-1 ring-blue-500 ring-opacity-5 focus:outline-none z-20">
+                <div className="absolute left-0 mt-2 w-56 origin-top-left bg-white rounded-xl shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
                   <div className="p-2 max-h-96 overflow-y-auto">
                     <button
                       onClick={() => { setStatusFilter('all'); setShowStatusFilterMenu(false); }}
-                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${statusFilter === 'all'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                        }`}
+                      className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${statusFilter === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
                       <div className="w-2 h-2 rounded-full bg-gray-400 mr-3"></div>
                       <div className="flex-1 text-left">
@@ -911,15 +859,11 @@ export default function ProjectsTab({
 
                     <div className="border-t border-gray-100 my-1"></div>
 
-                    {/* Render each unique status */}
                     {Object.keys(allStatuses).map((status) => (
                       <button
                         key={status}
                         onClick={() => { setStatusFilter(status); setShowStatusFilterMenu(false); }}
-                        className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${statusFilter === status
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-700 hover:bg-gray-50'
-                          }`}
+                        className={`flex items-center w-full px-3 py-3 text-sm rounded-lg transition-all duration-150 ${statusFilter === status ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                       >
                         <div className="flex items-center justify-center w-6 h-6 mr-2">
                           <span className="text-sm">{getStatusIcon(status)}</span>
@@ -939,19 +883,22 @@ export default function ProjectsTab({
                 </div>
               )}
             </div>
-        {/* Download Button */}
+
+            {/* Download Button */}
             <div className="relative inline-block text-left w-full sm:w-auto">
               <button
                 onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                className="flex items-center justify-center gap-2 w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-md hover:from-blue-700 hover:to-blue-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-xs sm:text-sm font-medium"
+                className="flex items-center justify-center gap-2 w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-md shadow-md hover:from-blue-700 hover:to-blue-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-xs sm:text-sm font-medium"
+                aria-haspopup="true"
+                aria-expanded={showDownloadMenu}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <span className="hidden xs:inline">Download</span>
-                <span className="xs:hidden">Download</span>
+                <span className="xs:hidden">DL</span>
                 <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${showDownloadMenu ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${showDownloadMenu ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -961,98 +908,99 @@ export default function ProjectsTab({
               </button>
 
               {showDownloadMenu && (
-                <div className="absolute right-0 mt-2 w-48 sm:w-56 origin-top-right bg-white rounded-xl shadow-lg ring-opacity-5 focus:outline-none z-20">
+                <div className="absolute right-0 mt-2 w-48 origin-top-right bg-white rounded-xl shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
                   <div className="p-2">
                     <button
                       onClick={() => { setShowDownloadMenu(false); downloadExcel(); }}
-                      className="flex items-center w-full px-3 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all duration-150 group"
+                      className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all duration-150 group"
                     >
-                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 bg-green-100 rounded-lg mr-2 sm:mr-3 group-hover:bg-green-200 transition-colors flex-shrink-0">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg mr-3 group-hover:bg-green-200 transition-colors flex-shrink-0">
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a3 3 0 00-3-3H5a3 3 0 00-3 3v2a3 3 0 003 3h12a3 3 0 003-3v-2a3 3 0 00-3-3h-1a3 3 0 01-3-3m0-8v2m0 0V5a2 2 0 112 2h-2z" />
                         </svg>
                       </div>
                       <div className="text-left">
                         <div className="font-medium">Excel</div>
-                        <div className="text-xs text-gray-500 mt-0.5">.xlsx</div>
+                        <div className="text-xs text-gray-500">.xlsx</div>
                       </div>
                     </button>
 
                     <button
                       onClick={() => { setShowDownloadMenu(false); downloadPDF(); }}
-                      className="flex items-center w-full px-3 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 rounded-lg hover:bg-red-50 hover:text-red-700 transition-all duration-150 group mt-1"
+                      className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 rounded-lg hover:bg-red-50 hover:text-red-700 transition-all duration-150 group mt-1"
                     >
-                      <div className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 bg-red-100 rounded-lg mr-2 sm:mr-3 group-hover:bg-red-200 transition-colors flex-shrink-0">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-center w-8 h-8 bg-red-100 rounded-lg mr-3 group-hover:bg-red-200 transition-colors flex-shrink-0">
+                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
                       <div className="text-left">
                         <div className="font-medium">PDF</div>
-                        <div className="text-xs text-gray-500 mt-0.5">.pdf</div>
+                        <div className="text-xs text-gray-500">.pdf</div>
                       </div>
                     </button>
                   </div>
                 </div>
               )}
-            </div>           
-          </div>
-        </div>
-
-        {/* Active filters indicator */}
-        {(projectTypeFilter !== 'all' || statusFilter !== 'all' || searchTerm) && (
-          <div className="flex flex-col gap-2 mt-4">
-            <div className="flex items-center text-xs sm:text-sm text-gray-500">
-              <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              <span className="whitespace-nowrap">Active filters:</span>
             </div>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {projectTypeFilter !== 'all' && (
-                <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                  Type: {projectTypeFilter}
-                  <button
-                    onClick={() => setProjectTypeFilter('all')}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {statusFilter !== 'all' && (
-                <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                  Status: {statusFilter}
-                  <button
-                    onClick={() => setStatusFilter('all')}
-                    className="ml-1 text-green-600 hover:text-green-800"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {searchTerm && (
-                <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
-                  <span className="truncate max-w-[100px]">Search: "{searchTerm}"</span>
-                  <button
-                    onClick={clearSearch}
-                    className="ml-1 text-yellow-600 hover:text-yellow-800 flex-shrink-0"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {(projectTypeFilter !== 'all' || statusFilter !== 'all' || searchTerm) && (
+          </div>
+
+          {/* Active filters indicator */}
+          {(projectTypeFilter !== 'all' || statusFilter !== 'all' || searchTerm) && (
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex items-center text-xs sm:text-sm text-gray-500">
+                <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span>Active filters:</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                {projectTypeFilter !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Type: {projectTypeFilter}
+                    <button
+                      onClick={() => setProjectTypeFilter('all')}
+                      className="ml-1.5 text-blue-600 hover:text-blue-800 focus:outline-none"
+                      aria-label={`Remove filter: ${projectTypeFilter}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {statusFilter !== 'all' && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                    Status: {statusFilter}
+                    <button
+                      onClick={() => setStatusFilter('all')}
+                      className="ml-1.5 text-green-600 hover:text-green-800 focus:outline-none"
+                      aria-label={`Remove filter: ${statusFilter}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {searchTerm && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                    <span className="truncate max-w-[120px]">"{searchTerm}"</span>
+                    <button
+                      onClick={clearSearch}
+                      className="ml-1.5 text-yellow-600 hover:text-yellow-800 focus:outline-none flex-shrink-0"
+                      aria-label="Clear search"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
                 <button
                   onClick={clearAllFilters}
-                  className="text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium ml-auto sm:ml-0"
+                  className="text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium whitespace-nowrap"
                 >
                   Clear all
                 </button>
-              )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Desktop Table */}
@@ -1211,25 +1159,25 @@ export default function ProjectsTab({
       )}
 
       {/* Loading State */}
-      {isLoading && ( 
+      {isLoading && (
         <div className="flex justify-center items-center h-64">
-        <div className="relative w-20 h-20">
+          <div className="relative w-20 h-20">
 
-          {/* Core Server */}
-          <div className="absolute inset-6 bg-blue-600 rounded-lg animate-pulse shadow-lg"></div>
+            {/* Core Server */}
+            <div className="absolute inset-6 bg-blue-600 rounded-lg animate-pulse shadow-lg"></div>
 
-          {/* Data Lines */}
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-transparent via-blue-400 to-transparent animate-data-flow"></div>
-          <div className="absolute top-1/2 left-0 -translate-y-1/2 h-1 w-full bg-gradient-to-r from-transparent via-blue-300 to-transparent animate-data-flow-reverse"></div>
+            {/* Data Lines */}
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-transparent via-blue-400 to-transparent animate-data-flow"></div>
+            <div className="absolute top-1/2 left-0 -translate-y-1/2 h-1 w-full bg-gradient-to-r from-transparent via-blue-300 to-transparent animate-data-flow-reverse"></div>
 
-          {/* Corner Nodes */}
-          <span className="absolute top-0 left-0 w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
-          <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-150"></span>
-          <span className="absolute bottom-0 left-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-300"></span>
-          <span className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-500"></span>
+            {/* Corner Nodes */}
+            <span className="absolute top-0 left-0 w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
+            <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-150"></span>
+            <span className="absolute bottom-0 left-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-300"></span>
+            <span className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-500"></span>
 
+          </div>
         </div>
-      </div>
       )}
 
       {/* Error State */}

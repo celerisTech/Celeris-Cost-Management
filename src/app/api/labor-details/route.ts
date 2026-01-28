@@ -121,10 +121,19 @@ export async function POST(req: Request) {
     // Set updated timestamp and info
     data.CM_Uploaded_At = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    // Build the update query dynamically
-    const fields = Object.keys(data).filter(key =>
-      key !== 'CM_Labor_Type_ID' && key !== 'CM_Created_At' && key !== 'CM_Created_By'
-    );
+    // Build the update query dynamically with ALLOWED FIELDS ONLY
+    const allowedFields = [
+      'CM_First_Name', 'CM_Last_Name', 'CM_Labor_Type', 'CM_Labor_Roll',
+      'CM_Wage_Type', 'CM_Wage_Amount', 'CM_Date_Of_Birth', 'CM_Postal_Code',
+      'CM_Address', 'CM_District', 'CM_State', 'CM_Country',
+      'CM_Phone_Number', 'CM_Email', 'CM_Alternate_Phone', 'CM_Is_Status'
+    ];
+
+    const fields = Object.keys(data).filter(key => allowedFields.includes(key));
+
+    if (fields.length === 0) {
+      return NextResponse.json({ error: "No valid fields provided for update" }, { status: 400 });
+    }
 
     const placeholders = fields.map(field => `${field} = ?`).join(', ');
     const values = fields.map(field => data[field]);

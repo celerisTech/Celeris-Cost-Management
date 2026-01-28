@@ -503,7 +503,7 @@ const PrivilegeAssignment = () => {
                 </div>
 
                 {/* Filters & Controls */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 mb-6 shadow-sm">
+                <div className="bg-white text-black rounded-2xl border border-gray-200 p-4 sm:p-6 mb-6 shadow-sm">
                   <div className="flex flex-col lg:flex-row gap-4 mb-4">
                     {/* Search */}
                     <div className="relative flex-1">

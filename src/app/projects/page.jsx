@@ -287,6 +287,11 @@ export default function ProjectPage() {
       CM_Uploaded_By: project.CM_Uploaded_By || ''
     });
 
+    // Update selectedProject to reflect changes instantly in the view
+    setSelectedProject(project);
+    // Refresh the project list to update summary cards and other tabs
+    fetchProjects();
+
     setIsEditMode(true);
     setActiveTab('view');
     window.scrollTo(0, 0);

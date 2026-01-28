@@ -88,7 +88,7 @@ function LoginScreen() {
       }
       
       .solar-gradient {
-          background-image: url("loginbg.jpg");
+          background-image: url("loginbg.webp");
           background-size: cover;
           background-position: center;
           animation: image-move 15s ease infinite;
@@ -689,7 +689,7 @@ function LoginScreen() {
     return (
       <div className="flex justify-center items-center h-full" style={{
         backgroundImage:
-          "url('loginbg.jpg')",
+          "url('loginbg.webp')",
       }}>
         <div className="flex justify-center items-center h-64">
           <div className="relative w-20 h-20">

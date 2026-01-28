@@ -432,7 +432,7 @@ export default function ProjectViewTab({
       // Update the selectedProject state with edited project details
       const updatedProject = {
         ...selectedProject,
-        ...updatedProjectData,
+        ...editProject,
         Project_Leader_Name: projectLeader?.CM_Full_Name || 'Not assigned',
       };
 
@@ -816,8 +816,8 @@ export default function ProjectViewTab({
         CM_Uploaded_By: authUser?.CM_Full_Name || 'Unknown User'
       };
 
-      const response = await fetch('/api/milestones', {
-        method: 'PUT',
+      const response = await fetch('/api/milestones?_method=PUT', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },

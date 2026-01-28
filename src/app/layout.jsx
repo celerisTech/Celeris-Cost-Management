@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Celeris Solutions",
   icons: {
-    icon: "/logo.png", 
+    icon: "/logo.svg", 
   },
 };
 
