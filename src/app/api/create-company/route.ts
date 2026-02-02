@@ -2,10 +2,12 @@
 import getDb from '../../utils/db';
 import { NextResponse, NextRequest } from 'next/server';
 import formidable from "formidable";
-import fs from "fs";
+import fsPromises from "fs/promises";
 import path from "path";
+import os from "os";
 import { Readable } from "stream";
 import { v4 as uuidv4 } from 'uuid';
+import { uploadToStorage } from '@/app/utils/storage';
 
 export const config = {
   api: {
@@ -72,8 +74,7 @@ export async function POST(request: NextRequest) {
       url: request.url,
     }) as unknown as import("http").IncomingMessage;
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    const uploadDir = os.tmpdir();
 
     const form = formidable({
       multiples: false,
@@ -126,11 +127,24 @@ export async function POST(request: NextRequest) {
     const createdBy = getStr(fields.createdBy) || "System";
     const uploadedBy = getStr(fields.uploadedBy) || null;
 
-    let logoFileName: string | null = null;
+    let logoUrl: string | null = null;
     const logoFile = (files as any)?.logo;
     if (logoFile) {
       const file = Array.isArray(logoFile) ? logoFile[0] : logoFile;
-      logoFileName = path.basename(file?.filepath);
+      if (file?.filepath) {
+        const fileBuffer = await fsPromises.readFile(file.filepath);
+        const key = `uploads/companies/${path.basename(file.filepath)}`;
+        logoUrl = await uploadToStorage({
+          key,
+          body: fileBuffer,
+          contentType: file.mimetype || undefined,
+        });
+        try {
+          await fsPromises.unlink(file.filepath);
+        } catch {
+          // ignore temp cleanup errors
+        }
+      }
     }
 
     const db = await getDb();
@@ -163,7 +177,7 @@ export async function POST(request: NextRequest) {
         companyCode,
         companyName,
         companyType,
-        logoFileName,
+        logoUrl,
         companyPhone,
         address,
         district,

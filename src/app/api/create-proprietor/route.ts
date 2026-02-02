@@ -1,16 +1,14 @@
 // src/app/api/create-proprietor/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import getDb from "../../utils/db";
-import { writeFile, mkdir } from "fs/promises";
 import { ResultSetHeader } from "mysql2";
 import path from "path";
-import fs from "fs";
+import { uploadToStorage } from "@/app/utils/storage";
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
 
-    // Handle file upload
     const file = formData.get("CM_Photo_URL") as File | null;
     let photoUrl = "";
 
@@ -18,21 +16,15 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Create upload directory if it doesn't exist
-      const uploadDir = path.join(process.cwd(), "public", "uploads");
-
-      if (!fs.existsSync(uploadDir)) {
-        await mkdir(uploadDir, { recursive: true });
-      }
-
-      // Generate unique filename
       const timestamp = Date.now();
-      const filename = `user_${timestamp}_${file.name.replace(/\s+/g, '_')}`;
-      const filePath = path.join(uploadDir, filename);
+      const safeName = file.name.replace(/\s+/g, "_");
+      const key = `uploads/users/user_${timestamp}_${safeName}`;
 
-      await writeFile(filePath, buffer);
-
-      photoUrl = `/uploads/${filename}`;
+      photoUrl = await uploadToStorage({
+        key,
+        body: buffer,
+        contentType: (file as any).type || undefined,
+      });
     }
 
     const db = await getDb();
@@ -77,7 +69,7 @@ export async function POST(request: NextRequest) {
          CM_Address, CM_City, CM_District, CM_State, CM_Country, CM_Postal_Code,
          CM_Date_Of_Birth, CM_Gender, CM_Higher_Education, CM_Previous_Experiences,
          CM_Photo_URL, CM_Is_Active, CM_Created_By, CM_Created_At)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           formData.get("CM_Company_ID") || "",
           formData.get("CM_Role_ID") || "",

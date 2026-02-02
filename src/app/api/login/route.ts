@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       }
     });
 
-    res.cookies.set("token", token, {
+    res.cookies.set("ccms_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
