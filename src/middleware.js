@@ -30,12 +30,13 @@ export function middleware(req) {
 
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
-  // 1. Protect API Routes (except login/public)
-  if (isApiRoute && !isPublicApi) {
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  // 1. (Disabled) API auth via middleware
+  // NOTE: Individual API routes should handle their own auth.
+  // if (isApiRoute && !isPublicApi) {
+  //   if (!token) {
+  //     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  //   }
+  // }
 
   // 2. Protect UI Routes
   if (isProtectedRoute) {
