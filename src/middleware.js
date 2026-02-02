@@ -9,7 +9,11 @@ export function middleware(req) {
   // Define paths that require authentication
   // We protect /api routes, but must exclude public APIs like login
   const isApiRoute = pathname.startsWith("/api");
-  const isPublicApi = pathname.startsWith("/api/login") || pathname.startsWith("/api/register") || pathname.startsWith("/api/public");
+  const isPublicApi =
+    pathname.startsWith("/api/login") ||
+    pathname.startsWith("/api/register") ||
+    pathname.startsWith("/api/public") ||
+    pathname.startsWith("/api/get-user"); // 🔓 allow login / signup helper
 
   // UI Routes that definitely need protection
   const protectedRoutes = [
