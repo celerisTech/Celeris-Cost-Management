@@ -1,0 +1,1103 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import {
+  Target, Plus, Search, Filter, Download, MoreVertical,
+  Edit2, Trash2, Eye, Phone, Mail, MapPin, Building2,
+  Calendar, User, ChevronLeft, ChevronRight, X, Check,
+  ExternalLink, ArrowRight, Loader2, AlertCircle, Star,
+  CheckCircle2, Clock
+} from "lucide-react";
+import { useAuthStore } from "../../../store/useAuthScreenStore";
+import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
+
+const STATUS_OPTIONS = [
+  "New Lead", "Visited", "Demo Given", "Proposal Sent",
+  "Negotiation", "Converted", "Rejected", "On Hold"
+];
+
+const SOURCE_OPTIONS = [
+  "Direct", "Referral", "Website", "Social Media", "Exhibition", "Cold Call", "Other"
+];
+
+const STATUS_COLORS = {
+  "New Lead": "bg-blue-100 text-blue-700 border-blue-200",
+  "Visited": "bg-indigo-100 text-indigo-700 border-indigo-200",
+  "Demo Given": "bg-purple-100 text-purple-700 border-purple-200",
+  "Proposal Sent": "bg-amber-100 text-amber-700 border-amber-200",
+  "Negotiation": "bg-orange-100 text-orange-700 border-orange-200",
+  "Converted": "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "Rejected": "bg-red-100 text-red-700 border-red-200",
+  "On Hold": "bg-gray-100 text-gray-600 border-gray-200",
+};
+
+export default function LeadsPage() {
+  const { user } = useAuthStore();
+  const [leads, setLeads] = useState([]);
+  const [executives, setExecutives] = useState([]);
+  const [industrials, setIndustrials] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(15);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [execFilter, setExecFilter] = useState("");
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [toDate, setToDate] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
+  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [conversionRemarks, setConversionRemarks] = useState("");
+
+  const [industrialInput, setIndustrialInput] = useState("");
+  const [categoryInput, setCategoryInput] = useState("");
+  const [subcategoryInput, setSubcategoryInput] = useState("");
+
+  const [isAddingIndustrial, setIsAddingIndustrial] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isAddingSubcategory, setIsAddingSubcategory] = useState(false);
+
+  const [isEditingIndustrial, setIsEditingIndustrial] = useState(false);
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
+  const [isEditingSubcategory, setIsEditingSubcategory] = useState(false);
+
+  const [formData, setFormData] = useState({
+    CM_Client_Name: "",
+    CM_Company_Name: "",
+    CM_Phone: "",
+    CM_Alt_Phone: "",
+    CM_Email: "",
+    CM_Address: "",
+    CM_City: "",
+    CM_Lead_Source: "",
+    CM_Product_Required: "",
+    CM_Project_Type: "",
+    CM_Expected_Budget: "",
+    CM_Sales_Executive_ID: "",
+    CM_Lead_Status: "New Lead",
+    CM_Remarks: "",
+    CM_Industrial_ID: "",
+    CM_Category_ID: "",
+    CM_Subcategory_ID: ""
+  });
+
+  useEffect(() => {
+    fetchLeads();
+    fetchExecutives();
+    fetchIndustrials();
+  }, [page, statusFilter, execFilter, fromDate, toDate, search]);
+
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        search,
+        status: statusFilter,
+        executiveId: execFilter,
+        fromDate,
+        toDate
+      });
+      const res = await fetch(`/api/sales-leads?${params}`);
+      const data = await res.json();
+      if (res.ok) {
+        setLeads(data.leads);
+        setTotal(data.total);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch leads");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchExecutives = async () => {
+    try {
+      const res = await fetch("/api/sales-leads?type=executives");
+      const data = await res.json();
+      if (res.ok) setExecutives(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchIndustrials = async () => {
+    try {
+      const res = await fetch("/api/sales-industrial?type=industrials");
+      const data = await res.json();
+      if (res.ok) setIndustrials(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchCategories = async (industrialId) => {
+    if (!industrialId) { setCategories([]); setSubcategories([]); return; }
+    try {
+      const res = await fetch(`/api/sales-industrial?type=categories&industrialId=${industrialId}`);
+      const data = await res.json();
+      if (res.ok) setCategories(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchSubcategories = async (categoryId) => {
+    if (!categoryId) { setSubcategories([]); return; }
+    try {
+      const res = await fetch(`/api/sales-industrial?type=subcategories&categoryId=${categoryId}`);
+      const data = await res.json();
+      if (res.ok) setSubcategories(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+    setPage(1);
+  };
+
+  const openAddModal = () => {
+    setFormData({
+      CM_Client_Name: "",
+      CM_Company_Name: "",
+      CM_Phone: "",
+      CM_Alt_Phone: "",
+      CM_Email: "",
+      CM_Address: "",
+      CM_City: "",
+      CM_Lead_Source: "Direct",
+      CM_Product_Required: "",
+      CM_Project_Type: "",
+      CM_Expected_Budget: "",
+      CM_Sales_Executive_ID: user?.CM_User_ID || user?.id || "",
+      CM_Lead_Status: "New Lead",
+      CM_Remarks: "",
+      CM_Industrial_ID: "",
+      CM_Category_ID: "",
+      CM_Subcategory_ID: ""
+    });
+    setCategories([]);
+    setSubcategories([]);
+    setSelectedLead(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = async (lead) => {
+    setFormData({ ...lead });
+    setSelectedLead(lead);
+    setIsModalOpen(true);
+    // Pre-load cascading dropdowns for existing values
+    if (lead.CM_Industrial_ID) {
+      await fetchCategories(lead.CM_Industrial_ID);
+    }
+    if (lead.CM_Category_ID) {
+      await fetchSubcategories(lead.CM_Category_ID);
+    }
+  };
+
+  const openDetail = (lead) => {
+    setSelectedLead(lead);
+    setIsDetailOpen(true);
+  };
+
+  const handleManageIndustrial = async (action, id = null) => {
+    if (!industrialInput.trim() && action !== 'DELETE') return toast.error("Industrial name required");
+    try {
+        const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
+        const payload = { entity: 'industrial', CM_Industrial_Name: industrialInput, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Industrial_ID: id }) };
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+            toast.success(`Industrial ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
+            setIndustrialInput(""); setIsAddingIndustrial(false); setIsEditingIndustrial(false);
+            fetchIndustrials();
+            if (action === 'DELETE') { setFormData({ ...formData, CM_Industrial_ID: "", CM_Category_ID: "", CM_Subcategory_ID: "" }); setCategories([]); setSubcategories([]); }
+        } else { toast.error((await res.json()).error || "Operation failed"); }
+    } catch (error) { toast.error("An error occurred"); }
+  };
+
+  const handleManageCategory = async (action, id = null) => {
+    if (!formData.CM_Industrial_ID && action !== 'DELETE') return toast.error("Select an Industrial first");
+    if (!categoryInput.trim() && action !== 'DELETE') return toast.error("Category name required");
+    try {
+        const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
+        const payload = { entity: 'category', CM_Category_Name: categoryInput, CM_Industrial_ID: formData.CM_Industrial_ID, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Category_ID: id }) };
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+            toast.success(`Category ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
+            setCategoryInput(""); setIsAddingCategory(false); setIsEditingCategory(false);
+            fetchCategories(formData.CM_Industrial_ID);
+            if (action === 'DELETE') { setFormData({ ...formData, CM_Category_ID: "", CM_Subcategory_ID: "" }); setSubcategories([]); }
+        } else { toast.error((await res.json()).error || "Operation failed"); }
+    } catch (error) { toast.error("An error occurred"); }
+  };
+
+  const handleManageSubcategory = async (action, id = null) => {
+    if (!formData.CM_Category_ID && action !== 'DELETE') return toast.error("Select a Category first");
+    if (!subcategoryInput.trim() && action !== 'DELETE') return toast.error("Subcategory name required");
+    try {
+        const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
+        const payload = { entity: 'subcategory', CM_Subcategory_Name: subcategoryInput, CM_Category_ID: formData.CM_Category_ID, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Subcategory_ID: id }) };
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+            toast.success(`Subcategory ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
+            setSubcategoryInput(""); setIsAddingSubcategory(false); setIsEditingSubcategory(false);
+            fetchSubcategories(formData.CM_Category_ID);
+            if (action === 'DELETE') { setFormData({ ...formData, CM_Subcategory_ID: "" }); }
+        } else { toast.error((await res.json()).error || "Operation failed"); }
+    } catch (error) { toast.error("An error occurred"); }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const method = selectedLead ? "PUT" : "POST";
+      const url = selectedLead ? `/api/sales-leads?_method=PUT` : "/api/sales-leads";
+      const payload = {
+        ...formData,
+        CM_Created_By: user?.CM_User_ID || user?.id,
+        CM_Updated_By: user?.CM_User_ID || user?.id
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        toast.success(selectedLead ? "Lead updated successfully" : "Lead created successfully");
+        setIsModalOpen(false);
+        fetchLeads();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Operation failed");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (leadId) => {
+    if (!confirm("Are you sure you want to delete this lead?")) return;
+    try {
+      const res = await fetch(`/api/sales-leads?_method=DELETE`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ CM_Lead_ID: leadId, CM_Updated_By: user?.CM_User_ID || user?.id })
+      });
+      if (res.ok) {
+        toast.success("Lead deleted");
+        fetchLeads();
+      }
+    } catch (error) {
+      toast.error("Failed to delete");
+    }
+  };
+
+  const handleConvert = async () => {
+    if (!selectedLead) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/sales-conversion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          CM_Lead_ID: selectedLead.CM_Lead_ID,
+          CM_Converted_By: user?.CM_User_ID || user?.id,
+          CM_Remarks: conversionRemarks
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Lead converted to project successfully!");
+        setIsConvertModalOpen(false);
+        setIsDetailOpen(false);
+        fetchLeads();
+        // Option: Redirect to project dashboard
+        // window.location.href = `/projects/${data.CM_Project_ID}`;
+      } else {
+        toast.error(data.error || "Conversion failed");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(leads.map(l => ({
+      "Lead ID": l.CM_Lead_ID,
+      "Client Name": l.CM_Client_Name,
+      "Company": l.CM_Company_Name,
+      "Phone": l.CM_Phone,
+      "Email": l.CM_Email,
+      "Status": l.CM_Lead_Status,
+      "Product": l.CM_Product_Required,
+      "Executive": l.Executive_Name,
+      "Created At": new Date(l.CM_Created_At).toLocaleString()
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leads");
+    XLSX.writeFile(wb, "Sales_Leads.xlsx");
+  };
+
+  const totalPages = Math.ceil(total / limit);
+
+  return (
+    <div className="p-4 md:p-6 min-h-screen space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Target className="h-7 w-7 text-indigo-600" />
+            Lead Management
+          </h1>
+          <p className="text-sm text-gray-500">Track and manage your sales pipeline efficiently</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm font-medium"
+          >
+            <Download className="h-4 w-4" /> Export
+          </button>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-all shadow-md font-medium"
+          >
+            <Plus className="h-4 w-4" /> Add Lead
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards for Leads */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[
+          { label: "Total Leads", value: total, icon: Target, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" },
+          { label: "New Leads", value: leads.filter(l => l.CM_Lead_Status === "New Lead").length, icon: Star, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" },
+          { label: "Converted", value: leads.filter(l => l.CM_Lead_Status === "Converted").length, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" },
+          { label: "Pending", value: leads.filter(l => ["Visited", "Demo Given", "Proposal Sent", "Negotiation"].includes(l.CM_Lead_Status)).length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" },
+          { label: "Rejected", value: leads.filter(l => l.CM_Lead_Status === "Rejected").length, icon: AlertCircle, color: "text-red-600", bg: "bg-red-50", border: "border-red-500" },
+        ].map((s, i) => (
+          <div key={i} className={`p-2 rounded-xl text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02]`}>
+            <p className="text-[11px] font-bold text-gray-700 uppercase tracking-widest mb-1">{s.label}</p>
+            <div className="flex items-center justify-between">
+              <p className={`text-xl font-black ${s.col}`}>{s.value}</p>
+              <s.icon className={`h-5 w-5 ${s.color} opacity-40`} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters Card */}
+      <div className="bg-white flex flex-wrap gap-4 items-end text-gray-800">
+        <form onSubmit={handleSearch} className="flex-1 min-w-[240px]">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Name, company, phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+            />
+          </div>
+        </form>
+
+        <div className="w-full sm:w-48">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+          >
+            <option value="">All Statuses</option>
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div className="w-full sm:w-48">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Sales Executive</label>
+          <select
+            value={execFilter}
+            onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+          >
+            <option value="">All Executives</option>
+            {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
+          </select>
+        </div>
+
+        <div className="w-full sm:w-40">
+          <label className="block text-xs font-semibold text-gray-500 uppercase">From Date</label>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+          />
+        </div>
+
+        <div className="w-full sm:w-40">
+          <label className="block text-xs font-semibold text-gray-500 uppercase">To Date</label>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+          />
+        </div>
+
+        <button
+          onClick={() => {
+            setSearch("");
+            setStatusFilter("");
+            setExecFilter("");
+            const d = new Date();
+            setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
+            setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
+            setPage(1);
+          }}
+          className="px-6 py-2.5 text-white bg-gray-600 hover:bg-gray-700 font-bold transition-all rounded-lg h-[42px] shadow-sm"
+        >
+          Reset
+        </button>
+      </div>
+
+      {/* Content Section: Table (Desktop) & Grid (Mobile) */}
+      <div className="space-y-4">
+        {/* Desktop View (Table) */}
+        <div className="hidden lg:block bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse table-fixed">
+              <thead>
+                <tr className="bg-gray-100 border-b border-gray-200">
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Client / Company</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Contact No</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Industrial </th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36 border-r border-gray-200">Requirement</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Status</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr><td colSpan="10" className="px-6 py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
+                ) : leads.length === 0 ? (
+                  <tr><td colSpan="10" className="px-6 py-12 text-center text-gray-500">No leads found</td></tr>
+                ) : (
+                  leads.map((lead, idx) => (
+                    <tr key={lead.CM_Lead_ID} className="hover:bg-blue-50/30 transition-colors group">
+                      <td className="px-4 py-2.5 text-sm text-gray-400 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
+                      <td className="px-4 py-2.5 border-r border-gray-100">
+                        <div onClick={() => openDetail(lead)} className="cursor-pointer">
+                          <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600">{lead.CM_Client_Name}</p>
+                          <p className="text-[11px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm font-medium text-gray-700">{lead.CM_Phone}</td>
+                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">
+                        <div>{lead.CM_Industrial_Name || "—"}</div>
+                        <div>{lead.CM_Category_Name || "—"}</div>
+                        <div>{lead.CM_Subcategory_Name || "—"}</div>
+                      </td>
+                      <td className="px-4 py-2.5 border-r border-gray-100">
+                        <p className="text-sm text-gray-600">{lead.CM_Product_Required || "—"}</p>
+                        {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
+                      </td>
+                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">{lead.Executive_Name || "Unassigned"}</td>
+                      <td className="px-4 py-2.5 border-r border-gray-100">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                          {lead.CM_Lead_Status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => openEditModal(lead)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
+                          <button onClick={() => openDetail(lead)} className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"><Eye className="h-4 w-4" /></button>
+                          <button onClick={() => handleDelete(lead.CM_Lead_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Mobile View (Cards Grid) */}
+        <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4 pb-20">
+          {loading ? (
+            <div className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></div>
+          ) : leads.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">No leads found</div>
+          ) : (
+            leads.map((lead) => (
+              <div key={lead.CM_Lead_ID} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-300 transition-all" onClick={() => openDetail(lead)}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <h3 className="font-bold text-gray-900 leading-none">{lead.CM_Client_Name}</h3>
+                      <p className="text-[11px] text-gray-500 mt-1">{lead.CM_Company_Name || "Individual"}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                    {lead.CM_Lead_Status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 py-3 border-t border-b border-gray-50 mb-3">
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase font-bold">Product</p>
+                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.CM_Product_Required || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase font-bold">Executive</p>
+                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.Executive_Name || "Unassigned"}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mt-auto">
+                  <div className="flex items-center gap-2 text-xs font-bold text-blue-600">
+                    <Phone className="h-3 w-3" /> {lead.CM_Phone}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
+                      className="p-2 bg-gray-50 rounded-lg text-gray-500 border border-gray-100 hover:bg-amber-50 hover:text-amber-600"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openDetail(lead); }}
+                      className="p-2 bg-blue-50 rounded-lg text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Pagination */}
+      {total > 0 && (
+        <div className="px-6 py-4 border-t border-gray-50 flex items-center justify-between bg-gray-50/30">
+          <p className="text-sm text-gray-500">
+            Showing <span className="font-bold text-gray-700">{Math.min((page - 1) * limit + 1, total)}</span> to <span className="font-bold text-gray-700">{Math.min(page * limit, total)}</span> of <span className="font-bold text-gray-700">{total}</span> leads
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex gap-1">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i + 1)}
+                  className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${page === i + 1 ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-gray-500 hover:bg-white border border-transparent hover:border-gray-200"}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col text-gray-800 ">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-500">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                {selectedLead ? <Edit2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                {selectedLead ? "Edit Lead" : "Add New Lead"}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Client Name *</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.CM_Client_Name || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Client_Name: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Company Name</label>
+                  <input
+                    type="text"
+                    value={formData.CM_Company_Name || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Company_Name: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    placeholder="Enter company name"
+                  />
+                </div>
+                {/* Industrial / Category / Subcategory Cascading Dropdowns */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
+                    Industrial
+                    <div className="flex gap-2">
+                        {formData.CM_Industrial_ID && !isEditingIndustrial && !isAddingIndustrial && (
+                            <>
+                            <button type="button" onClick={() => { setIsEditingIndustrial(true); setIndustrialInput(industrials.find(i => i.CM_Industrial_ID == formData.CM_Industrial_ID)?.CM_Industrial_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
+                            <button type="button" onClick={() => { if(confirm("Delete this Industrial?")) handleManageIndustrial('DELETE', formData.CM_Industrial_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
+                            </>
+                        )}
+                        {!isEditingIndustrial && !isAddingIndustrial && (
+                            <button type="button" onClick={() => setIsAddingIndustrial(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
+                        )}
+                    </div>
+                  </label>
+                  {isAddingIndustrial || isEditingIndustrial ? (
+                    <div className="flex gap-2">
+                        <input type="text" value={industrialInput} onChange={(e) => setIndustrialInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Industrial name" />
+                        <button type="button" onClick={() => handleManageIndustrial(isEditingIndustrial ? 'PUT' : 'POST', isEditingIndustrial ? formData.CM_Industrial_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => { setIsAddingIndustrial(false); setIsEditingIndustrial(false); setIndustrialInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
+                    </div>
+                  ) : (
+                  <select
+                    value={formData.CM_Industrial_ID || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, CM_Industrial_ID: val, CM_Category_ID: "", CM_Subcategory_ID: "" });
+                      fetchCategories(val);
+                      setSubcategories([]);
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  >
+                    <option value="">Select Industrial</option>
+                    {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
+                  </select>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
+                    Category
+                    <div className="flex gap-2">
+                        {formData.CM_Category_ID && !isEditingCategory && !isAddingCategory && (
+                            <>
+                            <button type="button" onClick={() => { setIsEditingCategory(true); setCategoryInput(categories.find(c => c.CM_Category_ID == formData.CM_Category_ID)?.CM_Category_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
+                            <button type="button" onClick={() => { if(confirm("Delete this Category?")) handleManageCategory('DELETE', formData.CM_Category_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
+                            </>
+                        )}
+                        {!isEditingCategory && !isAddingCategory && formData.CM_Industrial_ID && (
+                            <button type="button" onClick={() => setIsAddingCategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
+                        )}
+                    </div>
+                  </label>
+                  {isAddingCategory || isEditingCategory ? (
+                    <div className="flex gap-2">
+                        <input type="text" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Category name" />
+                        <button type="button" onClick={() => handleManageCategory(isEditingCategory ? 'PUT' : 'POST', isEditingCategory ? formData.CM_Category_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => { setIsAddingCategory(false); setIsEditingCategory(false); setCategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
+                    </div>
+                  ) : (
+                  <select
+                    value={formData.CM_Category_ID || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, CM_Category_ID: val, CM_Subcategory_ID: "" });
+                      fetchSubcategories(val);
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    disabled={!formData.CM_Industrial_ID}
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map(c => <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>)}
+                  </select>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
+                    Subcategory
+                    <div className="flex gap-2">
+                        {formData.CM_Subcategory_ID && !isEditingSubcategory && !isAddingSubcategory && (
+                            <>
+                            <button type="button" onClick={() => { setIsEditingSubcategory(true); setSubcategoryInput(subcategories.find(s => s.CM_Subcategory_ID == formData.CM_Subcategory_ID)?.CM_Subcategory_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
+                            <button type="button" onClick={() => { if(confirm("Delete this Subcategory?")) handleManageSubcategory('DELETE', formData.CM_Subcategory_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
+                            </>
+                        )}
+                        {!isEditingSubcategory && !isAddingSubcategory && formData.CM_Category_ID && (
+                            <button type="button" onClick={() => setIsAddingSubcategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
+                        )}
+                    </div>
+                  </label>
+                  {isAddingSubcategory || isEditingSubcategory ? (
+                    <div className="flex gap-2">
+                        <input type="text" value={subcategoryInput} onChange={(e) => setSubcategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Subcategory name" />
+                        <button type="button" onClick={() => handleManageSubcategory(isEditingSubcategory ? 'PUT' : 'POST', isEditingSubcategory ? formData.CM_Subcategory_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => { setIsAddingSubcategory(false); setIsEditingSubcategory(false); setSubcategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
+                    </div>
+                  ) : (
+                  <select
+                    value={formData.CM_Subcategory_ID || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Subcategory_ID: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    disabled={!formData.CM_Category_ID}
+                  >
+                    <option value="">Select Subcategory</option>
+                    {subcategories.map(s => <option key={s.CM_Subcategory_ID} value={s.CM_Subcategory_ID}>{s.CM_Subcategory_Name}</option>)}
+                  </select>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Phone Number *</label>
+                  <input
+                    required
+                    type="tel"
+                    value={formData.CM_Phone || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Phone: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    placeholder="e.g. 9876543210"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Alt Phone</label>
+                  <input
+                    type="tel"
+                    value={formData.CM_Alt_Phone || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Alt_Phone: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Email Address</label>
+                  <input
+                    type="email"
+                    value={formData.CM_Email || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Email: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">City</label>
+                  <input
+                    type="text"
+                    value={formData.CM_City || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_City: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Full Address</label>
+                  <textarea
+                    rows="2"
+                    value={formData.CM_Address || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Address: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all resize-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Lead Source</label>
+                  <select
+                    value={formData.CM_Lead_Source || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Lead_Source: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  >
+                    {SOURCE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Product Required</label>
+                  <input
+                    type="text"
+                    value={formData.CM_Product_Required || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Product_Required: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    placeholder="e.g. Billing"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Expected Budget</label>
+                  <input
+                    type="number"
+                    value={formData.CM_Expected_Budget || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Expected_Budget: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    placeholder="Amount in ₹"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Sales Executive</label>
+                  <select
+                    value={formData.CM_Sales_Executive_ID || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Sales_Executive_ID: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  >
+                    <option value="">Select Executive</option>
+                    {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Lead Status</label>
+                  <select
+                    value={formData.CM_Lead_Status || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Lead_Status: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  >
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Remarks</label>
+                  <textarea
+                    rows="2"
+                    value={formData.CM_Remarks || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Remarks: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all resize-none"
+                    placeholder="Any additional notes..."
+                  />
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-100 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+                  {selectedLead ? "Update Lead" : "Save Lead"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Slide-over / Modal */}
+      {isDetailOpen && selectedLead && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-end bg-black/40 backdrop-blur-sm">
+          <div className="bg-white h-full w-full max-w-lg shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="px-6 py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedLead.CM_Client_Name}</h2>
+                </div>
+              </div>
+              <button onClick={() => setIsDetailOpen(false)} className="text-red-400 hover:text-red-600 transition-colors bg-gray-50 p-2 rounded-md">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              {/* Quick Status Bar */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Status</p>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[selectedLead.CM_Lead_Status]}`}>
+                    {selectedLead.CM_Lead_Status}
+                  </span>
+                </div>
+                {selectedLead.CM_Lead_Status !== "Converted" && (
+                  <button
+                    onClick={() => setIsConvertModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100"
+                  >
+                    Convert to Project <ArrowRight className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Information Sections */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Company</p>
+                  <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Company_Name || "Not specified"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sales Executive</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <User className="h-4 w-4 text-indigo-500" /> {selectedLead.Executive_Name || "Unassigned"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-emerald-500" /> {selectedLead.CM_Phone}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alt Phone</p>
+                  <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Alt_Phone || "N/A"}</p>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-blue-500" /> {selectedLead.CM_Email || "No email provided"}
+                  </p>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Address</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" /> {selectedLead.CM_Address || "No address provided"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-px bg-gray-100" />
+
+              <div className="space-y-6">
+                <h3 className="text-sm font-bold text-gray-900 border-l-4 border-indigo-600 pl-3">Requirement Details</h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</p>
+                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Product_Required || "Not specified"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
+                    <p className="text-sm font-extrabold text-indigo-600">{selectedLead.CM_Expected_Budget ? `₹${Number(selectedLead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
+                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Lead_Source || "Direct"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Created On</p>
+                    <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-400" /> {new Date(selectedLead.CM_Created_At).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-px bg-gray-100" />
+
+              <div className="space-y-6">
+                <h3 className="text-sm font-bold text-gray-900 border-l-4 border-blue-600 pl-3">Classification</h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Industrial</p>
+                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Industrial_Name || "Not specified"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
+                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Category_Name || "Not specified"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subcategory</p>
+                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Subcategory_Name || "Not specified"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remarks</p>
+                <div className="p-4 bg-gray-50 rounded-2xl text-sm text-gray-600 leading-relaxed italic border border-gray-100">
+                  "{selectedLead.CM_Remarks || "No additional remarks recorded."}"
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex gap-3 bg-gray-50">
+              <button
+                onClick={() => { setIsDetailOpen(false); openEditModal(selectedLead); }}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+              >
+                <Edit2 className="h-4 w-4" /> Edit Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Conversion Confirmation Modal */}
+      {isConvertModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+            <div className="p-8 text-center">
+              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Check className="h-10 w-10 text-emerald-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Convert to Project?</h2>
+              <p className="text-gray-500 mb-6">
+                This will automatically create a new project in the system using <strong>{selectedLead?.CM_Client_Name}</strong>'s details.
+              </p>
+
+              <div className="text-left space-y-2 mb-6">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Handover Remarks</label>
+                <textarea
+                  rows="3"
+                  value={conversionRemarks}
+                  onChange={(e) => setConversionRemarks(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all resize-none"
+                  placeholder="e.g. Scope confirmed, advance received..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsConvertModalOpen(false)}
+                  className="flex-1 px-6 py-3 text-gray-500 font-bold rounded-2xl hover:bg-gray-100 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConvert}
+                  disabled={isSubmitting}
+                  className="flex-1 px-6 py-3 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 shadow-lg shadow-emerald-100 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirm Conversion"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
