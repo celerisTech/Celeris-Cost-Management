@@ -14,7 +14,6 @@ const AddItemForm = () => {
   const [subcategories, setSubcategories] = useState([]);
   const [unitTypes, setUnitTypes] = useState([]);
 
-  // State for creating/editing entries
   const [newCategory, setNewCategory] = useState({ name: '', code: '' });
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -23,7 +22,6 @@ const AddItemForm = () => {
   const [showSubcategoryInput, setShowSubcategoryInput] = useState(false);
   const [editingSubcategory, setEditingSubcategory] = useState(null);
 
-  // State for unit type management
   const [newUnitType, setNewUnitType] = useState({ name: '', description: '' });
   const [showUnitTypeInput, setShowUnitTypeInput] = useState(false);
   const [editingUnitType, setEditingUnitType] = useState(null);
