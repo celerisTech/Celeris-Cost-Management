@@ -63,34 +63,56 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const q  = request.nextUrl.searchParams;
 
-    const type        = sanitize(q.get('type'));
-    const visitId     = sanitize(q.get('visitId'));
-    const leadId      = sanitize(q.get('leadId'));
-    const executiveId = sanitize(q.get('executiveId'));
-    const status      = sanitize(q.get('status'));
-    const search      = sanitize(q.get('search'));
-    const fromDate    = toMysqlDate(q.get('fromDate'));
-    const toDate      = toMysqlDate(q.get('toDate'));
-    const page        = parsePositiveInt(q.get('page'), 1);
-    const limit       = parsePositiveInt(q.get('limit'), 50);
-    const offset      = (page - 1) * limit;
+    const type         = sanitize(q.get('type'));
+    const visitId      = sanitize(q.get('visitId'));
+    const leadId       = sanitize(q.get('leadId'));
+    const executiveId  = sanitize(q.get('executiveId'));
+    const industrialId = sanitize(q.get('industrialId'));
+    const categoryId   = sanitize(q.get('categoryId'));
+    const status       = sanitize(q.get('status'));
+    const search       = sanitize(q.get('search'));
+    const fromDate     = toMysqlDate(q.get('fromDate'));
+    const toDate       = toMysqlDate(q.get('toDate'));
+    const page         = parsePositiveInt(q.get('page'), 1);
+    const limit        = parsePositiveInt(q.get('limit'), 50);
+    const offset       = (page - 1) * limit;
 
     // ── Pending followups ──────────────────────────────────────────────────
     if (type === 'pending-followups') {
+      let extraCondition = '';
+      const params: any[] = [];
+      if (fromDate) {
+        extraCondition += ' AND sv.CM_Next_Followup_Date >= ?';
+        params.push(fromDate);
+      }
+      if (toDate) {
+        extraCondition += ' AND sv.CM_Next_Followup_Date <= ?';
+        params.push(toDate);
+      }
+
       const [rows]: any = await db.query(`
         SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone,
-               u.CM_Full_Name AS Executive_Name
+               u.CM_Full_Name AS Executive_Name,
+               ind.CM_Industrial_Name, cat.CM_Category_Name
         FROM   ccms_sales_visit sv
         JOIN   ccms_sales_lead  sl
                ON sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci
+        LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+        LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
         LEFT JOIN ccms_users    u
                ON sv.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci
                 = u.CM_User_ID             COLLATE utf8mb4_general_ci
-        WHERE  sv.CM_Next_Followup_Date <= CURDATE()
-          AND  sv.CM_Visit_Status IN ('Follow-up Needed','Interested','Proposal Sent')
+        WHERE  sv.CM_Visit_ID IN (
+                 SELECT MAX(sv2.CM_Visit_ID)
+                 FROM   ccms_sales_visit sv2
+                 WHERE  sv2.CM_Is_Deleted = 0
+                 GROUP BY sv2.CM_Lead_ID
+               )
+          AND  sv.CM_Next_Followup_Date IS NOT NULL
           AND  sv.CM_Is_Deleted = 0
+          ${extraCondition}
         ORDER BY sv.CM_Next_Followup_Date ASC
-      `);
+      `, params);
       return safeJson(rows ?? []);
     }
 
@@ -98,10 +120,13 @@ export async function GET(request: NextRequest) {
     if (visitId) {
       const [[visit]]: any = await db.execute(`
         SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone,
-               u.CM_Full_Name AS Executive_Name
+               u.CM_Full_Name AS Executive_Name,
+               ind.CM_Industrial_Name, cat.CM_Category_Name
         FROM   ccms_sales_visit sv
         JOIN   ccms_sales_lead  sl
                ON sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci
+        LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+        LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
         LEFT JOIN ccms_users    u
                ON sv.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci
                 = u.CM_User_ID             COLLATE utf8mb4_general_ci
@@ -115,11 +140,13 @@ export async function GET(request: NextRequest) {
     const conditions: string[] = ['sv.CM_Is_Deleted = 0'];
     const params: unknown[]    = [];
 
-    if (leadId)      { conditions.push('sv.CM_Lead_ID = ?');            params.push(leadId); }
-    if (executiveId) { conditions.push('sv.CM_Sales_Executive_ID = ?'); params.push(executiveId); }
-    if (fromDate)    { conditions.push('sv.CM_Visit_Date >= ?');         params.push(fromDate); }
-    if (toDate)      { conditions.push('sv.CM_Visit_Date <= ?');         params.push(toDate); }
-    if (status)      { conditions.push('sv.CM_Visit_Status = ?');        params.push(status); }
+    if (leadId)       { conditions.push('sv.CM_Lead_ID = ?');            params.push(leadId); }
+    if (executiveId)  { conditions.push('sv.CM_Sales_Executive_ID = ?'); params.push(executiveId); }
+    if (industrialId) { conditions.push('sl.CM_Industrial_ID = ?');      params.push(industrialId); }
+    if (categoryId)   { conditions.push('sl.CM_Category_ID = ?');        params.push(categoryId); }
+    if (fromDate)     { conditions.push('sv.CM_Visit_Date >= ?');         params.push(fromDate); }
+    if (toDate)       { conditions.push('sv.CM_Visit_Date <= ?');         params.push(toDate); }
+    if (status)       { conditions.push('sv.CM_Visit_Status = ?');        params.push(status); }
     if (search) {
       conditions.push(`(
         sv.CM_Purpose           LIKE ? OR
@@ -145,10 +172,13 @@ export async function GET(request: NextRequest) {
 
     const [visits]: any = await db.query(`
       SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone,
-             u.CM_Full_Name AS Executive_Name
+             u.CM_Full_Name AS Executive_Name,
+             ind.CM_Industrial_Name, cat.CM_Category_Name
       FROM   ccms_sales_visit sv
       JOIN   ccms_sales_lead  sl
              ON sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci
+      LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+      LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
       LEFT JOIN ccms_users    u
              ON sv.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci
               = u.CM_User_ID             COLLATE utf8mb4_general_ci
@@ -224,10 +254,17 @@ export async function POST(request: NextRequest) {
     );
     const newId = row?.CM_Visit_ID;
 
+    const purposeNormalized = String(body.CM_Purpose || '').trim().toLowerCase();
+
     if (body.CM_Demo_Given === 'Yes') {
       await db.execute(
         `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Demo Given', CM_Updated_At = NOW()
-         WHERE CM_Lead_ID = ? AND CM_Lead_Status = 'Visited'`, [body.CM_Lead_ID]
+         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Follow-up Call', 'Visited')`, [body.CM_Lead_ID]
+      );
+    } else if (purposeNormalized === 'demo call') {
+      await db.execute(
+        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Follow-up Call', CM_Updated_At = NOW()
+         WHERE CM_Lead_ID = ? AND CM_Lead_Status = 'New Lead'`, [body.CM_Lead_ID]
       );
     } else {
       await db.execute(
@@ -289,6 +326,24 @@ async function updateVisit(request: NextRequest) {
         CM_Visit_ID,
       ]
     );
+
+    const purposeNormalized = String(body.CM_Purpose || '').trim().toLowerCase();
+    if (body.CM_Demo_Given === 'Yes') {
+      await db.execute(
+        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Demo Given', CM_Updated_At = NOW()
+         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Follow-up Call', 'Visited')`, [body.CM_Lead_ID]
+      );
+    } else if (purposeNormalized === 'demo call') {
+      await db.execute(
+        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Follow-up Call', CM_Updated_At = NOW()
+         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Visited', 'Demo Given')`, [body.CM_Lead_ID]
+      );
+    } else {
+      await db.execute(
+        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Visited', CM_Updated_At = NOW()
+         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Follow-up Call', 'Demo Given')`, [body.CM_Lead_ID]
+      );
+    }
 
     await logActivity(db, body.CM_Lead_ID, 'Visit Updated', `Visit ${CM_Visit_ID} updated`, body.CM_Updated_By);
     return NextResponse.json({ success: true });

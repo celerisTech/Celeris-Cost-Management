@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAuthStore } from "../../store/useAuthScreenStore";
 import Link from "next/link";
+import FollowupsOverviewModal from "../components/FollowupsOverviewModal";
 import {
   Target, MapPin, CreditCard, TrendingUp, Users, Calendar,
   ArrowRight, AlertCircle, CheckCircle2, Clock, IndianRupee,
@@ -14,6 +15,7 @@ const fmtCurrency = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { mini
 
 const STATUS_COLORS = {
   "New Lead": "bg-blue-100 text-blue-700",
+  "Follow-up Call": "bg-teal-100 text-teal-700",
   "Visited": "bg-indigo-100 text-indigo-700",
   "Demo Given": "bg-purple-100 text-purple-700",
   "Proposal Sent": "bg-amber-100 text-amber-700",
@@ -27,6 +29,7 @@ export default function CRMDashboardPage() {
   const { user } = useAuthStore();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isFollowupsModalOpen, setIsFollowupsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
@@ -192,13 +195,21 @@ export default function CRMDashboardPage() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2 w-full md:w-auto">
-            <Link href="/dashboard/crm/visits" className="flex-1 md:flex-none text-center px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all shadow-sm">
-              View Follow-ups
-            </Link>
-            <Link href="/dashboard/crm/payments" className="flex-1 md:flex-none text-center px-4 py-2 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition-all">
-              Check Payments
-            </Link>
+          <div className="flex flex-col gap-2 w-full md:w-auto">
+            <button 
+              onClick={() => setIsFollowupsModalOpen(true)} 
+              className="w-full text-center px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Clock className="h-3.5 w-3.5" /> Follow-ups
+            </button>
+            <div className="flex gap-2 w-full md:w-auto">
+              <Link href="/dashboard/crm/visits" className="flex-1 md:flex-none text-center px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all shadow-sm">
+                View Follow-ups
+              </Link>
+              <Link href="/dashboard/crm/payments" className="flex-1 md:flex-none text-center px-4 py-2 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition-all">
+                Check Payments
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -334,6 +345,11 @@ export default function CRMDashboardPage() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+
+      <FollowupsOverviewModal 
+        isOpen={isFollowupsModalOpen} 
+        onClose={() => setIsFollowupsModalOpen(false)} 
+      />
     </div>
   );
 }

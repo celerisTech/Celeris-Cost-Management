@@ -493,7 +493,7 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{item.CM_Project_Name}</td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{item.Engineer_Name}</td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-center"><StatusBadge status={item.CM_Status} /></td>
-                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 text-sm truncate" title={item.CM_Remarks}>{item.CM_Remarks || "-"}</td>
+                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 text-sm min-w-[250px] max-w-md whitespace-normal break-words" title={item.CM_Remarks}>{item.CM_Remarks || "-"}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>

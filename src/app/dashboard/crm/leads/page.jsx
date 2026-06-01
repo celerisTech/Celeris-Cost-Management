@@ -6,14 +6,14 @@ import {
   Edit2, Trash2, Eye, Phone, Mail, MapPin, Building2,
   Calendar, User, ChevronLeft, ChevronRight, X, Check,
   ExternalLink, ArrowRight, Loader2, AlertCircle, Star,
-  CheckCircle2, Clock
+  CheckCircle2, Clock, MessageSquare, ClipboardList
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 
 const STATUS_OPTIONS = [
-  "New Lead", "Visited", "Demo Given", "Proposal Sent",
+  "New Lead", "Follow-up Call", "Visited", "Demo Given", "Proposal Sent",
   "Negotiation", "Converted", "Rejected", "On Hold"
 ];
 
@@ -23,6 +23,7 @@ const SOURCE_OPTIONS = [
 
 const STATUS_COLORS = {
   "New Lead": "bg-blue-100 text-blue-700 border-blue-200",
+  "Follow-up Call": "bg-teal-100 text-teal-700 border-teal-200",
   "Visited": "bg-indigo-100 text-indigo-700 border-indigo-200",
   "Demo Given": "bg-purple-100 text-purple-700 border-purple-200",
   "Proposal Sent": "bg-amber-100 text-amber-700 border-amber-200",
@@ -42,10 +43,14 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(15);
+  const [limit] = useState(50);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [execFilter, setExecFilter] = useState("");
+  const [industrialFilter, setIndustrialFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [filterCategories, setFilterCategories] = useState([]);
+  const [dateQuickFilter, setDateQuickFilter] = useState(""); // 'today' | 'yesterday' | ''
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
@@ -59,7 +64,10 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [conversionRemarks, setConversionRemarks] = useState("");
+  const [leadVisits, setLeadVisits] = useState([]);
+  const [loadingVisits, setLoadingVisits] = useState(false);
 
   const [industrialInput, setIndustrialInput] = useState("");
   const [categoryInput, setCategoryInput] = useState("");
@@ -93,11 +101,32 @@ export default function LeadsPage() {
     CM_Subcategory_ID: ""
   });
 
+  const fetchFilterCategories = async (industrialId) => {
+    try {
+      const url = industrialId
+        ? `/api/sales-industrial?type=categories&industrialId=${industrialId}`
+        : "/api/sales-industrial?type=categories";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok) setFilterCategories(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   useEffect(() => {
-    fetchLeads();
     fetchExecutives();
     fetchIndustrials();
-  }, [page, statusFilter, execFilter, fromDate, toDate, search]);
+    fetchFilterCategories("");
+  }, []);
+
+  useEffect(() => {
+    fetchLeads();
+  }, [page, statusFilter, execFilter, industrialFilter, categoryFilter, fromDate, toDate, search]);
+
+  useEffect(() => {
+    fetchFilterCategories(industrialFilter);
+  }, [industrialFilter]);
 
   const fetchLeads = async () => {
     try {
@@ -108,6 +137,8 @@ export default function LeadsPage() {
         search,
         status: statusFilter,
         executiveId: execFilter,
+        industrialId: industrialFilter,
+        categoryId: categoryFilter,
         fromDate,
         toDate
       });
@@ -210,23 +241,43 @@ export default function LeadsPage() {
     }
   };
 
+  const fetchLeadVisits = async (leadId) => {
+    setLoadingVisits(true);
+    try {
+      const res = await fetch(`/api/sales-visits?leadId=${leadId}&limit=50`);
+      const data = await res.json();
+      if (res.ok) {
+        setLeadVisits(data.visits || []);
+      } else {
+        setLeadVisits([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch visits", error);
+      setLeadVisits([]);
+    } finally {
+      setLoadingVisits(false);
+    }
+  };
+
   const openDetail = (lead) => {
     setSelectedLead(lead);
+    setLeadVisits([]);
     setIsDetailOpen(true);
+    fetchLeadVisits(lead.CM_Lead_ID);
   };
 
   const handleManageIndustrial = async (action, id = null) => {
     if (!industrialInput.trim() && action !== 'DELETE') return toast.error("Industrial name required");
     try {
-        const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
-        const payload = { entity: 'industrial', CM_Industrial_Name: industrialInput, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Industrial_ID: id }) };
-        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) {
-            toast.success(`Industrial ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
-            setIndustrialInput(""); setIsAddingIndustrial(false); setIsEditingIndustrial(false);
-            fetchIndustrials();
-            if (action === 'DELETE') { setFormData({ ...formData, CM_Industrial_ID: "", CM_Category_ID: "", CM_Subcategory_ID: "" }); setCategories([]); setSubcategories([]); }
-        } else { toast.error((await res.json()).error || "Operation failed"); }
+      const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
+      const payload = { entity: 'industrial', CM_Industrial_Name: industrialInput, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Industrial_ID: id }) };
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (res.ok) {
+        toast.success(`Industrial ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
+        setIndustrialInput(""); setIsAddingIndustrial(false); setIsEditingIndustrial(false);
+        fetchIndustrials();
+        if (action === 'DELETE') { setFormData({ ...formData, CM_Industrial_ID: "", CM_Category_ID: "", CM_Subcategory_ID: "" }); setCategories([]); setSubcategories([]); }
+      } else { toast.error((await res.json()).error || "Operation failed"); }
     } catch (error) { toast.error("An error occurred"); }
   };
 
@@ -234,15 +285,15 @@ export default function LeadsPage() {
     if (!formData.CM_Industrial_ID && action !== 'DELETE') return toast.error("Select an Industrial first");
     if (!categoryInput.trim() && action !== 'DELETE') return toast.error("Category name required");
     try {
-        const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
-        const payload = { entity: 'category', CM_Category_Name: categoryInput, CM_Industrial_ID: formData.CM_Industrial_ID, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Category_ID: id }) };
-        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) {
-            toast.success(`Category ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
-            setCategoryInput(""); setIsAddingCategory(false); setIsEditingCategory(false);
-            fetchCategories(formData.CM_Industrial_ID);
-            if (action === 'DELETE') { setFormData({ ...formData, CM_Category_ID: "", CM_Subcategory_ID: "" }); setSubcategories([]); }
-        } else { toast.error((await res.json()).error || "Operation failed"); }
+      const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
+      const payload = { entity: 'category', CM_Category_Name: categoryInput, CM_Industrial_ID: formData.CM_Industrial_ID, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Category_ID: id }) };
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (res.ok) {
+        toast.success(`Category ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
+        setCategoryInput(""); setIsAddingCategory(false); setIsEditingCategory(false);
+        fetchCategories(formData.CM_Industrial_ID);
+        if (action === 'DELETE') { setFormData({ ...formData, CM_Category_ID: "", CM_Subcategory_ID: "" }); setSubcategories([]); }
+      } else { toast.error((await res.json()).error || "Operation failed"); }
     } catch (error) { toast.error("An error occurred"); }
   };
 
@@ -250,15 +301,15 @@ export default function LeadsPage() {
     if (!formData.CM_Category_ID && action !== 'DELETE') return toast.error("Select a Category first");
     if (!subcategoryInput.trim() && action !== 'DELETE') return toast.error("Subcategory name required");
     try {
-        const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
-        const payload = { entity: 'subcategory', CM_Subcategory_Name: subcategoryInput, CM_Category_ID: formData.CM_Category_ID, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Subcategory_ID: id }) };
-        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) {
-            toast.success(`Subcategory ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
-            setSubcategoryInput(""); setIsAddingSubcategory(false); setIsEditingSubcategory(false);
-            fetchSubcategories(formData.CM_Category_ID);
-            if (action === 'DELETE') { setFormData({ ...formData, CM_Subcategory_ID: "" }); }
-        } else { toast.error((await res.json()).error || "Operation failed"); }
+      const url = id ? `/api/sales-industrial?_method=${action}` : '/api/sales-industrial';
+      const payload = { entity: 'subcategory', CM_Subcategory_Name: subcategoryInput, CM_Category_ID: formData.CM_Category_ID, CM_Created_By: user?.CM_User_ID || user?.id, CM_Updated_By: user?.CM_User_ID || user?.id, ...(id && { CM_Subcategory_ID: id }) };
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (res.ok) {
+        toast.success(`Subcategory ${action === 'DELETE' ? 'deleted' : action === 'PUT' ? 'updated' : 'added'}`);
+        setSubcategoryInput(""); setIsAddingSubcategory(false); setIsEditingSubcategory(false);
+        fetchSubcategories(formData.CM_Category_ID);
+        if (action === 'DELETE') { setFormData({ ...formData, CM_Subcategory_ID: "" }); }
+      } else { toast.error((await res.json()).error || "Operation failed"); }
     } catch (error) { toast.error("An error occurred"); }
   };
 
@@ -409,8 +460,8 @@ export default function LeadsPage() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white flex flex-wrap gap-4 items-end text-gray-800">
-        <form onSubmit={handleSearch} className="flex-1 min-w-[240px]">
+      <div className="bg-white flex flex-wrap xl:flex-nowrap gap-2.5 items-end text-gray-800 w-full overflow-x-hidden pb-1">
+        <form onSubmit={handleSearch} className="flex-1 min-w-[140px] w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -419,51 +470,123 @@ export default function LeadsPage() {
               placeholder="Name, company, phone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 focus:border-transparent transition-all outline-none h-[42px]"
             />
           </div>
         </form>
 
-        <div className="w-full sm:w-48">
+        <div className="flex-shrink-0 w-full sm:w-[125px]">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
           >
             <option value="">All Statuses</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
-        <div className="w-full sm:w-48">
+        <div className="flex-shrink-0 w-full sm:w-[140px]">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Sales Executive</label>
           <select
             value={execFilter}
             onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
           >
             <option value="">All Executives</option>
             {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
           </select>
         </div>
 
-        <div className="w-full sm:w-40">
-          <label className="block text-xs font-semibold text-gray-500 uppercase">From Date</label>
+        <div className="flex-shrink-0 w-full sm:w-[140px]">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Industrial</label>
+          <select
+            value={industrialFilter}
+            onChange={(e) => {
+              setIndustrialFilter(e.target.value);
+              setCategoryFilter("");
+              setPage(1);
+            }}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+          >
+            <option value="">All Industrials</option>
+            {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
+          </select>
+        </div>
+
+        <div className="flex-shrink-0 w-full sm:w-[140px]">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Category</label>
+          <select
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+          >
+            <option value="">All Categories</option>
+            {filterCategories.map(c => (
+              <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Today / Yesterday Quick Filters */}
+        <div className="flex-shrink-0 flex flex-col gap-1 w-full sm:w-auto">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+                setFromDate(todayStr);
+                setToDate(todayStr);
+                setDateQuickFilter('today');
+                setPage(1);
+              }}
+              className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
+                }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+                setFromDate(yesterdayStr);
+                setToDate(yesterdayStr);
+                setDateQuickFilter('yesterday');
+                setPage(1);
+              }}
+              className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
+                }`}
+            >
+              Yesterday
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-shrink-0 w-[48%] sm:w-[120px]">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From Date</label>
           <input
             type="date"
             value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
+            onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
           />
         </div>
 
-        <div className="w-full sm:w-40">
-          <label className="block text-xs font-semibold text-gray-500 uppercase">To Date</label>
+        <div className="flex-shrink-0 w-[48%] sm:w-[120px]">
+          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">To Date</label>
           <input
             type="date"
             value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
+            onChange={(e) => { setToDate(e.target.value); setDateQuickFilter(""); }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
           />
         </div>
@@ -473,12 +596,15 @@ export default function LeadsPage() {
             setSearch("");
             setStatusFilter("");
             setExecFilter("");
+            setIndustrialFilter("");
+            setCategoryFilter("");
+            setDateQuickFilter("");
             const d = new Date();
             setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
             setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
             setPage(1);
           }}
-          className="px-6 py-2.5 text-white bg-gray-600 hover:bg-gray-700 font-bold transition-all rounded-lg h-[42px] shadow-sm"
+          className="flex-shrink-0 px-4 py-2.5 text-white bg-gray-600 hover:bg-gray-700 font-bold transition-all rounded-lg h-[42px] shadow-sm self-end w-full sm:w-auto"
         >
           Reset
         </button>
@@ -509,15 +635,21 @@ export default function LeadsPage() {
                   <tr><td colSpan="10" className="px-6 py-12 text-center text-gray-500">No leads found</td></tr>
                 ) : (
                   leads.map((lead, idx) => (
-                    <tr key={lead.CM_Lead_ID} className="hover:bg-blue-50/30 transition-colors group">
+                    <tr
+                      key={lead.CM_Lead_ID}
+                      onClick={() => openDetail(lead)}
+                      className="hover:bg-blue-50/30 transition-colors group cursor-pointer"
+                    >
                       <td className="px-4 py-2.5 text-sm text-gray-400 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
-                        <div onClick={() => openDetail(lead)} className="cursor-pointer">
+                        <div>
                           <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600">{lead.CM_Client_Name}</p>
                           <p className="text-[11px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm font-medium text-gray-700">{lead.CM_Phone}</td>
+                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm font-medium text-gray-700" onClick={(e) => e.stopPropagation()}>
+                        {lead.CM_Phone}
+                      </td>
                       <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">
                         <div>{lead.CM_Industrial_Name || "—"}</div>
                         <div>{lead.CM_Category_Name || "—"}</div>
@@ -533,7 +665,7 @@ export default function LeadsPage() {
                           {lead.CM_Lead_Status}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-right">
+                      <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           <button onClick={() => openEditModal(lead)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
                           <button onClick={() => openDetail(lead)} className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"><Eye className="h-4 w-4" /></button>
@@ -683,107 +815,107 @@ export default function LeadsPage() {
                   <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
                     Industrial
                     <div className="flex gap-2">
-                        {formData.CM_Industrial_ID && !isEditingIndustrial && !isAddingIndustrial && (
-                            <>
-                            <button type="button" onClick={() => { setIsEditingIndustrial(true); setIndustrialInput(industrials.find(i => i.CM_Industrial_ID == formData.CM_Industrial_ID)?.CM_Industrial_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
-                            <button type="button" onClick={() => { if(confirm("Delete this Industrial?")) handleManageIndustrial('DELETE', formData.CM_Industrial_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
-                            </>
-                        )}
-                        {!isEditingIndustrial && !isAddingIndustrial && (
-                            <button type="button" onClick={() => setIsAddingIndustrial(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
-                        )}
+                      {formData.CM_Industrial_ID && !isEditingIndustrial && !isAddingIndustrial && (
+                        <>
+                          <button type="button" onClick={() => { setIsEditingIndustrial(true); setIndustrialInput(industrials.find(i => i.CM_Industrial_ID == formData.CM_Industrial_ID)?.CM_Industrial_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => { if (confirm("Delete this Industrial?")) handleManageIndustrial('DELETE', formData.CM_Industrial_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
+                        </>
+                      )}
+                      {!isEditingIndustrial && !isAddingIndustrial && (
+                        <button type="button" onClick={() => setIsAddingIndustrial(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
+                      )}
                     </div>
                   </label>
                   {isAddingIndustrial || isEditingIndustrial ? (
                     <div className="flex gap-2">
-                        <input type="text" value={industrialInput} onChange={(e) => setIndustrialInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Industrial name" />
-                        <button type="button" onClick={() => handleManageIndustrial(isEditingIndustrial ? 'PUT' : 'POST', isEditingIndustrial ? formData.CM_Industrial_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
-                        <button type="button" onClick={() => { setIsAddingIndustrial(false); setIsEditingIndustrial(false); setIndustrialInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
+                      <input type="text" value={industrialInput} onChange={(e) => setIndustrialInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Industrial name" />
+                      <button type="button" onClick={() => handleManageIndustrial(isEditingIndustrial ? 'PUT' : 'POST', isEditingIndustrial ? formData.CM_Industrial_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => { setIsAddingIndustrial(false); setIsEditingIndustrial(false); setIndustrialInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
                     </div>
                   ) : (
-                  <select
-                    value={formData.CM_Industrial_ID || ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormData({ ...formData, CM_Industrial_ID: val, CM_Category_ID: "", CM_Subcategory_ID: "" });
-                      fetchCategories(val);
-                      setSubcategories([]);
-                    }}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  >
-                    <option value="">Select Industrial</option>
-                    {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
-                  </select>
+                    <select
+                      value={formData.CM_Industrial_ID || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, CM_Industrial_ID: val, CM_Category_ID: "", CM_Subcategory_ID: "" });
+                        fetchCategories(val);
+                        setSubcategories([]);
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                    >
+                      <option value="">Select Industrial</option>
+                      {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
+                    </select>
                   )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
                     Category
                     <div className="flex gap-2">
-                        {formData.CM_Category_ID && !isEditingCategory && !isAddingCategory && (
-                            <>
-                            <button type="button" onClick={() => { setIsEditingCategory(true); setCategoryInput(categories.find(c => c.CM_Category_ID == formData.CM_Category_ID)?.CM_Category_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
-                            <button type="button" onClick={() => { if(confirm("Delete this Category?")) handleManageCategory('DELETE', formData.CM_Category_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
-                            </>
-                        )}
-                        {!isEditingCategory && !isAddingCategory && formData.CM_Industrial_ID && (
-                            <button type="button" onClick={() => setIsAddingCategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
-                        )}
+                      {formData.CM_Category_ID && !isEditingCategory && !isAddingCategory && (
+                        <>
+                          <button type="button" onClick={() => { setIsEditingCategory(true); setCategoryInput(categories.find(c => c.CM_Category_ID == formData.CM_Category_ID)?.CM_Category_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => { if (confirm("Delete this Category?")) handleManageCategory('DELETE', formData.CM_Category_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
+                        </>
+                      )}
+                      {!isEditingCategory && !isAddingCategory && formData.CM_Industrial_ID && (
+                        <button type="button" onClick={() => setIsAddingCategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
+                      )}
                     </div>
                   </label>
                   {isAddingCategory || isEditingCategory ? (
                     <div className="flex gap-2">
-                        <input type="text" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Category name" />
-                        <button type="button" onClick={() => handleManageCategory(isEditingCategory ? 'PUT' : 'POST', isEditingCategory ? formData.CM_Category_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
-                        <button type="button" onClick={() => { setIsAddingCategory(false); setIsEditingCategory(false); setCategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
+                      <input type="text" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Category name" />
+                      <button type="button" onClick={() => handleManageCategory(isEditingCategory ? 'PUT' : 'POST', isEditingCategory ? formData.CM_Category_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => { setIsAddingCategory(false); setIsEditingCategory(false); setCategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
                     </div>
                   ) : (
-                  <select
-                    value={formData.CM_Category_ID || ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormData({ ...formData, CM_Category_ID: val, CM_Subcategory_ID: "" });
-                      fetchSubcategories(val);
-                    }}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    disabled={!formData.CM_Industrial_ID}
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map(c => <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>)}
-                  </select>
+                    <select
+                      value={formData.CM_Category_ID || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, CM_Category_ID: val, CM_Subcategory_ID: "" });
+                        fetchSubcategories(val);
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                      disabled={!formData.CM_Industrial_ID}
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map(c => <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>)}
+                    </select>
                   )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
                     Subcategory
                     <div className="flex gap-2">
-                        {formData.CM_Subcategory_ID && !isEditingSubcategory && !isAddingSubcategory && (
-                            <>
-                            <button type="button" onClick={() => { setIsEditingSubcategory(true); setSubcategoryInput(subcategories.find(s => s.CM_Subcategory_ID == formData.CM_Subcategory_ID)?.CM_Subcategory_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
-                            <button type="button" onClick={() => { if(confirm("Delete this Subcategory?")) handleManageSubcategory('DELETE', formData.CM_Subcategory_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
-                            </>
-                        )}
-                        {!isEditingSubcategory && !isAddingSubcategory && formData.CM_Category_ID && (
-                            <button type="button" onClick={() => setIsAddingSubcategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
-                        )}
+                      {formData.CM_Subcategory_ID && !isEditingSubcategory && !isAddingSubcategory && (
+                        <>
+                          <button type="button" onClick={() => { setIsEditingSubcategory(true); setSubcategoryInput(subcategories.find(s => s.CM_Subcategory_ID == formData.CM_Subcategory_ID)?.CM_Subcategory_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => { if (confirm("Delete this Subcategory?")) handleManageSubcategory('DELETE', formData.CM_Subcategory_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
+                        </>
+                      )}
+                      {!isEditingSubcategory && !isAddingSubcategory && formData.CM_Category_ID && (
+                        <button type="button" onClick={() => setIsAddingSubcategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
+                      )}
                     </div>
                   </label>
                   {isAddingSubcategory || isEditingSubcategory ? (
                     <div className="flex gap-2">
-                        <input type="text" value={subcategoryInput} onChange={(e) => setSubcategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Subcategory name" />
-                        <button type="button" onClick={() => handleManageSubcategory(isEditingSubcategory ? 'PUT' : 'POST', isEditingSubcategory ? formData.CM_Subcategory_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
-                        <button type="button" onClick={() => { setIsAddingSubcategory(false); setIsEditingSubcategory(false); setSubcategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
+                      <input type="text" value={subcategoryInput} onChange={(e) => setSubcategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Subcategory name" />
+                      <button type="button" onClick={() => handleManageSubcategory(isEditingSubcategory ? 'PUT' : 'POST', isEditingSubcategory ? formData.CM_Subcategory_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => { setIsAddingSubcategory(false); setIsEditingSubcategory(false); setSubcategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
                     </div>
                   ) : (
-                  <select
-                    value={formData.CM_Subcategory_ID || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Subcategory_ID: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    disabled={!formData.CM_Category_ID}
-                  >
-                    <option value="">Select Subcategory</option>
-                    {subcategories.map(s => <option key={s.CM_Subcategory_ID} value={s.CM_Subcategory_ID}>{s.CM_Subcategory_Name}</option>)}
-                  </select>
+                    <select
+                      value={formData.CM_Subcategory_ID || ""}
+                      onChange={(e) => setFormData({ ...formData, CM_Subcategory_ID: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                      disabled={!formData.CM_Category_ID}
+                    >
+                      <option value="">Select Subcategory</option>
+                      {subcategories.map(s => <option key={s.CM_Subcategory_ID} value={s.CM_Subcategory_ID}>{s.CM_Subcategory_Name}</option>)}
+                    </select>
                   )}
                 </div>
                 <div className="space-y-1">
@@ -939,9 +1071,18 @@ export default function LeadsPage() {
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100">
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Status</p>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[selectedLead.CM_Lead_Status]}`}>
-                    {selectedLead.CM_Lead_Status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[selectedLead.CM_Lead_Status]}`}>
+                      {selectedLead.CM_Lead_Status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsHistoryModalOpen(true)}
+                      className="flex items-center gap-1 px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-full hover:bg-indigo-100 transition-all shadow-sm"
+                    >
+                      <Clock className="h-3.5 w-3.5" /> History
+                    </button>
+                  </div>
                 </div>
                 {selectedLead.CM_Lead_Status !== "Converted" && (
                   <button
@@ -1041,6 +1182,8 @@ export default function LeadsPage() {
                   "{selectedLead.CM_Remarks || "No additional remarks recorded."}"
                 </div>
               </div>
+
+
             </div>
 
             <div className="p-6 border-t border-gray-100 flex gap-3 bg-gray-50">
@@ -1094,6 +1237,117 @@ export default function LeadsPage() {
                   {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirm Conversion"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {isHistoryModalOpen && selectedLead && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col text-gray-800">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-indigo-600 text-white">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Visit History - {selectedLead.CM_Company_Name || selectedLead.CM_Client_Name}
+                </h2>
+                <p className="text-xs text-indigo-100 mt-1">
+                  Total Visits logged for this company: <span className="font-extrabold text-white bg-indigo-700 px-2 py-0.5 rounded-full ml-1">{leadVisits.length} times</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="hover:bg-white/10 p-1.5 rounded-lg transition-colors text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingVisits ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                  <p className="text-sm text-gray-500 font-medium">Loading visit history...</p>
+                </div>
+              ) : leadVisits.length === 0 ? (
+                <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                  <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-base text-gray-500 font-bold">No visits recorded yet</p>
+                  <p className="text-xs text-gray-400 mt-1">There are no documented interactions for this lead.</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse table-fixed">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Client / Company</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Purpose & Remarks</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Follow-up</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {leadVisits.map((v, idx) => (
+                          <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors">
+                            <td className="px-4 py-3 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
+                            <td className="px-4 py-3 border-r border-gray-100">
+                              <p className="text-xs font-bold text-gray-700">
+                                {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3 border-r border-gray-100">
+                              <p className="text-xs font-extrabold text-gray-900 truncate">{v.CM_Client_Name || selectedLead.CM_Client_Name}</p>
+                              <p className="text-[10px] text-gray-500 truncate">{v.CM_Company_Name || selectedLead.CM_Company_Name || "Individual"}</p>
+                            </td>
+                            <td className="px-4 py-3 border-r border-gray-100">
+                              <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p>
+                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-3">{v.CM_Remarks || "No remarks recorded"}</p>
+                            </td>
+                            <td className="px-4 py-3 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
+                              {v.Executive_Name || "Unassigned"}
+                            </td>
+                            <td className="px-4 py-3 border-r border-gray-100">
+                              {v.CM_Next_Followup_Date ? (
+                                <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                  {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                </p>
+                              ) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${v.CM_Visit_Status === "Follow-up Needed" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                  v.CM_Visit_Status === "Interested" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                                    v.CM_Visit_Status === "Not Interested" ? "bg-red-100 text-red-700 border-red-200" :
+                                      v.CM_Visit_Status === "Proposal Sent" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                        v.CM_Visit_Status === "Converted" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                                          "bg-gray-100 text-gray-600 border-gray-200"
+                                }`}>
+                                {v.CM_Visit_Status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl transition-all shadow-sm text-sm"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

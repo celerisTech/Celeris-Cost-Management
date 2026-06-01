@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { 
-  MapPin, Plus, Search, Filter, Calendar, User, Clock, 
+import {
+  MapPin, Plus, Search, Filter, Calendar, User, Clock,
   ChevronLeft, ChevronRight, X, Check, Eye, Trash2, Edit2,
   Image as ImageIcon, MoreVertical, Loader2, AlertCircle,
   ArrowRight, CheckCircle2, MessageSquare, Phone, Building2,
@@ -28,6 +28,8 @@ export default function VisitsPage() {
   const [visits, setVisits] = useState([]);
   const [leads, setLeads] = useState([]);
   const [executives, setExecutives] = useState([]);
+  const [industrials, setIndustrials] = useState([]);
+  const [filterCategories, setFilterCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -35,6 +37,9 @@ export default function VisitsPage() {
   const [leadFilter, setLeadFilter] = useState("");
   const [execFilter, setExecFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [industrialFilter, setIndustrialFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [dateQuickFilter, setDateQuickFilter] = useState(""); // 'today' | 'yesterday' | ''
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
@@ -48,6 +53,24 @@ export default function VisitsPage() {
   const [selectedVisit, setSelectedVisit] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewMode, setViewMode] = useState("table"); // table or timeline
+
+  const [leadSearchText, setLeadSearchText] = useState("");
+  const [showLeadSuggestions, setShowLeadSuggestions] = useState(false);
+
+  const filteredLeads = useMemo(() => {
+    const query = leadSearchText.trim().toLowerCase();
+    if (!query) return [];
+    // Split by non-alphanumeric characters to get search tokens
+    const tokens = query.split(/[^a-z0-9]+/).filter(Boolean);
+    if (tokens.length === 0) return [];
+    return leads.filter(l => {
+      const clientName = (l.CM_Client_Name || "").toLowerCase();
+      const companyName = (l.CM_Company_Name || "").toLowerCase();
+      const targetText = `${clientName} ${companyName}`;
+      // Every search token must exist in client or company name
+      return tokens.every(token => targetText.includes(token));
+    });
+  }, [leads, leadSearchText]);
 
   const [formData, setFormData] = useState({
     CM_Lead_ID: "",
@@ -72,10 +95,42 @@ export default function VisitsPage() {
   });
 
   useEffect(() => {
+    fetchIndustrials();
+    fetchFilterCategories("");
+  }, []);
+
+  useEffect(() => {
+    fetchFilterCategories(industrialFilter);
+  }, [industrialFilter]);
+
+  useEffect(() => {
     fetchVisits();
     fetchLeads();
     fetchExecutives();
-  }, [page, leadFilter, execFilter, statusFilter, fromDate, toDate, search]);
+  }, [page, leadFilter, execFilter, statusFilter, fromDate, toDate, search, industrialFilter, categoryFilter]);
+
+  const fetchFilterCategories = async (industrialId) => {
+    try {
+      const url = industrialId
+        ? `/api/sales-industrial?type=categories&industrialId=${industrialId}`
+        : "/api/sales-industrial?type=categories";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok) setFilterCategories(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchIndustrials = async () => {
+    try {
+      const res = await fetch("/api/sales-industrial?type=industrials");
+      const data = await res.json();
+      if (res.ok) setIndustrials(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchVisits = async () => {
     try {
@@ -88,7 +143,9 @@ export default function VisitsPage() {
         status: statusFilter,
         fromDate: fromDate,
         toDate: toDate,
-        search: search
+        search: search,
+        industrialId: industrialFilter,
+        categoryId: categoryFilter
       });
       const res = await fetch(`/api/sales-visits?${params}`);
       const data = await res.json();
@@ -145,12 +202,15 @@ export default function VisitsPage() {
       CM_Remarks: "",
       CM_Images: []
     });
+    setLeadSearchText("");
     setSelectedVisit(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (visit) => {
     setFormData({ ...visit });
+    const matchingLead = leads.find(l => l.CM_Lead_ID == visit.CM_Lead_ID);
+    setLeadSearchText(matchingLead ? `${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}` : "");
     setSelectedVisit(visit);
     setIsModalOpen(true);
   };
@@ -220,20 +280,20 @@ export default function VisitsPage() {
         </div>
         <div className="flex gap-2">
           <div className="flex p-1 bg-gray-200 rounded-lg shadow-inner">
-            <button 
+            <button
               onClick={() => setViewMode("table")}
               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === "table" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500"}`}
             >
               List
             </button>
-            <button 
+            <button
               onClick={() => setViewMode("timeline")}
               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === "timeline" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500"}`}
             >
               Timeline
             </button>
           </div>
-          <button 
+          <button
             onClick={openAddModal}
             className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-all shadow-md font-medium"
           >
@@ -243,89 +303,164 @@ export default function VisitsPage() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white flex flex-wrap gap-4 items-end text-gray-800">
-        <div className="flex-1 min-w-[240px]">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
+      <div className="bg-white flex flex-wrap xl:flex-nowrap gap-1.5 xl:gap-2 items-end text-gray-800 w-full overflow-x-hidden pb-1">
+        <div className="flex-1 min-w-[120px] xl:w-[120px] w-full">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600" />
-            <input 
-              type="text" 
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
               placeholder="Search purpose, client, remarks..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
             />
           </div>
         </div>
 
-        <div className="w-full sm:w-64">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Filter by Lead</label>
-          <select 
+        <div className="flex-shrink-0 w-full sm:w-[180px] xl:w-[120px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Filter by Lead</label>
+          <select
             value={leadFilter}
             onChange={(e) => { setLeadFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
           >
             <option value="">All Leads</option>
             {leads.map(l => <option key={l.CM_Lead_ID} value={l.CM_Lead_ID}>{l.CM_Client_Name} ({l.CM_Company_Name || "Ind"})</option>)}
           </select>
         </div>
-        
-        <div className="w-full sm:w-40">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-          <select 
+
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Status</label>
+          <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
           >
             <option value="">All Statuses</option>
             {VISIT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
-        <div className="w-full sm:w-40">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Executive</label>
-          <select 
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Executive</label>
+          <select
             value={execFilter}
             onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
           >
             <option value="">All Executives</option>
             {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
           </select>
         </div>
 
-        <div className="w-full sm:w-36">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From Date</label>
-          <input 
-            type="date" 
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Industrial</label>
+          <select
+            value={industrialFilter}
+            onChange={(e) => {
+              setIndustrialFilter(e.target.value);
+              setCategoryFilter("");
+              setPage(1);
+            }}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
+          >
+            <option value="">All Industrials</option>
+            {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
+          </select>
+        </div>
+
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Category</label>
+          <select
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
+          >
+            <option value="">All Categories</option>
+            {filterCategories.map(c => (
+              <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Today / Yesterday Quick Filters */}
+        <div className="flex-shrink-0 flex flex-col gap-1 w-full sm:w-auto xl:w-[124px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
+          <div className="flex gap-1.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+                setFromDate(todayStr);
+                setToDate(todayStr);
+                setDateQuickFilter('today');
+                setPage(1);
+              }}
+              className={`px-1 py-2 text-[10px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[50px] ${dateQuickFilter === 'today'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
+                }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+                setFromDate(yesterdayStr);
+                setToDate(yesterdayStr);
+                setDateQuickFilter('yesterday');
+                setPage(1);
+              }}
+              className={`px-1 py-2 text-[10px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[68px] ${dateQuickFilter === 'yesterday'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
+                }`}
+            >
+              Yesterday
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-shrink-0 w-[48%] sm:w-[110px] xl:w-[100px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">From Date</label>
+          <input
+            type="date"
             value={fromDate}
-            onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
-            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+            onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
+            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-xs font-medium h-[42px]"
           />
         </div>
 
-        <div className="w-full sm:w-36">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">To Date</label>
-          <input 
-            type="date" 
+        <div className="flex-shrink-0 w-[48%] sm:w-[110px] xl:w-[100px]">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">To Date</label>
+          <input
+            type="date"
             value={toDate}
-            onChange={(e) => { setToDate(e.target.value); setPage(1); }}
-            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+            onChange={(e) => { setToDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
+            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-xs font-medium h-[42px]"
           />
         </div>
-        
-        <button 
-          onClick={() => { 
-            setLeadFilter(""); 
-            setStatusFilter(""); 
-            setExecFilter(""); 
+
+        <button
+          onClick={() => {
+            setLeadFilter("");
+            setStatusFilter("");
+            setExecFilter("");
             setSearch("");
+            setIndustrialFilter("");
+            setCategoryFilter("");
+            setDateQuickFilter("");
             const d = new Date();
             setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
             setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
-            setPage(1); 
+            setPage(1);
           }}
-          className="px-6 py-2.5 text-white bg-gray-600 hover:bg-gray-700 font-bold transition-all rounded-lg h-[42px] shadow-sm"
+          className="flex-shrink-0 px-3 py-2.5 text-xs font-bold text-white bg-gray-600 hover:bg-gray-700 transition-all rounded-lg h-[42px] shadow-sm w-full sm:w-auto xl:w-[65px]"
         >
           Reset
         </button>
@@ -357,7 +492,7 @@ export default function VisitsPage() {
                 ) : (
                   visits.map((v, idx) => (
                     <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors group">
-                      <td className="px-4 py-2.5 text-sm text-gray-600 text-center border-r border-gray-100">{(page-1)*limit + idx + 1}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-600 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
                         <p className="text-sm font-medium text-gray-700">
                           {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
@@ -366,6 +501,11 @@ export default function VisitsPage() {
                       <td className="px-4 py-2.5 border-r border-gray-100">
                         <p className="text-sm font-bold text-gray-900 truncate">{v.CM_Client_Name}</p>
                         <p className="text-[11px] text-gray-500 truncate">{v.CM_Company_Name || "Individual"}</p>
+                        {(v.CM_Industrial_Name || v.CM_Category_Name) && (
+                          <p className="text-[10px] text-indigo-600 font-semibold truncate mt-0.5">
+                            {v.CM_Industrial_Name}{v.CM_Category_Name ? ` - ${v.CM_Category_Name}` : ""}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
                         <p className="text-sm font-bold text-blue-700 truncate flex items-center gap-1">
@@ -431,6 +571,11 @@ export default function VisitsPage() {
                     <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Client / Company</p>
                     <p className="text-sm font-bold text-gray-900">{v.CM_Client_Name}</p>
                     <p className="text-xs text-gray-500">{v.CM_Company_Name || "Individual"}</p>
+                    {(v.CM_Industrial_Name || v.CM_Category_Name) && (
+                      <p className="text-[11px] text-indigo-600 font-semibold mt-1">
+                        {v.CM_Industrial_Name}{v.CM_Category_Name ? ` - ${v.CM_Category_Name}` : ""}
+                      </p>
+                    )}
                     <div className="mt-3 flex items-center gap-2 text-xs font-bold text-blue-600">
                       <Phone className="h-3 w-3" /> {v.CM_Phone}
                     </div>
@@ -487,39 +632,84 @@ export default function VisitsPage() {
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Select Lead *</label>
-                <select 
-                  required
+                <div className="relative">
+                  <input
+                    required
+                    type="text"
+                    placeholder="Search or enter company/client name..."
+                    value={leadSearchText}
+                    onFocus={() => setShowLeadSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowLeadSuggestions(false), 250)}
+                    onChange={(e) => {
+                      setLeadSearchText(e.target.value);
+                      setShowLeadSuggestions(true);
+                      // Clear the selected lead ID if they type something new
+                      if (formData.CM_Lead_ID) {
+                        setFormData(prev => ({ ...prev, CM_Lead_ID: "" }));
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none pr-10"
+                  />
+                  {formData.CM_Lead_ID && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 font-extrabold text-sm">✓</span>
+                  )}
+                </div>
+
+                {/* Suggestions List Dropdown */}
+                {showLeadSuggestions && leadSearchText.trim() !== "" && (
+                  <div className="absolute z-[70] left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl divide-y divide-gray-50">
+                    {filteredLeads.length === 0 ? (
+                      <div className="p-3 text-xs text-gray-500 italic">No matching leads found</div>
+                    ) : (
+                      filteredLeads.map((l) => (
+                        <button
+                          key={l.CM_Lead_ID}
+                          type="button"
+                          onMouseDown={() => {
+                            setFormData(prev => ({ ...prev, CM_Lead_ID: l.CM_Lead_ID }));
+                            setLeadSearchText(`${l.CM_Client_Name} - ${l.CM_Company_Name || "Individual"}`);
+                            setShowLeadSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-xs font-medium flex flex-col gap-0.5"
+                        >
+                          <span className="font-bold text-gray-900">{l.CM_Client_Name}</span>
+                          <span className="text-[10px] text-gray-500">{l.CM_Company_Name || "Individual"}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {/* Hidden input to enforce html5 required field validation on the selected ID */}
+                <input
+                  type="hidden"
+                  name="CM_Lead_ID"
                   value={formData.CM_Lead_ID || ""}
-                  onChange={(e) => setFormData({...formData, CM_Lead_ID: e.target.value})}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                >
-                  <option value="">Select Lead</option>
-                  {leads.map(l => <option key={l.CM_Lead_ID} value={l.CM_Lead_ID}>{l.CM_Client_Name} - {l.CM_Company_Name || "Individual"}</option>)}
-                </select>
+                  required
+                />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Date *</label>
-                <input 
+                <input
                   required
-                  type="date" 
+                  type="date"
                   value={formData.CM_Visit_Date || ""}
-                  onChange={(e) => setFormData({...formData, CM_Visit_Date: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, CM_Visit_Date: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 />
               </div>
 
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Purpose of Visit *</label>
-                <input 
+                <input
                   required
-                  type="text" 
+                  type="text"
                   value={formData.CM_Purpose || ""}
-                  onChange={(e) => setFormData({...formData, CM_Purpose: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, CM_Purpose: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                   placeholder="e.g. Site Survey, Product Demo, Negotiation..."
                 />
@@ -527,9 +717,9 @@ export default function VisitsPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Sales Executive</label>
-                <select 
+                <select
                   value={formData.CM_Sales_Executive_ID || ""}
-                  onChange={(e) => setFormData({...formData, CM_Sales_Executive_ID: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, CM_Sales_Executive_ID: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 >
                   {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
@@ -538,10 +728,10 @@ export default function VisitsPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Date</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={formData.CM_Next_Followup_Date || ""}
-                  onChange={(e) => setFormData({...formData, CM_Next_Followup_Date: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, CM_Next_Followup_Date: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
                 />
               </div>
@@ -551,7 +741,7 @@ export default function VisitsPage() {
                   <span className="text-xs font-bold text-gray-600">Demo Given?</span>
                   <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-inner">
                     {['Yes', 'No'].map(opt => (
-                      <button key={opt} type="button" onClick={() => setFormData({...formData, CM_Demo_Given: opt})} className={`px-4 py-1 text-[10px] font-bold rounded-md transition-all ${formData.CM_Demo_Given === opt ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600'}`}>{opt}</button>
+                      <button key={opt} type="button" onClick={() => setFormData({ ...formData, CM_Demo_Given: opt })} className={`px-4 py-1 text-[10px] font-bold rounded-md transition-all ${formData.CM_Demo_Given === opt ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600'}`}>{opt}</button>
                     ))}
                   </div>
                 </div>
@@ -559,7 +749,7 @@ export default function VisitsPage() {
                   <span className="text-xs font-bold text-gray-600">Handed Over?</span>
                   <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-inner">
                     {['Yes', 'No'].map(opt => (
-                      <button key={opt} type="button" onClick={() => setFormData({...formData, CM_Project_Handed_Over: opt})} className={`px-4 py-1 text-[10px] font-bold rounded-md transition-all ${formData.CM_Project_Handed_Over === opt ? 'bg-emerald-600 text-white shadow-md' : 'text-gray-600'}`}>{opt}</button>
+                      <button key={opt} type="button" onClick={() => setFormData({ ...formData, CM_Project_Handed_Over: opt })} className={`px-4 py-1 text-[10px] font-bold rounded-md transition-all ${formData.CM_Project_Handed_Over === opt ? 'bg-emerald-600 text-white shadow-md' : 'text-gray-600'}`}>{opt}</button>
                     ))}
                   </div>
                 </div>
@@ -569,17 +759,17 @@ export default function VisitsPage() {
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Status</label>
                 <div className="flex flex-wrap gap-2">
                   {VISIT_STATUS_OPTIONS.map(s => (
-                    <button key={s} type="button" onClick={() => setFormData({...formData, CM_Visit_Status: s})} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Status === s ? `${STATUS_COLORS[s]} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
+                    <button key={s} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Status: s })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Status === s ? `${STATUS_COLORS[s]} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
                   ))}
                 </div>
               </div>
 
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Detailed Remarks & Issues</label>
-                <textarea 
+                <textarea
                   rows="3"
                   value={formData.CM_Remarks || ""}
-                  onChange={(e) => setFormData({...formData, CM_Remarks: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, CM_Remarks: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring focus:ring-blue-500 outline-none resize-none"
                   placeholder="Record what was discussed, any issues raised, scope changes..."
                 />

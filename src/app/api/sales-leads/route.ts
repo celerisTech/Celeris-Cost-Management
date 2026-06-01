@@ -55,6 +55,8 @@ export async function GET(request: NextRequest) {
     const leadId = url.searchParams.get('leadId');
     const status = url.searchParams.get('status');
     const executiveId = url.searchParams.get('executiveId');
+    const industrialId = url.searchParams.get('industrialId');
+    const categoryId = url.searchParams.get('categoryId');
     const search = url.searchParams.get('search');
     const fromDate = url.searchParams.get('fromDate');
     const toDate = url.searchParams.get('toDate');
@@ -180,6 +182,8 @@ export async function GET(request: NextRequest) {
 
     if (status) { whereClause += ' AND sl.CM_Lead_Status = ?'; params.push(status); }
     if (executiveId) { whereClause += ' AND sl.CM_Sales_Executive_ID = ?'; params.push(executiveId); }
+    if (industrialId) { whereClause += ' AND sl.CM_Industrial_ID = ?'; params.push(industrialId); }
+    if (categoryId) { whereClause += ' AND sl.CM_Category_ID = ?'; params.push(categoryId); }
     if (fromDate) { whereClause += ' AND DATE(sl.CM_Created_At) >= ?'; params.push(formatDbDate(fromDate)); }
     if (toDate) { whereClause += ' AND DATE(sl.CM_Created_At) <= ?'; params.push(formatDbDate(toDate)); }
     if (search) {

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   BarChart3, Calendar, User, Target, MapPin, CreditCard,
   TrendingUp, Download, Printer, FileText, ChevronRight,
-  Filter, Loader2, ArrowUpRight, ArrowDownRight, Users, CheckCircle2, AlertCircle
+  Filter, Loader2, ArrowUpRight, ArrowDownRight, Users, CheckCircle2, AlertCircle, X
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -16,6 +16,60 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState(null);
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
+
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [dateVisits, setDateVisits] = useState([]);
+  const [loadingDateVisits, setLoadingDateVisits] = useState(false);
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
+
+  const handleDateClick = async (dateStr) => {
+    const dateObj = new Date(dateStr);
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+    setSelectedDate(dateStr);
+    setIsDateModalOpen(true);
+    setLoadingDateVisits(true);
+    try {
+      const res = await fetch(`/api/sales-reports?type=Reports&fromDate=${formattedDate}&toDate=${formattedDate}`);
+      const data = await res.json();
+      if (res.ok) {
+        setDateVisits(data.Reports || []);
+      } else {
+        toast.error("Failed to load visit details");
+      }
+    } catch (err) {
+      toast.error("Failed to load visit details");
+    } finally {
+      setLoadingDateVisits(false);
+    }
+  };
+
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientVisits, setClientVisits] = useState([]);
+  const [loadingClientVisits, setLoadingClientVisits] = useState(false);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+
+  const handleClientClick = async (client) => {
+    setSelectedClient(client);
+    setIsClientModalOpen(true);
+    setLoadingClientVisits(true);
+    try {
+      const res = await fetch(`/api/sales-visits?leadId=${client.CM_Lead_ID}`);
+      const data = await res.json();
+      if (res.ok) {
+        setClientVisits(data.visits || []);
+      } else {
+        toast.error("Failed to load client visits");
+      }
+    } catch (err) {
+      toast.error("Failed to load client visits");
+    } finally {
+      setLoadingClientVisits(false);
+    }
+  };
 
   useEffect(() => {
     fetchReport();
@@ -283,9 +337,17 @@ export default function ReportsPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {reportData?.dateWise?.map((d, i) => (
-                          <tr key={i}>
-                            <td className="px-4 py-2 font-medium">{new Date(d.visit_date).toLocaleDateString()}</td>
-                            <td className="px-4 py-2 text-center">{d.visit_count}</td>
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-2 font-medium">
+                              <button
+                                type="button"
+                                onClick={() => handleDateClick(d.visit_date)}
+                                className="text-indigo-600 hover:text-indigo-800 hover:underline font-bold text-left transition-colors"
+                              >
+                                {new Date(d.visit_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                              </button>
+                            </td>
+                            <td className="px-4 py-2 text-center font-bold text-gray-700">{d.visit_count}</td>
                             <td className="px-4 py-2 text-right text-emerald-600 font-bold">{d.converted}</td>
                           </tr>
                         ))}
@@ -304,9 +366,17 @@ export default function ReportsPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {reportData?.clientWise?.map((c, i) => (
-                          <tr key={i}>
-                            <td className="px-4 py-2 font-medium truncate max-w-[150px]">{c.CM_Client_Name}</td>
-                            <td className="px-4 py-2 text-center">{c.visit_count}</td>
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-2 font-medium truncate max-w-[150px]">
+                              <button
+                                type="button"
+                                onClick={() => handleClientClick(c)}
+                                className="text-indigo-600 hover:text-indigo-800 hover:underline font-bold text-left transition-colors truncate max-w-[140px]"
+                              >
+                                {c.CM_Client_Name}
+                              </button>
+                            </td>
+                            <td className="px-4 py-2 text-center font-bold text-gray-700">{c.visit_count}</td>
                             <td className="px-4 py-2 text-right font-bold text-indigo-600">₹{Number(c.last_proposal || 0).toLocaleString()}</td>
                           </tr>
                         ))}
@@ -319,6 +389,176 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {/* Date-wise Visits Details Modal */}
+      {isDateModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm text-gray-800 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-indigo-600 text-white">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Visits on {selectedDate ? new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : ""}
+              </h2>
+              <button 
+                onClick={() => setIsDateModalOpen(false)} 
+                className="hover:bg-white/10 p-1.5 rounded-lg transition-colors text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingDateVisits ? (
+                <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                  <Loader2 className="h-10 w-10 animate-spin text-indigo-500 mb-4" />
+                  <p className="font-semibold text-sm">Loading visit details...</p>
+                </div>
+              ) : dateVisits.length === 0 ? (
+                <div className="text-center py-16 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                  <AlertCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400 font-medium animate-pulse">No visits found for this date</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">#</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">Client Name</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">Purpose</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">Product Needed</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200 text-center">Demo</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {dateVisits.map((v, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-4 py-3 text-xs font-mono text-slate-400 border-r border-slate-100">{i + 1}</td>
+                          <td className="px-4 py-3 text-xs font-black text-slate-900 border-r border-slate-100 uppercase tracking-tight">{v.client_name}</td>
+                          <td className="px-4 py-3 text-xs text-slate-600 border-r border-slate-100 italic leading-snug">{v.purpose || "—"}</td>
+                          <td className="px-4 py-3 text-xs font-bold text-blue-600 border-r border-slate-100">{v.product_name || "—"}</td>
+                          <td className="px-4 py-3 text-center border-r border-slate-100">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black ${v.demo_given === 'Yes' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
+                              {v.demo_given === 'Yes' ? 'ON' : 'OFF'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                              v.status === 'Converted' ? 'bg-green-100 text-green-700 border border-green-200' : 
+                              v.status === 'Proposal Sent' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                              v.status === 'Interested' || v.status === 'Demo Given' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
+                              v.status === 'Rejected' || v.status === 'Not Interested' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                              'bg-amber-100 text-amber-700 border border-amber-200'
+                            }`}>
+                              {v.status || 'Pending'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setIsDateModalOpen(false)}
+                className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm uppercase tracking-wider"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Client-wise Visits Details Modal */}
+      {isClientModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm text-gray-800 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-indigo-600 text-white">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Visits for {selectedClient ? (selectedClient.CM_Company_Name ? `${selectedClient.CM_Client_Name} (${selectedClient.CM_Company_Name})` : selectedClient.CM_Client_Name) : ""}
+              </h2>
+              <button 
+                onClick={() => setIsClientModalOpen(false)} 
+                className="hover:bg-white/10 p-1.5 rounded-lg transition-colors text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingClientVisits ? (
+                <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                  <Loader2 className="h-10 w-10 animate-spin text-indigo-500 mb-4" />
+                  <p className="font-semibold text-sm">Loading visit details...</p>
+                </div>
+              ) : clientVisits.length === 0 ? (
+                <div className="text-center py-16 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                  <AlertCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400 font-medium animate-pulse">No visits found for this client</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">#</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">Visit Date</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">Purpose</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200">Products Discussed</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-r border-slate-200 text-center">Demo</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {clientVisits.map((v, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-4 py-3 text-xs font-mono text-slate-400 border-r border-slate-100">{i + 1}</td>
+                          <td className="px-4 py-3 text-xs font-bold text-slate-700 border-r border-slate-100 whitespace-nowrap">
+                            {v.CM_Visit_Date ? new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-600 border-r border-slate-100 italic leading-snug">{v.CM_Purpose || "—"}</td>
+                          <td className="px-4 py-3 text-xs font-bold text-blue-600 border-r border-slate-100">{v.CM_Product_Discussed || "—"}</td>
+                          <td className="px-4 py-3 text-center border-r border-slate-100">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black ${v.CM_Demo_Given === 'Yes' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
+                              {v.CM_Demo_Given === 'Yes' ? 'ON' : 'OFF'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                              v.CM_Visit_Status === 'Completed' || v.CM_Visit_Status === 'Interested' ? 'bg-green-100 text-green-700 border border-green-200' : 
+                              v.CM_Visit_Status === 'Proposal Sent' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                              v.CM_Visit_Status === 'Demo Given' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                              v.CM_Visit_Status === 'Cancelled' || v.CM_Visit_Status === 'Not Interested' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                              'bg-amber-100 text-amber-700 border border-amber-200'
+                            }`}>
+                              {v.CM_Visit_Status || 'Pending'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setIsClientModalOpen(false)}
+                className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm uppercase tracking-wider"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
