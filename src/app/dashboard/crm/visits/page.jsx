@@ -8,6 +8,7 @@ import {
   ArrowRight, CheckCircle2, MessageSquare, Phone, Building2,
   TrendingUp, Activity, ClipboardList, Info
 } from "lucide-react";
+import { FiRotateCcw } from "react-icons/fi";
 import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
 
@@ -183,7 +184,7 @@ export default function VisitsPage() {
   const openAddModal = () => {
     setFormData({
       CM_Lead_ID: "",
-      CM_Sales_Executive_ID: user?.id || "",
+      CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) && executives.some(e => e.CM_User_ID == (user?.CM_User_ID || user?.id)) ? (user?.CM_User_ID || user?.id) : "",
       CM_Visit_Date: new Date().toISOString().split('T')[0],
       CM_Purpose: "",
       CM_Product_Discussed: "",
@@ -305,7 +306,7 @@ export default function VisitsPage() {
       {/* Filters Card */}
       <div className="bg-white flex flex-wrap xl:flex-nowrap gap-1.5 xl:gap-2 items-end text-gray-800 w-full overflow-x-hidden pb-1">
         <div className="flex-1 min-w-[120px] xl:w-[120px] w-full">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Search</label>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -313,49 +314,37 @@ export default function VisitsPage() {
               placeholder="Search purpose, client, remarks..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
             />
           </div>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[180px] xl:w-[120px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Filter by Lead</label>
-          <select
-            value={leadFilter}
-            onChange={(e) => { setLeadFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
-          >
-            <option value="">All Leads</option>
-            {leads.map(l => <option key={l.CM_Lead_ID} value={l.CM_Lead_ID}>{l.CM_Client_Name} ({l.CM_Company_Name || "Ind"})</option>)}
-          </select>
-        </div>
-
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Status</label>
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[115px]">
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Status</label>
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
           >
             <option value="">All Statuses</option>
             {VISIT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Executive</label>
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[130px]">
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Executive</label>
           <select
             value={execFilter}
             onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
           >
             <option value="">All Executives</option>
             {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Industrial</label>
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[125px]">
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Industrial</label>
           <select
             value={industrialFilter}
             onChange={(e) => {
@@ -363,19 +352,19 @@ export default function VisitsPage() {
               setCategoryFilter("");
               setPage(1);
             }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
           >
             <option value="">All Industrials</option>
             {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[95px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Category</label>
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[130px]">
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Category</label>
           <select
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-xs font-medium"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
           >
             <option value="">All Categories</option>
             {filterCategories.map(c => (
@@ -386,7 +375,7 @@ export default function VisitsPage() {
 
         {/* Today / Yesterday Quick Filters */}
         <div className="flex-shrink-0 flex flex-col gap-1 w-full sm:w-auto xl:w-[124px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
           <div className="flex gap-1.5 w-full sm:w-auto">
             <button
               type="button"
@@ -398,7 +387,7 @@ export default function VisitsPage() {
                 setDateQuickFilter('today');
                 setPage(1);
               }}
-              className={`px-1 py-2 text-[10px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[50px] ${dateQuickFilter === 'today'
+              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[50px] ${dateQuickFilter === 'today'
                   ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
                   : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
                 }`}
@@ -416,7 +405,7 @@ export default function VisitsPage() {
                 setDateQuickFilter('yesterday');
                 setPage(1);
               }}
-              className={`px-1 py-2 text-[10px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[68px] ${dateQuickFilter === 'yesterday'
+              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[68px] ${dateQuickFilter === 'yesterday'
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
                   : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
                 }`}
@@ -427,43 +416,43 @@ export default function VisitsPage() {
         </div>
 
         <div className="flex-shrink-0 w-[48%] sm:w-[110px] xl:w-[100px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">From Date</label>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">From Date</label>
           <input
             type="date"
             value={fromDate}
             onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-xs font-medium h-[42px]"
+            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
           />
         </div>
 
         <div className="flex-shrink-0 w-[48%] sm:w-[110px] xl:w-[100px]">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">To Date</label>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">To Date</label>
           <input
             type="date"
             value={toDate}
             onChange={(e) => { setToDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-xs font-medium h-[42px]"
+            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
           />
         </div>
 
         <button
-          onClick={() => {
-            setLeadFilter("");
-            setStatusFilter("");
-            setExecFilter("");
-            setSearch("");
-            setIndustrialFilter("");
-            setCategoryFilter("");
-            setDateQuickFilter("");
-            const d = new Date();
-            setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
-            setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
-            setPage(1);
-          }}
-          className="flex-shrink-0 px-3 py-2.5 text-xs font-bold text-white bg-gray-600 hover:bg-gray-700 transition-all rounded-lg h-[42px] shadow-sm w-full sm:w-auto xl:w-[65px]"
-        >
-          Reset
-        </button>
+  onClick={() => {
+    setSearch("");
+    setStatusFilter("");
+    setExecFilter("");
+    setIndustrialFilter("");
+    setCategoryFilter("");
+    setDateQuickFilter("");
+    const d = new Date();
+    setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
+    setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
+    setPage(1);
+  }}
+  className="flex items-center justify-center flex-shrink-0 w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
+  title="Reset Filters"
+>
+  <FiRotateCcw size={18} />
+</button>
       </div>
 
       {/* Content Area */}
@@ -722,6 +711,7 @@ export default function VisitsPage() {
                   onChange={(e) => setFormData({ ...formData, CM_Sales_Executive_ID: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 >
+                  <option value="">Select Executive</option>
                   {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
                 </select>
               </div>

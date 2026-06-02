@@ -6,8 +6,9 @@ import {
   Edit2, Trash2, Eye, Phone, Mail, MapPin, Building2,
   Calendar, User, ChevronLeft, ChevronRight, X, Check,
   ExternalLink, ArrowRight, Loader2, AlertCircle, Star,
-  CheckCircle2, Clock, MessageSquare, ClipboardList
+  CheckCircle2, Clock, MessageSquare, ClipboardList, Receipt
 } from "lucide-react";
+import { FiRotateCcw } from "react-icons/fi";
 import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -61,6 +62,7 @@ export default function LeadsPage() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
   const [selectedLead, setSelectedLead] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
@@ -68,6 +70,8 @@ export default function LeadsPage() {
   const [conversionRemarks, setConversionRemarks] = useState("");
   const [leadVisits, setLeadVisits] = useState([]);
   const [loadingVisits, setLoadingVisits] = useState(false);
+  const [leadPayments, setLeadPayments] = useState([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
 
   const [industrialInput, setIndustrialInput] = useState("");
   const [categoryInput, setCategoryInput] = useState("");
@@ -215,7 +219,7 @@ export default function LeadsPage() {
       CM_Product_Required: "",
       CM_Project_Type: "",
       CM_Expected_Budget: "",
-      CM_Sales_Executive_ID: user?.CM_User_ID || user?.id || "",
+      CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) && executives.some(e => e.CM_User_ID == (user?.CM_User_ID || user?.id)) ? (user?.CM_User_ID || user?.id) : "",
       CM_Lead_Status: "New Lead",
       CM_Remarks: "",
       CM_Industrial_ID: "",
@@ -259,11 +263,32 @@ export default function LeadsPage() {
     }
   };
 
+  const fetchLeadPayments = async (leadId) => {
+    setLoadingPayments(true);
+    try {
+      const res = await fetch(`/api/sales-payments?leadId=${leadId}&limit=50`);
+      const data = await res.json();
+      if (res.ok) {
+        setLeadPayments(data.payments || []);
+      } else {
+        setLeadPayments([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch payments", error);
+      setLeadPayments([]);
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
   const openDetail = (lead) => {
     setSelectedLead(lead);
     setLeadVisits([]);
+    setLeadPayments([]);
     setIsDetailOpen(true);
+    setActiveTab("details");
     fetchLeadVisits(lead.CM_Lead_ID);
+    fetchLeadPayments(lead.CM_Lead_ID);
   };
 
   const handleManageIndustrial = async (action, id = null) => {
@@ -427,7 +452,7 @@ export default function LeadsPage() {
         <div className="flex gap-2">
           <button
             onClick={exportToExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-all shadow-sm font-medium"
           >
             <Download className="h-4 w-4" /> Export
           </button>
@@ -544,8 +569,8 @@ export default function LeadsPage() {
                 setPage(1);
               }}
               className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
-                  : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
                 }`}
             >
               Today
@@ -562,8 +587,8 @@ export default function LeadsPage() {
                 setPage(1);
               }}
               className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
-                  : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
                 }`}
             >
               Yesterday
@@ -604,9 +629,10 @@ export default function LeadsPage() {
             setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
             setPage(1);
           }}
-          className="flex-shrink-0 px-4 py-2.5 text-white bg-gray-600 hover:bg-gray-700 font-bold transition-all rounded-lg h-[42px] shadow-sm self-end w-full sm:w-auto"
+          className="flex items-center justify-center flex-shrink-0 w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
+          title="Reset Filters"
         >
-          Reset
+          <FiRotateCcw size={18} />
         </button>
       </div>
 
@@ -651,9 +677,9 @@ export default function LeadsPage() {
                         {lead.CM_Phone}
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">
-                        <div>{lead.CM_Industrial_Name || "—"}</div>
-                        <div>{lead.CM_Category_Name || "—"}</div>
-                        <div>{lead.CM_Subcategory_Name || "—"}</div>
+                        <div className="line-clamp-1 text-center text-blue-700">{lead.CM_Industrial_Name || "—"}</div>
+                        <div className="line-clamp-1 text-center">{lead.CM_Category_Name || "—"}</div>
+                        <div className="line-clamp-1 text-center">{lead.CM_Subcategory_Name || "—"}</div>
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
                         <p className="text-sm text-gray-600">{lead.CM_Product_Required || "—"}</p>
@@ -1054,19 +1080,45 @@ export default function LeadsPage() {
       {/* Detail Slide-over / Modal */}
       {isDetailOpen && selectedLead && (
         <div className="fixed inset-0 z-[60] flex items-center justify-end bg-black/40 backdrop-blur-sm">
-          <div className="bg-white h-full w-full max-w-lg shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="px-6 py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-3">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">{selectedLead.CM_Client_Name}</h2>
+          <div className="bg-white h-full w-full max-w-3xl shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="px-6 pt-6 border-b border-gray-100 bg-white sticky top-0 z-10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{selectedLead.CM_Client_Name}</h2>
+                  </div>
                 </div>
+                <button onClick={() => setIsDetailOpen(false)} className="text-red-400 hover:text-red-600 transition-colors bg-gray-50 p-2 rounded-md self-start">
+                  <X className="h-6 w-6" />
+                </button>
               </div>
-              <button onClick={() => setIsDetailOpen(false)} className="text-red-400 hover:text-red-600 transition-colors bg-gray-50 p-2 rounded-md">
-                <X className="h-6 w-6" />
-              </button>
+              <div className="flex gap-6">
+                <button 
+                  onClick={() => setActiveTab('details')}
+                  className={`text-sm font-bold pb-3 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Details
+                </button>
+                <button 
+                  onClick={() => setActiveTab('history')}
+                  className={`text-sm font-bold pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  History
+                  <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadVisits.length}</span>
+                </button>
+                <button 
+                  onClick={() => setActiveTab('payments')}
+                  className={`text-sm font-bold pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'payments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Payments
+                  <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadPayments.length}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6">
+              {activeTab === 'details' && (
+                <div className="space-y-8">
               {/* Quick Status Bar */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100">
                 <div className="space-y-1">
@@ -1075,13 +1127,6 @@ export default function LeadsPage() {
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[selectedLead.CM_Lead_Status]}`}>
                       {selectedLead.CM_Lead_Status}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsHistoryModalOpen(true)}
-                      className="flex items-center gap-1 px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-full hover:bg-indigo-100 transition-all shadow-sm"
-                    >
-                      <Clock className="h-3.5 w-3.5" /> History
-                    </button>
                   </div>
                 </div>
                 {selectedLead.CM_Lead_Status !== "Converted" && (
@@ -1182,17 +1227,165 @@ export default function LeadsPage() {
                   "{selectedLead.CM_Remarks || "No additional remarks recorded."}"
                 </div>
               </div>
+              </div>
+            )}
+            
+            {activeTab === 'history' && (
+                <div className="space-y-4">
+                  {loadingVisits ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                      <p className="text-sm text-gray-500 font-medium">Loading visit history...</p>
+                    </div>
+                  ) : leadVisits.length === 0 ? (
+                    <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                      <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-base text-gray-500 font-bold">No visits recorded yet</p>
+                      <p className="text-xs text-gray-400 mt-1">There are no documented interactions for this lead.</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-md">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse table-fixed">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Client / Company</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Purpose & Remarks</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Follow-up</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {leadVisits.map((v, idx) => (
+                              <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors">
+                                <td className="px-4 py-3 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  <p className="text-xs font-bold text-gray-700">
+                                    {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                  </p>
+                                </td>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  <p className="text-xs font-extrabold text-gray-900 truncate">{v.CM_Client_Name || selectedLead.CM_Client_Name}</p>
+                                  <p className="text-[10px] text-gray-500 truncate">{v.CM_Company_Name || selectedLead.CM_Company_Name || "Individual"}</p>
+                                </td>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p>
+                                  <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-3">{v.CM_Remarks || "No remarks recorded"}</p>
+                                </td>
+                                <td className="px-4 py-3 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
+                                  {v.Executive_Name || "Unassigned"}
+                                </td>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  {v.CM_Next_Followup_Date ? (
+                                    <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                      {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                    </p>
+                                  ) : <span className="text-gray-300">—</span>}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${v.CM_Visit_Status === "Follow-up Needed" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                    v.CM_Visit_Status === "Interested" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                                      v.CM_Visit_Status === "Not Interested" ? "bg-red-100 text-red-700 border-red-200" :
+                                        v.CM_Visit_Status === "Proposal Sent" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                          v.CM_Visit_Status === "Converted" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                                            "bg-gray-100 text-gray-600 border-gray-200"
+                                    }`}>
+                                    {v.CM_Visit_Status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-
+              {activeTab === 'payments' && (
+                <div className="space-y-4">
+                  {loadingPayments ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                      <p className="text-sm text-gray-500 font-medium">Loading payment history...</p>
+                    </div>
+                  ) : leadPayments.length === 0 ? (
+                    <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                      <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-base text-gray-500 font-bold">No payments recorded yet</p>
+                      <p className="text-xs text-gray-400 mt-1">There are no documented payments for this lead.</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-md">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse table-fixed">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Date</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Amount</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Type</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Mode</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {leadPayments.map((p, idx) => (
+                              <tr key={p.CM_Payment_ID} className="hover:bg-blue-50/30 transition-colors">
+                                <td className="px-4 py-3 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  <p className="text-xs font-bold text-gray-700">
+                                    {new Date(p.CM_Payment_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                  </p>
+                                </td>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  <p className="text-sm font-extrabold text-gray-900">₹{Number(p.CM_Amount).toLocaleString()}</p>
+                                </td>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                    p.CM_Payment_Type === "Partial Payment" ? "bg-purple-100 text-purple-700 border-purple-200" :
+                                    p.CM_Payment_Type === "Final Payment" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                                    p.CM_Payment_Type === "Domain Payment" ? "bg-teal-100 text-teal-700 border-teal-200" :
+                                    "bg-gray-100 text-gray-600 border-gray-200"
+                                  }`}>
+                                    {p.CM_Payment_Type}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 border-r border-gray-100 text-xs font-medium text-gray-700">
+                                  {p.CM_Payment_Mode}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Status === "Pending" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                    p.CM_Payment_Status === "Paid" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                                    "bg-red-100 text-red-700 border-red-200"
+                                  }`}>
+                                    {p.CM_Payment_Status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-gray-100 flex gap-3 bg-gray-50">
-              <button
-                onClick={() => { setIsDetailOpen(false); openEditModal(selectedLead); }}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm"
-              >
-                <Edit2 className="h-4 w-4" /> Edit Details
-              </button>
+              {activeTab === 'details' && (
+                <button
+                  onClick={() => { setIsDetailOpen(false); openEditModal(selectedLead); }}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+                >
+                  <Edit2 className="h-4 w-4" /> Edit Details
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1242,116 +1435,6 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* History Modal */}
-      {isHistoryModalOpen && selectedLead && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col text-gray-800">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-indigo-600 text-white">
-              <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Visit History - {selectedLead.CM_Company_Name || selectedLead.CM_Client_Name}
-                </h2>
-                <p className="text-xs text-indigo-100 mt-1">
-                  Total Visits logged for this company: <span className="font-extrabold text-white bg-indigo-700 px-2 py-0.5 rounded-full ml-1">{leadVisits.length} times</span>
-                </p>
-              </div>
-              <button
-                onClick={() => setIsHistoryModalOpen(false)}
-                className="hover:bg-white/10 p-1.5 rounded-lg transition-colors text-white"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingVisits ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-                  <p className="text-sm text-gray-500 font-medium">Loading visit history...</p>
-                </div>
-              ) : leadVisits.length === 0 ? (
-                <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-base text-gray-500 font-bold">No visits recorded yet</p>
-                  <p className="text-xs text-gray-400 mt-1">There are no documented interactions for this lead.</p>
-                </div>
-              ) : (
-                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-xl">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse table-fixed">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
-                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
-                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Client / Company</th>
-                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Purpose & Remarks</th>
-                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
-                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Follow-up</th>
-                          <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {leadVisits.map((v, idx) => (
-                          <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="px-4 py-3 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
-                            <td className="px-4 py-3 border-r border-gray-100">
-                              <p className="text-xs font-bold text-gray-700">
-                                {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                              </p>
-                            </td>
-                            <td className="px-4 py-3 border-r border-gray-100">
-                              <p className="text-xs font-extrabold text-gray-900 truncate">{v.CM_Client_Name || selectedLead.CM_Client_Name}</p>
-                              <p className="text-[10px] text-gray-500 truncate">{v.CM_Company_Name || selectedLead.CM_Company_Name || "Individual"}</p>
-                            </td>
-                            <td className="px-4 py-3 border-r border-gray-100">
-                              <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p>
-                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-3">{v.CM_Remarks || "No remarks recorded"}</p>
-                            </td>
-                            <td className="px-4 py-3 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
-                              {v.Executive_Name || "Unassigned"}
-                            </td>
-                            <td className="px-4 py-3 border-r border-gray-100">
-                              {v.CM_Next_Followup_Date ? (
-                                <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                                  {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                                </p>
-                              ) : <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${v.CM_Visit_Status === "Follow-up Needed" ? "bg-blue-100 text-blue-700 border-blue-200" :
-                                  v.CM_Visit_Status === "Interested" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                                    v.CM_Visit_Status === "Not Interested" ? "bg-red-100 text-red-700 border-red-200" :
-                                      v.CM_Visit_Status === "Proposal Sent" ? "bg-amber-100 text-amber-700 border-amber-200" :
-                                        v.CM_Visit_Status === "Converted" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
-                                          "bg-gray-100 text-gray-600 border-gray-200"
-                                }`}>
-                                {v.CM_Visit_Status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
-              <button
-                onClick={() => setIsHistoryModalOpen(false)}
-                className="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl transition-all shadow-sm text-sm"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

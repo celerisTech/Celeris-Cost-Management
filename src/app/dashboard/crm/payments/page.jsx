@@ -10,7 +10,7 @@ import {
 import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
 
-const PAYMENT_TYPE_OPTIONS = ["Advance", "Partial Payment", "Final Payment"];
+const PAYMENT_TYPE_OPTIONS = ["Advance", "Partial Payment", "Final Payment","Domain Payment"];
 const PAYMENT_STATUS_OPTIONS = ["Pending", "Paid", "Failed"];
 
 const STATUS_COLORS = {
@@ -23,6 +23,7 @@ const TYPE_COLORS = {
   "Advance": "bg-blue-100 text-blue-700",
   "Partial Payment": "bg-purple-100 text-purple-700",
   "Final Payment": "bg-indigo-100 text-indigo-700",
+  "Domain Payment": "bg-teal-100 text-teal-700",
 };
 
 export default function PaymentsPage() {
@@ -50,6 +51,13 @@ export default function PaymentsPage() {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedLeadSummary, setSelectedLeadSummary] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [leadSearchText, setLeadSearchText] = useState("");
+  const [showLeadSuggestions, setShowLeadSuggestions] = useState(false);
+
+  const filteredLeads = leads.filter(l => 
+    l.CM_Client_Name?.toLowerCase().includes(leadSearchText.toLowerCase()) ||
+    l.CM_Company_Name?.toLowerCase().includes(leadSearchText.toLowerCase())
+  );
 
   const [formData, setFormData] = useState({
     CM_Lead_ID: "",
@@ -144,12 +152,15 @@ export default function PaymentsPage() {
       CM_Receipt_URL: "",
       CM_Remarks: ""
     });
+    setLeadSearchText("");
     setSelectedPayment(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (payment) => {
     setFormData({ ...payment });
+    const matchingLead = leads.find(l => l.CM_Lead_ID == payment.CM_Lead_ID);
+    setLeadSearchText(matchingLead ? `${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}` : "");
     setSelectedPayment(payment);
     setIsModalOpen(true);
   };
@@ -228,11 +239,12 @@ export default function PaymentsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {[
           { label: "Total Collected", value: stats?.total_collection || 0, icon: IndianRupee, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
           { label: "Pending Amount", value: stats?.pending_amount || 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
           { label: "Advance Payments", value: stats?.advance_payments || 0, icon: ArrowUpRight, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+          { label: "Domain Payments", value: stats?.domain_payments || 0, icon: Receipt, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
           { label: "Final Payments", value: stats?.final_payments || 0, icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
         ].map((s, i) => (
           <div key={i} className={`p-3 rounded-xl border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02]`}>
@@ -481,17 +493,59 @@ export default function PaymentsPage() {
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Client Selector & Outstanding Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-1">
+                <div className="space-y-1 relative">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Select Lead *</label>
-                  <select 
-                    required
+                  <div className="relative">
+                    <input
+                      required
+                      type="text"
+                      placeholder="Search or enter company/client name..."
+                      value={leadSearchText}
+                      onFocus={() => setShowLeadSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowLeadSuggestions(false), 250)}
+                      onChange={(e) => {
+                        setLeadSearchText(e.target.value);
+                        setShowLeadSuggestions(true);
+                        if (formData.CM_Lead_ID) {
+                          setFormData(prev => ({ ...prev, CM_Lead_ID: "" }));
+                        }
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none pr-10"
+                    />
+                    {formData.CM_Lead_ID && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 font-extrabold text-sm">✓</span>
+                    )}
+                  </div>
+
+                  {showLeadSuggestions && leadSearchText.trim() !== "" && (
+                    <div className="absolute z-[70] left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl divide-y divide-gray-50">
+                      {filteredLeads.length === 0 ? (
+                        <div className="p-3 text-xs text-gray-500 italic">No matching leads found</div>
+                      ) : (
+                        filteredLeads.map((l) => (
+                          <button
+                            key={l.CM_Lead_ID}
+                            type="button"
+                            onMouseDown={() => {
+                              setFormData(prev => ({ ...prev, CM_Lead_ID: l.CM_Lead_ID }));
+                              setLeadSearchText(`${l.CM_Client_Name} - ${l.CM_Company_Name || "Individual"}`);
+                              setShowLeadSuggestions(false);
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-xs font-medium flex flex-col gap-0.5"
+                          >
+                            <span className="font-bold text-gray-900">{l.CM_Client_Name}</span>
+                            <span className="text-[10px] text-gray-500">{l.CM_Company_Name || "Individual"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  <input
+                    type="hidden"
+                    name="CM_Lead_ID"
                     value={formData.CM_Lead_ID || ""}
-                    onChange={(e) => setFormData({...formData, CM_Lead_ID: e.target.value})}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                  >
-                    <option value="">Select Lead</option>
-                    {leads.map(l => <option key={l.CM_Lead_ID} value={l.CM_Lead_ID}>{l.CM_Client_Name} - {l.CM_Company_Name || "Individual"}</option>)}
-                  </select>
+                    required
+                  />
                 </div>
                 
                 {selectedLeadSummary && (
@@ -501,6 +555,12 @@ export default function PaymentsPage() {
                       <span className="text-lg font-black text-indigo-700">₹{Number(selectedLeadSummary.outstanding).toLocaleString()}</span>
                       <span className="text-[10px] text-indigo-500">Budget: ₹{Number(selectedLeadSummary.expected_budget).toLocaleString()}</span>
                     </div>
+                    {selectedLeadSummary.domain_paid > 0 && (
+                      <div className="mt-2 pt-2 border-t border-indigo-100 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">Domain Payments</span>
+                        <span className="text-sm font-bold text-teal-700">₹{Number(selectedLeadSummary.domain_paid).toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

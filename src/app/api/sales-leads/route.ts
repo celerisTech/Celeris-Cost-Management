@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN (
         SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, SUM(CM_Amount) AS p_sum 
         FROM ccms_sales_payment 
-        WHERE CM_Payment_Status = 'Paid' AND CM_Is_Deleted = 0 
+        WHERE CM_Payment_Status = 'Paid' AND CM_Payment_Type != 'Domain Payment' AND CM_Is_Deleted = 0 
         GROUP BY CM_Lead_ID
       ) p ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = p.CM_Lead_ID
       ${whereClause}

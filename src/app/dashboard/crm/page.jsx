@@ -248,23 +248,6 @@ export default function CRMDashboardPage() {
               </div>
             </div>
 
-            {/* Special Indicators */}
-            {card.label === "Converted" && stats.total_leads > 0 && (
-              <div className="mt-3">
-                <div className="flex justify-between items-center text-[10px] mb-1">
-                  <span className="text-gray-500">Conversion Rate</span>
-                  <span className="font-bold text-emerald-600">
-                    {((stats.converted_leads / stats.total_leads) * 100).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden">
-                  <div 
-                    className="bg-emerald-500 h-full transition-all duration-700"
-                    style={{ width: `${(stats.converted_leads / stats.total_leads) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            )}
           </Link>
         ))}
       </div>

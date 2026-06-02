@@ -213,6 +213,39 @@ export async function GET(request: NextRequest) {
       const params: any[] = [];
       if (fromDate) { filter += ' AND sv.CM_Visit_Date >= ?'; params.push(formatDbDate(fromDate)); }
       if (toDate) { filter += ' AND sv.CM_Visit_Date <= ?'; params.push(formatDbDate(toDate)); }
+      
+      const industrialName = url.searchParams.get('industrialName');
+      const categoryName = url.searchParams.get('categoryName');
+      const subcategoryName = url.searchParams.get('subcategoryName');
+      const month = url.searchParams.get('month');
+      
+      if (industrialName) { 
+        if (industrialName.toLowerCase() === 'unspecified') {
+          filter += ' AND (ind.CM_Industrial_Name IS NULL OR ind.CM_Industrial_Name = "")';
+        } else {
+          filter += ' AND ind.CM_Industrial_Name = ?'; 
+          params.push(industrialName); 
+        }
+      }
+      
+      if (categoryName) { 
+        if (categoryName.toLowerCase() === 'unspecified') {
+          filter += ' AND (cat.CM_Category_Name IS NULL OR cat.CM_Category_Name = "")';
+        } else {
+          filter += ' AND cat.CM_Category_Name = ?'; 
+          params.push(categoryName); 
+        }
+      }
+      
+      if (subcategoryName) { 
+        if (subcategoryName.toLowerCase() === 'unspecified') {
+          filter += ' AND (sub.CM_Subcategory_Name IS NULL OR sub.CM_Subcategory_Name = "")';
+        } else {
+          filter += ' AND sub.CM_Subcategory_Name = ?'; 
+          params.push(subcategoryName); 
+        }
+      }
+      if (month) { filter += ' AND DATE_FORMAT(sv.CM_Visit_Date, "%Y-%m") = ?'; params.push(month); }
 
       const [report]: any = await db.query(`
         SELECT 
@@ -222,6 +255,7 @@ export async function GET(request: NextRequest) {
           sl.CM_Product_Required AS product_name,
           sv.CM_Demo_Given AS demo_given,
           sv.CM_Visit_Status AS status,
+          u.CM_Full_Name AS executive_name,
           (SELECT COUNT(*) FROM ccms_sales_visit sv2 WHERE sv2.CM_Lead_ID = sl.CM_Lead_ID AND sv2.CM_Is_Deleted = 0) AS visit_count,
           (
             SELECT GROUP_CONCAT(CONCAT(sp.CM_Payment_Type, ': ₹', sp.CM_Amount) SEPARATOR ' | ') 
@@ -230,6 +264,10 @@ export async function GET(request: NextRequest) {
           ) AS payment_details
         FROM ccms_sales_visit sv
         LEFT JOIN ccms_sales_lead sl ON sv.CM_Lead_ID = sl.CM_Lead_ID
+        LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+        LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
+        LEFT JOIN ccms_sales_subcategory sub ON sl.CM_Subcategory_ID = sub.CM_Subcategory_ID
+        LEFT JOIN ccms_users u ON sv.CM_Sales_Executive_ID COLLATE utf8mb4_unicode_ci = u.CM_User_ID COLLATE utf8mb4_unicode_ci
         WHERE sv.CM_Is_Deleted = 0 AND sl.CM_Is_Deleted = 0 ${filter}
         ORDER BY sv.CM_Visit_Date DESC
       `, params);
@@ -240,6 +278,96 @@ export async function GET(request: NextRequest) {
       }));
 
       return safeJsonResponse({ Reports: processedReport });
+    }
+
+    if (type === 'monthWise') {
+      let filter = '';
+      const params: any[] = [];
+      if (fromDate) { filter += ' AND sv.CM_Visit_Date >= ?'; params.push(formatDbDate(fromDate)); }
+      if (toDate) { filter += ' AND sv.CM_Visit_Date <= ?'; params.push(formatDbDate(toDate)); }
+
+      const [report]: any = await db.query(`
+        SELECT 
+          DATE_FORMAT(sv.CM_Visit_Date, '%Y-%m') AS month,
+          COUNT(*) AS total_visits,
+          SUM(CASE WHEN sv.CM_Demo_Given = 'Yes' THEN 1 ELSE 0 END) AS demos,
+          SUM(CASE WHEN sv.CM_Visit_Status = 'Converted' THEN 1 ELSE 0 END) AS converted
+        FROM ccms_sales_visit sv
+        WHERE sv.CM_Is_Deleted = 0 ${filter}
+        GROUP BY DATE_FORMAT(sv.CM_Visit_Date, '%Y-%m')
+        ORDER BY month DESC
+      `, params);
+
+      return safeJsonResponse({ monthWise: report || [] });
+    }
+
+    if (type === 'industrialWise') {
+      let filter = '';
+      const params: any[] = [];
+      if (fromDate) { filter += ' AND sv.CM_Visit_Date >= ?'; params.push(formatDbDate(fromDate)); }
+      if (toDate) { filter += ' AND sv.CM_Visit_Date <= ?'; params.push(formatDbDate(toDate)); }
+
+      const [report]: any = await db.query(`
+        SELECT 
+          COALESCE(ind.CM_Industrial_Name, 'Unspecified') AS industrial_name,
+          COUNT(*) AS total_visits,
+          SUM(CASE WHEN sv.CM_Demo_Given = 'Yes' THEN 1 ELSE 0 END) AS demos,
+          SUM(CASE WHEN sv.CM_Visit_Status = 'Converted' THEN 1 ELSE 0 END) AS converted
+        FROM ccms_sales_visit sv
+        LEFT JOIN ccms_sales_lead sl ON sv.CM_Lead_ID = sl.CM_Lead_ID
+        LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+        WHERE sv.CM_Is_Deleted = 0 AND sl.CM_Is_Deleted = 0 ${filter}
+        GROUP BY ind.CM_Industrial_Name
+        ORDER BY total_visits DESC
+      `, params);
+
+      return safeJsonResponse({ industrialWise: report || [] });
+    }
+
+    if (type === 'categoryWise') {
+      let filter = '';
+      const params: any[] = [];
+      if (fromDate) { filter += ' AND sv.CM_Visit_Date >= ?'; params.push(formatDbDate(fromDate)); }
+      if (toDate) { filter += ' AND sv.CM_Visit_Date <= ?'; params.push(formatDbDate(toDate)); }
+
+      const [report]: any = await db.query(`
+        SELECT 
+          COALESCE(cat.CM_Category_Name, 'Unspecified') AS category_name,
+          COUNT(*) AS total_visits,
+          SUM(CASE WHEN sv.CM_Demo_Given = 'Yes' THEN 1 ELSE 0 END) AS demos,
+          SUM(CASE WHEN sv.CM_Visit_Status = 'Converted' THEN 1 ELSE 0 END) AS converted
+        FROM ccms_sales_visit sv
+        LEFT JOIN ccms_sales_lead sl ON sv.CM_Lead_ID = sl.CM_Lead_ID
+        LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
+        WHERE sv.CM_Is_Deleted = 0 AND sl.CM_Is_Deleted = 0 ${filter}
+        GROUP BY cat.CM_Category_Name
+        ORDER BY total_visits DESC
+      `, params);
+
+      return safeJsonResponse({ categoryWise: report || [] });
+    }
+
+    if (type === 'subcategoryWise') {
+      let filter = '';
+      const params: any[] = [];
+      if (fromDate) { filter += ' AND sv.CM_Visit_Date >= ?'; params.push(formatDbDate(fromDate)); }
+      if (toDate) { filter += ' AND sv.CM_Visit_Date <= ?'; params.push(formatDbDate(toDate)); }
+
+      const [report]: any = await db.query(`
+        SELECT 
+          COALESCE(sub.CM_Subcategory_Name, 'Unspecified') AS subcategory_name,
+          COUNT(*) AS total_visits,
+          SUM(CASE WHEN sv.CM_Demo_Given = 'Yes' THEN 1 ELSE 0 END) AS demos,
+          SUM(CASE WHEN sv.CM_Visit_Status = 'Converted' THEN 1 ELSE 0 END) AS converted
+        FROM ccms_sales_visit sv
+        LEFT JOIN ccms_sales_lead sl ON sv.CM_Lead_ID = sl.CM_Lead_ID
+        LEFT JOIN ccms_sales_subcategory sub ON sl.CM_Subcategory_ID = sub.CM_Subcategory_ID
+        WHERE sv.CM_Is_Deleted = 0 AND sl.CM_Is_Deleted = 0 ${filter}
+        GROUP BY sub.CM_Subcategory_Name
+        ORDER BY total_visits DESC
+      `, params);
+
+      return safeJsonResponse({ subcategoryWise: report || [] });
     }
 
     return safeJsonResponse({ error: 'Invalid report type' }, 400);

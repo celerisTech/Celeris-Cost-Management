@@ -88,9 +88,10 @@ function LoginScreen() {
       }
       
       .solar-gradient {
-          background-image: url("loginbg.webp");
+          background-image: url("loginbg.jpg");
           background-size: cover;
           background-position: center;
+          background-repeat: no-repeat;
           animation: image-move 15s ease infinite;
         }
 
@@ -120,10 +121,10 @@ function LoginScreen() {
       }
       
       .glass-effect {
-        backdrop-filter: blur(16px);
+        backdrop-filter: blur(26px);
         -webkit-backdrop-filter: blur(16px);
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid rgba(0, 0, 0, 0.57);
       }
       
       .solar-card {
@@ -383,7 +384,6 @@ function LoginScreen() {
             fontWeight: '500',
             outline: 'none',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            backdropFilter: 'blur(10px)'
           },
           inputFocusStyle: {
             borderColor: '#FFD700',
@@ -405,7 +405,6 @@ function LoginScreen() {
             boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
             position: 'relative',
             overflow: 'hidden',
-            backdropFilter: 'blur(10px)'
           },
           primaryButtonHoverStyle: {
             transform: 'translateY(-2px)',
@@ -423,7 +422,6 @@ function LoginScreen() {
             fontWeight: '600',
             cursor: 'pointer',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            backdropFilter: 'blur(10px)'
           },
           secondaryButtonHoverStyle: {
             background: 'rgba(255, 215, 0, 0.1)',
@@ -495,7 +493,6 @@ function LoginScreen() {
                 fontWeight: '500',
                 outline: 'none',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)'
               },
               inputFocusStyle: {
                 borderColor: '#FFD700',
@@ -517,7 +514,6 @@ function LoginScreen() {
                 boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                 position: 'relative',
                 overflow: 'hidden',
-                backdropFilter: 'blur(10px)'
               },
               primaryButtonHoverStyle: {
                 transform: 'translateY(-2px)',
@@ -535,7 +531,6 @@ function LoginScreen() {
                 fontWeight: '600',
                 cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)'
               },
               secondaryButtonHoverStyle: {
                 background: 'rgba(255, 215, 0, 0.1)',
@@ -556,7 +551,6 @@ function LoginScreen() {
                 color: 'white',
                 outline: 'none',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)'
               },
               otpInputFocusStyle: {
                 borderColor: '#FFD700',
@@ -586,9 +580,7 @@ function LoginScreen() {
               fontSize: '0.95rem',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
@@ -611,9 +603,7 @@ function LoginScreen() {
                 fontSize: '0.95rem',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)',
-                display: 'flex',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               });
@@ -689,7 +679,7 @@ function LoginScreen() {
     return (
       <div className="flex justify-center items-center h-full" style={{
         backgroundImage:
-          "url('loginbg.webp')",
+          "url('loginbg.jpg')",
       }}>
         <div className="flex justify-center items-center h-64">
           <div className="relative w-20 h-20">
@@ -931,7 +921,6 @@ function LoginScreen() {
                   fontWeight: '500',
                   outline: 'none',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  backdropFilter: 'blur(10px)'
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = '#FFD700';
@@ -967,9 +956,7 @@ function LoginScreen() {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                 position: 'relative',
-                overflow: 'hidden',
-                backdropFilter: 'blur(10px)',
-                marginBottom: '1.5rem'
+                overflow: 'hidden',marginBottom: '1.5rem'
               }}
               onMouseEnter={(e) => {
                 Object.assign(e.target.style, {
@@ -992,9 +979,7 @@ function LoginScreen() {
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                   position: 'relative',
-                  overflow: 'hidden',
-                  backdropFilter: 'blur(10px)',
-                  marginBottom: '1.5rem'
+                  overflow: 'hidden',marginBottom: '1.5rem'
                 });
               }}
               disabled={isLoading}
@@ -1049,7 +1034,6 @@ function LoginScreen() {
                           color: 'white',
                           outline: 'none',
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          backdropFilter: 'blur(10px)'
                         }}
                         onFocus={(e) => {
                           e.target.style.borderColor = '#FFD700';
@@ -1087,9 +1071,7 @@ function LoginScreen() {
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                     position: 'relative',
-                    overflow: 'hidden',
-                    backdropFilter: 'blur(10px)',
-                    marginBottom: '1.5rem'
+                    overflow: 'hidden',marginBottom: '1.5rem'
                   }}
                   onMouseEnter={(e) => {
                     Object.assign(e.target.style, {
@@ -1112,9 +1094,7 @@ function LoginScreen() {
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                       boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                       position: 'relative',
-                      overflow: 'hidden',
-                      backdropFilter: 'blur(10px)',
-                      marginBottom: '1.5rem'
+                      overflow: 'hidden',marginBottom: '1.5rem'
                     });
                   }}
                   disabled={isLoading}
@@ -1166,9 +1146,7 @@ function LoginScreen() {
                       color: 'white',
                       fontWeight: '500',
                       outline: 'none',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      backdropFilter: 'blur(10px)',
-                      paddingRight: '3rem'
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',paddingRight: '3rem'
                     }}
                     onFocus={(e) => {
                       e.target.style.borderColor = '#FFD700';
@@ -1245,9 +1223,7 @@ function LoginScreen() {
                       color: 'white',
                       fontWeight: '500',
                       outline: 'none',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      backdropFilter: 'blur(10px)',
-                      paddingRight: '3rem'
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',paddingRight: '3rem'
                     }}
                     onFocus={(e) => {
                       e.target.style.borderColor = '#FFD700';
@@ -1315,7 +1291,6 @@ function LoginScreen() {
                     boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                     position: 'relative',
                     overflow: 'hidden',
-                    backdropFilter: 'blur(10px)'
                   }}
                   onMouseEnter={(e) => {
                     Object.assign(e.target.style, {
@@ -1339,7 +1314,6 @@ function LoginScreen() {
                       boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                       position: 'relative',
                       overflow: 'hidden',
-                      backdropFilter: 'blur(10px)'
                     });
                   }}
                   disabled={isLoading}
@@ -1381,9 +1355,7 @@ function LoginScreen() {
               fontSize: '0.95rem',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
@@ -1406,9 +1378,7 @@ function LoginScreen() {
                 fontSize: '0.95rem',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)',
-                display: 'flex',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               });

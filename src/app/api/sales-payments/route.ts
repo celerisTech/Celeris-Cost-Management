@@ -73,11 +73,12 @@ export async function GET(request: NextRequest) {
           COALESCE(SUM(CASE WHEN CM_Payment_Status = 'Pending' THEN CM_Amount ELSE 0 END), 0) AS pending_amount,
           COALESCE(SUM(CASE WHEN CM_Payment_Type = 'Advance' AND CM_Payment_Status = 'Paid' THEN CM_Amount ELSE 0 END), 0) AS advance_payments,
           COALESCE(SUM(CASE WHEN CM_Payment_Type = 'Final Payment' AND CM_Payment_Status = 'Paid' THEN CM_Amount ELSE 0 END), 0) AS final_payments,
+          COALESCE(SUM(CASE WHEN CM_Payment_Type = 'Domain Payment' AND CM_Payment_Status = 'Paid' THEN CM_Amount ELSE 0 END), 0) AS domain_payments,
           COUNT(CASE WHEN CM_Payment_Status = 'Pending' THEN 1 END) AS pending_count,
           COUNT(CASE WHEN CM_Payment_Status = 'Paid' THEN 1 END) AS paid_count
         FROM ccms_sales_payment WHERE CM_Is_Deleted = 0
       `);
-      const stats = statsRows[0] || { total_collection: 0, pending_amount: 0, advance_payments: 0, final_payments: 0, pending_count: 0, paid_count: 0 };
+      const stats = statsRows[0] || { total_collection: 0, pending_amount: 0, advance_payments: 0, final_payments: 0, domain_payments: 0, pending_count: 0, paid_count: 0 };
 
       const [monthly]: any = await db.query(`
         SELECT 
@@ -96,12 +97,13 @@ export async function GET(request: NextRequest) {
     if (type === 'lead-summary' && leadId) {
       const [summaryRows]: any = await db.query(`
         SELECT 
-          COALESCE(SUM(CASE WHEN CM_Payment_Status = 'Paid' THEN CM_Amount ELSE 0 END), 0) AS total_paid,
-          COALESCE(SUM(CASE WHEN CM_Payment_Status = 'Pending' THEN CM_Amount ELSE 0 END), 0) AS total_pending,
+          COALESCE(SUM(CASE WHEN CM_Payment_Status = 'Paid' AND CM_Payment_Type != 'Domain Payment' THEN CM_Amount ELSE 0 END), 0) AS total_paid,
+          COALESCE(SUM(CASE WHEN CM_Payment_Status = 'Pending' AND CM_Payment_Type != 'Domain Payment' THEN CM_Amount ELSE 0 END), 0) AS total_pending,
+          COALESCE(SUM(CASE WHEN CM_Payment_Status = 'Paid' AND CM_Payment_Type = 'Domain Payment' THEN CM_Amount ELSE 0 END), 0) AS domain_paid,
           COUNT(*) AS payment_count
         FROM ccms_sales_payment WHERE CM_Lead_ID = ? AND CM_Is_Deleted = 0
       `, [leadId]);
-      const summary = summaryRows[0] || { total_paid: 0, total_pending: 0, payment_count: 0 };
+      const summary = summaryRows[0] || { total_paid: 0, total_pending: 0, domain_paid: 0, payment_count: 0 };
 
       const [lead]: any = await db.query(`SELECT CM_Expected_Budget FROM ccms_sales_lead WHERE CM_Lead_ID = ?`, [leadId]);
       const budget = lead[0]?.CM_Expected_Budget || 0;
@@ -110,7 +112,8 @@ export async function GET(request: NextRequest) {
       return safeJsonResponse({
         ...summary,
         expected_budget: budget,
-        outstanding: Math.max(0, budget - paid)
+        outstanding: Math.max(0, budget - paid),
+        domain_paid: summary.domain_paid || 0
       });
     }
 

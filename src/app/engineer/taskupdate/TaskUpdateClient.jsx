@@ -77,6 +77,18 @@ export default function EngineerUpdatePage() {
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
 
+    // Get latest status for each task (compute once to avoid repeating in filters and sorts)
+    const latestStatusMap = {};
+    taskHistory.forEach(update => {
+      const taskId = update.CM_Task_ID;
+      if (
+        !latestStatusMap[taskId] ||
+        new Date(update.CM_Uploaded_At) > new Date(latestStatusMap[taskId].CM_Uploaded_At)
+      ) {
+        latestStatusMap[taskId] = update;
+      }
+    });
+
     // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -93,17 +105,6 @@ export default function EngineerUpdatePage() {
 
     // Apply status filter
     if (selectedStatus !== 'all') {
-      const latestStatusMap = {};
-      taskHistory.forEach(update => {
-        const taskId = update.CM_Task_ID;
-        if (
-          !latestStatusMap[taskId] ||
-          new Date(update.CM_Uploaded_At) > new Date(latestStatusMap[taskId].CM_Uploaded_At)
-        ) {
-          latestStatusMap[taskId] = update;
-        }
-      });
-
       filtered = filtered.filter(task => {
         const latestUpdate = latestStatusMap[task.CM_Task_ID];
         const currentStatus = latestUpdate?.CM_Status || 'Not Started';
@@ -111,34 +112,48 @@ export default function EngineerUpdatePage() {
       });
     }
 
-    // Sort tasks: Pending first, then by status priority, then by oldest assign date
+    // Sort tasks: Pending and Delayed first, Completed last
     return filtered.sort((a, b) => {
-      // Get latest status for each task
-      const latestStatusMap = {};
-      taskHistory.forEach(update => {
-        const taskId = update.CM_Task_ID;
-        if (
-          !latestStatusMap[taskId] ||
-          new Date(update.CM_Uploaded_At) > new Date(latestStatusMap[taskId].CM_Uploaded_At)
-        ) {
-          latestStatusMap[taskId] = update;
+      const latestUpdateA = latestStatusMap[a.CM_Task_ID];
+      const latestUpdateB = latestStatusMap[b.CM_Task_ID];
+
+      const statusA = latestUpdateA?.CM_Status || 'Not Started';
+      const statusB = latestUpdateB?.CM_Status || 'Not Started';
+
+      const checkDelayed = (task, update) => {
+        if (!task.CM_Due_Date) return false;
+        if (update?.CM_Status === 'Completed') return false;
+        
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        
+        if (!update) {
+          return calculateDelayDays(task.CM_Due_Date, todayStr) > 0;
         }
-      });
-
-      const statusA = latestStatusMap[a.CM_Task_ID]?.CM_Status || 'Not Started';
-      const statusB = latestStatusMap[b.CM_Task_ID]?.CM_Status || 'Not Started';
-
-      // Status priority order: Pending (0), Not Started (1), In Progress (2), On Hold (3), Completed (4)
-      const statusPriority = {
-        'Pending': 0,
-        'Not Started': 1,
-        'In Progress': 2,
-        'On Hold': 3,
-        'Completed': 4
+        
+        return calculateDelayDays(task.CM_Due_Date, update.CM_Update_Date) > 0;
       };
 
-      const priorityA = statusPriority[statusA] !== undefined ? statusPriority[statusA] : 5;
-      const priorityB = statusPriority[statusB] !== undefined ? statusPriority[statusB] : 5;
+      const isDelayedA = checkDelayed(a, latestUpdateA);
+      const isDelayedB = checkDelayed(b, latestUpdateB);
+
+      // Status priority order: 
+      // 0: Pending or Delayed
+      // 1: In Progress
+      // 2: Not Started
+      // 3: On Hold
+      // 4: Completed
+      const getPriority = (status, isDelayed) => {
+        if (status === 'Pending' || isDelayed) return 0;
+        if (status === 'In Progress') return 1;
+        if (status === 'Not Started') return 2;
+        if (status === 'On Hold') return 3;
+        if (status === 'Completed') return 4;
+        return 5;
+      };
+
+      const priorityA = getPriority(statusA, isDelayedA);
+      const priorityB = getPriority(statusB, isDelayedB);
 
       // First sort by priority
       if (priorityA !== priorityB) {
@@ -709,107 +724,15 @@ export default function EngineerUpdatePage() {
 
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 relative z-10">
             <div className="flex-1">
-              <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600">
+              <h1 className="text-2xl font-bold text-gray-800 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600">
                 {projectName}
               </h1>
-
-              <div className="mt-2 lg:mt-2">
-                <div className="flex justify-between text-sm font-medium text-gray-700 mb-2">
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Your Progress
-                  </span>
-                  <span className="text-blue-600 font-bold">
-                    {projectProgress}% ({projectStats.completed}/{projectStats.total} tasks completed)
-                    {projectStats.inProgress > 0 && ` + ${projectStats.inProgress} in progress`}
-                  </span>
-                </div>
-
-                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 transition-all duration-700 ease-out"
-                    style={{ width: `${projectProgress}%` }}
-                  ></div>
-                </div>
-
-                {projectStats.delayedTasks > 0 && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl animate-pulse-slow">
-                    <div className="flex items-start gap-2 text-red-700">
-                      <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                      <div>
-                        <span className="font-semibold">Delay Alert</span>
-                        <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                          <div>
-                            <span className="text-red-600 font-medium">{projectStats.delayedTasks}</span> delayed
-                          </div>
-                          <div>
-                            <span className="text-red-600 font-medium">{projectStats.totalDelayDays}</span> days total
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <p className="text-sm text-gray-500 mt-3 leading-relaxed">
-                  {projectProgress === 100
-                    ? "🎉 Fantastic! All tasks are completed—great job!"
-                    : projectProgress > 0
-                      ? `✅ ${projectStats.completed} task${projectStats.completed !== 1 ? 's' : ''} done`
-                      + (projectStats.inProgress > 0 ? ` • 🚧 ${projectStats.inProgress} in progress` : '')
-                      : "Start marking tasks to track your progress."}
-                </p>
-
-                {projectStats.total > 0 && (
-                  <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                    <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg text-green-700">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      <span>Completed: {projectStats.completed}</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-lg text-yellow-700">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                      </svg>
-                      <span>In Progress: {projectStats.inProgress}</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-lg text-gray-700">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      <span>Remaining: {projectStats.total - projectStats.completed - projectStats.inProgress}</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg text-red-700">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                      <span>Delayed: {projectStats.delayedTasks}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="flex flex-row gap-3 mt-4 lg:mt-0">
-              {/* <button
-                onClick={() =>
-                  handleUpdateProducts({
-                    CM_Project_ID: projectId,
-                    CM_Project_Name: projectName,
-                  })
-                }
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:from-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Update Products
-              </button> */}
               <button
                 onClick={() => router.back()}
-                className="px-4 py-2.5 bg-blue-200 border border-blue-300 text-gray-700 rounded-full text-sm font-medium hover:bg-blue-300 transition shadow-sm flex items-center justify-center gap-1"
+                className="px-4 py-1 bg-blue-200 border border-blue-300 text-gray-700 rounded-full text-sm font-medium hover:bg-blue-300 transition shadow-sm flex items-center justify-center gap-1"
               >
                 ← Back
               </button>
@@ -817,339 +740,326 @@ export default function EngineerUpdatePage() {
           </div>
         </div>
 
-        {/* Search and Filter Section */}
-        <div className="mb-8 mt-4">
-          <div className="flex flex-col gap-4">
-            {/* Search Input */}
-            <div className="w-full">
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-                Search Tasks & Milestones
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  id="search"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by task name or milestone name..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-black focus:ring-blue-500 focus:border-blue-500 transition"
-                />
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Filter Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Milestone Filter */}
-              <div className="w-full">
-                <label htmlFor="milestone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Filter by Milestone
-                </label>
-                <select
-                  id="milestone"
-                  value={selectedMilestone}
-                  onChange={(e) => setSelectedMilestone(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:ring-blue-500 focus:border-blue-500 transition"
-                >
-                  <option value="all">All Milestones</option>
-                  {milestones.map((milestone) => (
-                    <option key={milestone.CM_Milestone_ID} value={milestone.CM_Milestone_ID}>
-                      {milestone.CM_Milestone_Name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Status Filter */}
-              <div className="w-full">
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
-                  Filter by Status
-                </label>
-                <select
-                  id="status"
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:ring-blue-500 focus:border-blue-500 transition"
-                >
-                  <option value="all">All Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Not Started">Not Started</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="On Hold">On Hold</option>
-                  <option value="Completed">Completed</option>
-                </select>
-              </div>
-
-              {/* Clear Filters Button */}
-              <div className="w-full flex items-end">
-                <button
-                  onClick={clearFilters}
-                  className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
-                >
-                  Clear Filters
-                </button>
+        {/* Toolbar (Header & Filters) - Excel Style */}
+        <div className="mb-4 mt-2 flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-2">
+          {/* Left: Title & Stats */}
+          <div className="flex items-center gap-4 border-r border-slate-300 pr-4">
+            <h2 className="text-md font-bold text-slate-800 tracking-tight whitespace-nowrap">
+              Assigned Tasks
+            </h2>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-slate-700">Total:</span>
+                <span className="text-slate-600">{tasks.length}</span>
               </div>
             </div>
           </div>
+
+          {/* Right: Filters */}
+          <div className="flex flex-1 items-center gap-2 w-full justify-end flex-wrap">
+            {/* Search Input */}
+            <div className="relative max-w-xs w-full">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search tasks or milestones..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-7 pr-2 py-2.5 text-sm text-gray-700 border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-slate-50"
+              />
+            </div>
+
+            {/* Milestone Filter */}
+            <select
+              value={selectedMilestone}
+              onChange={(e) => setSelectedMilestone(e.target.value)}
+              className="px-2 py-2.5 text-sm text-gray-700 border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-slate-50 min-w-[120px] max-w-[150px] truncate"
+            >
+              <option value="all">All Milestones</option>
+              {milestones.map((milestone) => (
+                <option key={milestone.CM_Milestone_ID} value={milestone.CM_Milestone_ID}>
+                  {milestone.CM_Milestone_Name}
+                </option>
+              ))}
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-2 py-2.5 text-sm text-gray-700 border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-slate-50 min-w-[100px]"
+            >
+              <option value="all">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Not Started">Not Started</option>
+              <option value="In Progress">In Progress</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Completed">Completed</option>
+            </select>
+
+            {/* Clear Filters Button */}
+            <button
+              onClick={clearFilters}
+              className="px-2 py-2.5 bg-slate-100 border border-slate-300 text-slate-700 rounded-sm hover:bg-slate-200 transition-colors flex items-center gap-1 text-sm font-medium"
+              title="Clear Filters"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Clear
+            </button>
+          </div>
         </div>
 
-        {/* Tasks Section - Grouped by Milestone */}
-        <div className="">
-          <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-            <span className="inline-block w-2 h-6 bg-blue-500 rounded mr-3"></span>
-            Your Assigned Tasks ({filteredTasks.length})
-          </h2>
-
+        {/* Tasks List - Excel-style Table View (Desktop) & Grid (Mobile) */}
+        <div className="mb-8">
           {filteredTasks.length > 0 ? (
-            <div className="space-y-8">
-              {Object.entries(tasksByMilestone).map(([milestoneId, milestoneData]) => (
-                <div key={milestoneId} className="border border-gray-200 rounded-xl overflow-hidden">
-                  {/* Milestone Header */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          {milestoneData.name}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {milestoneData.tasks.length} task{milestoneData.tasks.length !== 1 ? 's' : ''} in this milestone
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center justify-end gap-2 text-sm">
-                          {/* Calculate progress */}
-                          {(() => {
-                            const completed = milestoneData.tasks.filter(task => {
-                              const latestUpdate = getLatestUpdate(task.CM_Task_ID);
-                              return latestUpdate?.CM_Status === 'Completed';
-                            }).length;
-                            const total = milestoneData.tasks.length;
-                            const percent = total ? Math.round((completed / total) * 100) : 0;
+            <>
+              {/* Mobile Grid View */}
+              <div className="md:hidden grid grid-cols-1 sm:grid-cols-2 gap-4 animate-slide-in">
+                {filteredTasks.map((task, index) => {
+                  const delayInfo = getTaskDelayInfo(task);
+                  const taskUpdates = groupedTaskHistory[task.CM_Task_ID] || [];
+                  const isExpanded = expandedTasks[task.CM_Task_ID];
 
-                            // Color based on completion
-                            const colorClass =
-                              percent === 100
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                : percent >= 50
-                                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                                  : 'bg-red-100 text-red-700 border-red-300';
-
-                            return (
-                              <div className="flex items-center gap-2">
-                                <span className="text-gray-600">Completed:</span>
-                                <span
-                                  className={`rounded-full border px-3 py-1 font-medium ${colorClass}`}
-                                >
-                                  {completed} / {total} ({percent}%)
-                                </span>
-                              </div>
-                            );
-                          })()}
+                  return (
+                    <div key={`mobile-${task.CM_Task_ID}`} className="bg-white border border-slate-300 rounded-md shadow-sm p-4 flex flex-col gap-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-bold text-blue-600 text-sm leading-tight">{task.CM_Task_Name}</h3>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          {getStatusBadge(delayInfo.latestStatus)}
+                          {delayInfo.isDelayed && delayInfo.latestStatus !== "Completed" && (
+                            <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider bg-red-100 px-1.5 py-0.5 rounded border border-red-200">
+                              {delayInfo.delayDays}d overdue
+                            </span>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  </div>
+                      
+                      <div className="text-xs text-slate-600 grid grid-cols-2 gap-2 mt-1">
+                        <div className="col-span-2 bg-slate-50 p-1.5 rounded border border-slate-100">
+                          <span className="font-semibold text-slate-700 inline-block mr-1">Milestone:</span>
+                          {task.CM_Milestone_Name || 'Unassigned'}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-700 block">Assign Date:</span>
+                          {formatDate(task.CM_Assign_Date)}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-700 block">Due Date:</span>
+                          {formatDate(task.CM_Due_Date)}
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-semibold text-slate-700 inline-block mr-1">Last Updated:</span>
+                          {delayInfo.lastUpdated}
+                        </div>
+                      </div>
 
-                  {/* Tasks for this Milestone */}
-                  <div className="divide-y divide-gray-100">
-                    {milestoneData.tasks.map((task, index) => {
+                      <div className="flex items-center justify-between mt-2 pt-3 border-t border-slate-200">
+                        {taskUpdates.length > 0 ? (
+                          <button
+                            onClick={() => toggleTaskHistory(task.CM_Task_ID)}
+                            className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded border border-slate-200 hover:bg-slate-200 transition-colors shadow-sm"
+                          >
+                            {isExpanded ? 'Hide History' : 'View History'}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">No updates yet</span>
+                        )}
+                        {delayInfo.latestStatus !== "Completed" ? (
+                          <button
+                            onClick={() => handleUpdateTask(task)}
+                            className="px-4 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors shadow-sm ml-auto"
+                          >
+                            Update
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1 bg-slate-100 text-slate-400 text-xs font-medium rounded border border-slate-200 ml-auto">
+                            Done
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Mobile Expanded History */}
+                      {isExpanded && taskUpdates.length > 0 && (
+                        <div className="mt-1 bg-slate-50 border border-slate-200 rounded p-2 flex flex-col gap-2 shadow-inner">
+                          <div className="flex justify-between items-center border-b border-slate-200 pb-1 mb-1">
+                            <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Update History</h4>
+                            <span className="text-[10px] font-medium text-slate-500">{taskUpdates.length} update{taskUpdates.length !== 1 ? 's' : ''}</span>
+                          </div>
+                          {taskUpdates.map((update, idx) => (
+                            <div key={update.CM_Update_ID || idx} className="bg-white p-2 border border-slate-200 rounded shadow-sm text-[11px] flex flex-col gap-1.5">
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold text-slate-800">{formatDateTime(update.CM_Update_Date)}</span>
+                                {getStatusBadge(update.CM_Status)}
+                              </div>
+                              <div className="flex gap-4">
+                                <p className="text-slate-600"><span className="font-semibold text-slate-700">Hours:</span> {update.CM_Work_Hours || '0.00'}h</p>
+                                <p className="text-slate-600"><span className="font-semibold text-slate-700">By:</span> {update.CM_Uploaded_By || 'System'}</p>
+                              </div>
+                              <p className="text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100"><span className="font-semibold text-slate-700 block mb-0.5">Remarks:</span> {update.CM_Remarks || '-'}</p>
+                              <div className="flex justify-end items-center mt-1 pt-1.5 border-t border-slate-100 gap-2">
+                                {update.CM_Image_URL && (
+                                  <a href={update.CM_Image_URL} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                    View Image
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => handleEditUpdate(update, task)}
+                                  className="text-[10px] px-2.5 py-1 bg-emerald-50 text-emerald-700 font-medium rounded border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                >
+                                  Edit Update
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-white shadow-sm border border-slate-300 overflow-hidden animate-slide-in">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 border-b-2 border-slate-300">
+                        <th className="px-3 py-2 text-left font-semibold text-slate-700 border border-slate-300 whitespace-nowrap">Task Name</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-700 border border-slate-300 whitespace-nowrap">Milestone</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-700 border border-slate-300 whitespace-nowrap">Assign Date</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-700 border border-slate-300 whitespace-nowrap">Due Date</th>
+                        <th className="px-3 py-2 text-center font-semibold text-slate-700 border border-slate-300 whitespace-nowrap">Last Updated</th>
+                        <th className="px-3 py-2 text-center font-semibold text-slate-700 border border-slate-300 whitespace-nowrap">Status</th>
+                        <th className="px-3 py-2 text-center font-semibold text-slate-700 border border-slate-300 whitespace-nowrap">Action</th>
+                      </tr>
+                    </thead>
+                    {filteredTasks.map((task, index) => {
                       const delayInfo = getTaskDelayInfo(task);
                       const taskUpdates = groupedTaskHistory[task.CM_Task_ID] || [];
                       const isExpanded = expandedTasks[task.CM_Task_ID];
 
                       return (
-                        <div key={`${task.CM_Task_ID}-${index}`} className="hover:bg-gray-50 transition-colors">
-                          {/* Task Header */}
-                          <div className="p-6">
-                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-4 mb-2">
-                                  <h4 className="text-lg font-semibold text-gray-800">{task.CM_Task_Name}</h4>
-                                  {getStatusBadge(delayInfo.latestStatus)}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                                  <div className="flex items-center">
-                                    <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    <span>Assign: {formatDate(task.CM_Assign_Date)}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span>Due: {formatDate(task.CM_Due_Date)}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span>Last Updated: {delayInfo.lastUpdated}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-3">
-                                <div className="text-right">
-                                  {delayInfo.latestStatus === "Not Started" ? (
-                                    delayInfo.isDelayed ? (
-                                      <span className="px-3 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full flex items-center">
-                                        <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                                        Not Started • {delayInfo.delayDays} day{delayInfo.delayDays !== 1 ? "s" : ""} overdue
-                                      </span>
-                                    ) : (
-                                      <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                        Not Started
-                                      </span>
-                                    )
-                                  ) : delayInfo.isDelayed ? (
-                                    <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center">
-                                      <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                                      {delayInfo.delayDays} day{delayInfo.delayDays !== 1 ? "s" : ""} delay
-                                    </span>
-                                  ) : (
-                                    <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                                      On Time
-                                    </span>
-                                  )}
-                                </div>
-                                {delayInfo.latestStatus === "Completed" ? (
-                                  <span className="px-4 py-2 bg-gray-100 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed">
-                                    Task Completed
+                        <tbody key={task.CM_Task_ID}>
+                          <tr className="border-b border-slate-300 hover:bg-slate-50 transition-colors odd:bg-white even:bg-slate-50">
+                            <td className="px-3 py-2 border border-slate-300 font-medium text-blue-600">
+                              {task.CM_Task_Name}
+                            </td>
+                            <td className="px-3 py-2 border border-slate-300 text-slate-600">
+                              {task.CM_Milestone_Name || 'Unassigned'}
+                            </td>
+                            <td className="px-3 py-2 border border-slate-300 text-slate-600">
+                              {formatDate(task.CM_Assign_Date)}
+                            </td>
+                            <td className="px-3 py-2 border border-slate-300 text-slate-600 whitespace-nowrap">
+                              {formatDate(task.CM_Due_Date)}
+                            </td>
+                            <td className="px-3 py-2 border border-slate-300 text-center text-slate-600 whitespace-nowrap">
+                              {delayInfo.lastUpdated}
+                            </td>
+                            <td className="px-3 py-2 border border-slate-300 text-center">
+                              <div className="flex flex-col items-center gap-1 justify-center">
+                                {getStatusBadge(delayInfo.latestStatus)}
+                                {delayInfo.isDelayed && delayInfo.latestStatus !== "Completed" && (
+                                  <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider bg-red-100 px-1.5 py-0.5 rounded border border-red-200">
+                                    {delayInfo.delayDays} day{delayInfo.delayDays !== 1 ? 's' : ''} overdue
                                   </span>
-                                ) : (
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 border border-slate-300 text-center whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-2">
+                                {delayInfo.latestStatus !== "Completed" ? (
                                   <button
                                     onClick={() => handleUpdateTask(task)}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                                    className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors shadow-sm"
                                   >
                                     Update
                                   </button>
+                                ) : (
+                                  <span className="px-3 py-1 bg-slate-100 text-slate-400 text-xs font-medium rounded border border-slate-200">
+                                    Done
+                                  </span>
+                                )}
+                                {taskUpdates.length > 0 && (
+                                  <button
+                                    onClick={() => toggleTaskHistory(task.CM_Task_ID)}
+                                    className="px-2 py-1 bg-slate-200 text-slate-700 text-xs font-medium rounded hover:bg-slate-300 transition-colors shadow-sm"
+                                    title="Toggle History"
+                                  >
+                                    {isExpanded ? 'Hide History' : 'History'}
+                                  </button>
                                 )}
                               </div>
-                            </div>
-
-                            {/* Task History */}
-                            {taskUpdates.length > 0 && (
-                              <div className="mt-4">
-                                <button
-                                  onClick={() => toggleTaskHistory(task.CM_Task_ID)}
-                                  className="w-full text-left text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors flex items-center justify-between py-2"
-                                >
-                                  <span className="flex items-center">
-                                    <svg className={`w-4 h-4 mr-2 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                                    </svg>
-                                    Task Update History ({taskUpdates.length} update{taskUpdates.length !== 1 ? 's' : ''})
-                                  </span>
-                                  <span className="text-gray-500">{isExpanded ? 'Hide' : 'Show'}</span>
-                                </button>
-
-                                {isExpanded && (
-                                  <div className="mt-3 bg-gray-50 rounded-lg p-4">
+                            </td>
+                          </tr>
+                          {/* Expanded History Row */}
+                          {isExpanded && taskUpdates.length > 0 && (
+                            <tr>
+                              <td colSpan="7" className="p-0 border border-slate-300 bg-slate-50">
+                                <div className="p-3 bg-slate-100 shadow-inner">
+                                  <div className="border border-slate-300 bg-white rounded-sm overflow-hidden">
+                                    <div className="bg-slate-200 px-3 py-1.5 border-b border-slate-300 flex justify-between items-center">
+                                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Update History</h4>
+                                      <span className="text-xs text-slate-500 font-medium">{taskUpdates.length} update{taskUpdates.length !== 1 ? 's' : ''}</span>
+                                    </div>
                                     <div className="overflow-x-auto">
-                                      <table className="min-w-full divide-y divide-gray-200 task-history-table">
-                                        <thead className="task-history-header">
+                                      <table className="w-full border-collapse text-xs">
+                                        <thead className="bg-slate-50 border-b border-slate-200">
                                           <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Working Date</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Work Hours</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delay Days</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                            <th className="px-3 py-1.5 text-left font-semibold text-slate-600 border-r border-slate-200">Date</th>
+                                            <th className="px-3 py-1.5 text-left font-semibold text-slate-600 border-r border-slate-200">Status</th>
+                                            <th className="px-3 py-1.5 text-left font-semibold text-slate-600 border-r border-slate-200">Hours</th>
+                                            <th className="px-3 py-1.5 text-left font-semibold text-slate-600 border-r border-slate-200">Remarks</th>
+                                            <th className="px-3 py-1.5 text-center font-semibold text-slate-600 border-r border-slate-200">Image</th>
+                                            <th className="px-3 py-1.5 text-left font-semibold text-slate-600 border-r border-slate-200">Updated By</th>
+                                            <th className="px-3 py-1.5 text-center font-semibold text-slate-600">Action</th>
                                           </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-200">
-                                          {taskUpdates.map((update, idx) => {
-                                            const delayDays = calculateDelayDays(task.CM_Due_Date, update.CM_Update_Date);
-
-                                            return (
-                                              <tr key={update.CM_Update_ID || idx} className="hover:bg-white transition-colors">
-                                                <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                                                  {formatDateTime(update.CM_Update_Date)}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                  {getStatusBadge(update.CM_Status)}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">
-                                                  <div className="flex items-center">
-                                                    <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    {update.CM_Work_Hours || '0.00'}h
-                                                  </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-600 max-w-xs break-words">
-                                                  {update.CM_Remarks || '-'}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                  {delayDays > 0 ? (
-                                                    <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
-                                                      {delayDays} day{delayDays !== 1 ? 's' : ''}
-                                                    </span>
-                                                  ) : (
-                                                    <span className="text-green-600 text-xs">On time</span>
-                                                  )}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                  <div className="flex items-center gap-2">
-                                                    {update.CM_Image_URL ? (
-                                                      <a
-                                                        href={update.CM_Image_URL}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-blue-600 hover:text-blue-800 font-medium hover:underline flex items-center text-xs"
-                                                      >
-                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                        </svg>
-                                                        View
-                                                      </a>
-                                                    ) : (
-                                                      <span className="text-gray-400 text-xs">-</span>
-                                                    )}
-                                                  </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">
-                                                  {update.CM_Uploaded_By || 'System'}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                                                  {formatDateTime(update.CM_Uploaded_At)}
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                  <button
-                                                    onClick={() => handleEditUpdate(update, task)}
-                                                    className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md hover:bg-emerald-200 transition-colors"
-                                                  >
-                                                    Edit
-                                                  </button>
-                                                </td>
-                                              </tr>
-                                            );
-                                          })}
+                                        <tbody>
+                                          {taskUpdates.map((update, idx) => (
+                                            <tr key={update.CM_Update_ID || idx} className="border-b border-slate-200 hover:bg-slate-50">
+                                              <td className="px-3 py-1.5 border-r border-slate-200 whitespace-nowrap text-slate-600">{formatDateTime(update.CM_Update_Date)}</td>
+                                              <td className="px-3 py-1.5 border-r border-slate-200">{getStatusBadge(update.CM_Status)}</td>
+                                              <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{update.CM_Work_Hours || '0.00'}h</td>
+                                              <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 max-w-[200px] truncate" title={update.CM_Remarks || ''}>{update.CM_Remarks || '-'}</td>
+                                              <td className="px-3 py-1.5 border-r border-slate-200 text-center">
+                                                {update.CM_Image_URL ? (
+                                                  <a href={update.CM_Image_URL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View</a>
+                                                ) : '-'}
+                                              </td>
+                                              <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{update.CM_Uploaded_By || 'System'}</td>
+                                              <td className="px-3 py-1.5 text-center">
+                                                <button
+                                                  onClick={() => handleEditUpdate(update, task)}
+                                                  className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                                >
+                                                  Edit
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))}
                                         </tbody>
                                       </table>
                                     </div>
                                   </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
                       );
                     })}
-                  </div>
+                  </table>
                 </div>
-              ))}
-            </div>
+              </div>
+            </>
           ) : (
             <div className="text-center py-12">
               <svg className="mx-auto h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
