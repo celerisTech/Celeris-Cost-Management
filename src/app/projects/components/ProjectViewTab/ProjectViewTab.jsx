@@ -1787,6 +1787,7 @@ export default function ProjectViewTab({
             toDateInputValue={toDateInputValue}
             formatDate={formatDate}
             selectedProject={selectedProject}
+            onDeleteSuccess={fetchProjectMilestones}
           />
         )}
 
@@ -1823,6 +1824,7 @@ export default function ProjectViewTab({
             updatesError={updatesError}
             calculateDelayDays={calculateDelayDays}
             milestones={milestones}
+            onDeleteSuccess={fetchProjectTasks}
           />
         )}
       </div>

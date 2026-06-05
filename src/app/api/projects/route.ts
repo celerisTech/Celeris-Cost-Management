@@ -128,7 +128,65 @@ export async function GET(request: NextRequest) {
 
 
 export async function POST(request: Request) {
-  const method = new URL(request.url).searchParams.get("_method");
+  const url = new URL(request.url);
+  let method = url.searchParams.get("_method");
+  let body: any = null;
+
+  if (!method) {
+    const clonedRequest = request.clone();
+    try {
+      body = await clonedRequest.json();
+      method = body?._method;
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  if (method === "DELETE") {
+    const projectId = (body && body.id) || url.searchParams.get('projectId');
+    if (!projectId) {
+      return NextResponse.json({ error: 'Project ID is required for deletion' }, { status: 400 });
+    }
+
+    try {
+      const db = await getDb();
+
+      // Check milestones
+      const [milestones]: any = await db.query(
+        `SELECT COUNT(*) as count FROM ccms_milestone WHERE CM_Project_ID = ?`,
+        [projectId]
+      );
+      const milestoneCount = Array.isArray(milestones) && milestones.length > 0 ? milestones[0].count : 0;
+
+      // Check tasks
+      const [tasks]: any = await db.query(
+        `SELECT COUNT(*) as count FROM ccms_task_master WHERE CM_Project_ID = ?`,
+        [projectId]
+      );
+      const taskCount = Array.isArray(tasks) && tasks.length > 0 ? tasks[0].count : 0;
+
+      if (milestoneCount > 0 || taskCount > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete project because it has milestones or tasks associated with it' },
+          { status: 400 }
+        );
+      }
+
+      await db.query(
+        `DELETE FROM ccms_projects WHERE CM_Project_ID = ?`,
+        [projectId]
+      );
+
+      return NextResponse.json({ success: true, message: 'Project deleted successfully' });
+    } catch (err: any) {
+      console.error('Error deleting project:', err);
+      return NextResponse.json(
+        { error: 'Failed to delete project', details: err.message },
+        { status: 500 }
+      );
+    }
+  }
+
   if (method === "PUT") return updateProject(request);
 
   try {

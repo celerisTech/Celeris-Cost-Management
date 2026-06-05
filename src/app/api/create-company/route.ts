@@ -9,11 +9,6 @@ import { Readable } from "stream";
 import { v4 as uuidv4 } from 'uuid';
 import { uploadToStorage } from '@/app/utils/storage';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 // ✅ FIXED: Updated function signature to match Web Streams API
 function streamToNodeReadable(stream: ReadableStream<Uint8Array> | null) {

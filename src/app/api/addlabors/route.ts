@@ -228,10 +228,3 @@ export async function POST(request: Request) {
   }
 }
 
-// Set larger file size limit for uploads
-export const config = {
-  api: {
-    bodyParser: false,
-    responseLimit: '10mb',
-  },
-};

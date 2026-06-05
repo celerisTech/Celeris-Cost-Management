@@ -12,6 +12,7 @@ export default function ProjectsTab({
   handlePayment, // Make sure this is received 
   handleServices,
   handleProductAllocation,
+  onDeleteSuccess,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -28,6 +29,38 @@ export default function ProjectsTab({
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [showStatusFilterMenu, setShowStatusFilterMenu] = useState(false); // New state for status filter dropdown
+
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  const performDeleteProject = async (projectId) => {
+    try {
+      const response = await fetch('/api/projects', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: projectId,
+          _method: "DELETE",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || "Failed to delete project");
+        return;
+      }
+
+      toast.success("Project deleted successfully");
+      if (onDeleteSuccess) {
+        onDeleteSuccess();
+      }
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      toast.error("An error occurred while deleting the project");
+    }
+  };
 
   // Check for mobile screen size
   useEffect(() => {
@@ -527,7 +560,7 @@ export default function ProjectsTab({
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-      <div 
+      <div
         onClick={() => handleView(project)}
         className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md hover:border-blue-200 transition-all duration-300 cursor-pointer active:scale-[0.98]"
       >
@@ -625,7 +658,7 @@ export default function ProjectsTab({
         if (left + dropdownWidth > viewportWidth - horizontalPadding) {
           left = viewportWidth - dropdownWidth - horizontalPadding;
         }
-        
+
         setDropdownPosition({ top, left });
 
         timer = setTimeout(() => {
@@ -668,8 +701,8 @@ export default function ProjectsTab({
           onClick={handleToggle}
           className={`
             flex items-center justify-center w-9 h-9 rounded-full transition-all duration-300 cursor-pointer
-            ${openDropdownId === project.CM_Project_ID 
-              ? 'bg-blue-600 text-white shadow-lg ring-4 ring-blue-100' 
+            ${openDropdownId === project.CM_Project_ID
+              ? 'bg-blue-600 text-white shadow-lg ring-4 ring-blue-100'
               : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600 hover:shadow-sm border border-transparent hover:border-slate-200'}
           `}
           id={`menu-button-${project.CM_Project_ID}`}
@@ -678,8 +711,7 @@ export default function ProjectsTab({
           aria-label="Actions"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
           </svg>
         </button>
 
@@ -701,15 +733,60 @@ export default function ProjectsTab({
             aria-orientation="vertical"
             aria-labelledby={`menu-button-${project.CM_Project_ID}`}
           >
-            <div className="py-1.5 px-1.5 space-y-0.5 ">
+            <div className="py-1 bg-white">
               <button
-                onClick={() => { handleView(project); setOpenDropdownId(null); }}
-                className="group flex items-center w-full px-3 py-2.5 text-sm font-medium cursor-pointer text-slate-700 rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200"
+                onClick={() => {
+                  handleView(project);
+                  setOpenDropdownId(null);
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 text-blue-600 mr-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                  <span className="text-lg">👁️</span>
-                </div>
+                <svg
+                  className="w-4 h-4 mr-3 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
                 View Details
+              </button>
+
+              <div className="border-t border-gray-200 my-1" />
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteConfirmId(project.CM_Project_ID);
+                  setOpenDropdownId(null);
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <svg
+                  className="w-4 h-4 mr-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Delete Project
               </button>
             </div>
           </div>
@@ -1063,6 +1140,12 @@ export default function ProjectsTab({
               <tr>
                 <th
                   scope="col"
+                  className="py-3 px-2 sm:px-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wide w-16"
+                >
+                  Actions
+                </th>
+                <th
+                  scope="col"
                   className="py-3 px-4 sm:px-6 text-left text-xs font-semibold text-slate-700 uppercase tracking-wide cursor-pointer hover:bg-slate-100 transition-colors"
                   onClick={() => handleSort('CM_Project_Name')}
                 >
@@ -1090,16 +1173,6 @@ export default function ProjectsTab({
                   <div className="flex items-center gap-1">
                     Type
                     {renderSortIndicator('CM_Project_Type')}
-                  </div>
-                </th>
-                <th
-                  scope="col"
-                  className="hidden lg:table-cell py-3 px-2 sm:px-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wide cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('CM_Project_Location')}
-                >
-                  <div className="flex items-center gap-1">
-                    Location
-                    {renderSortIndicator('CM_Project_Location')}
                   </div>
                 </th>
                 <th
@@ -1145,6 +1218,10 @@ export default function ProjectsTab({
                     onClick={() => handleView(project)}
                     className="hover:bg-blue-50/80 cursor-pointer transition-all duration-200 group"
                   >
+                    <td className="px-2 sm:px-4 py-3 text-center text-xs sm:text-sm w-16" onClick={(e) => e.stopPropagation()}>
+                      <ActionDropdown project={project} />
+                    </td>
+
                     <td className="py-4 px-4 sm:px-6">
                       <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
@@ -1171,9 +1248,6 @@ export default function ProjectsTab({
                       </span>
                     </td>
 
-                    <td className="hidden lg:table-cell px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-600">
-                      <span className="truncate">{project.CM_Project_Location || 'Not Specified'}</span>
-                    </td>
 
                     <td className="hidden xl:table-cell px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-700">
                       <span className="truncate">{project.Project_Leader_Name || 'Not Assigned'}</span>
@@ -1282,6 +1356,45 @@ export default function ProjectsTab({
               Clear all filters
             </button>
           )}
+        </div>
+      )}
+      {/* Custom Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 bg-red-500 text-white flex items-center gap-2">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <h3 className="text-lg font-bold">Confirm Deletion</h3>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 text-black">
+              <p className="text-gray-700 font-medium mb-1">Are you sure you want to delete this project?</p>
+              <p className="text-gray-500 text-xs">This action is permanent and cannot be undone.</p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  performDeleteProject(deleteConfirmId);
+                  setDeleteConfirmId(null);
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-md"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -120,10 +120,45 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const url = new URL(request.url);
-    const method = url.searchParams.get("_method");
+    let method = url.searchParams.get("_method");
+    let body: any = null;
+
+    if (!method) {
+      const clonedRequest = request.clone();
+      try {
+        body = await clonedRequest.json();
+        method = body?._method;
+      } catch (e) {
+        // Ignored
+      }
+    }
 
     if (method === "DELETE") {
-      return DELETE(request);
+      const taskId = (body && body.id) || url.searchParams.get('taskId');
+      if (!taskId) {
+        return NextResponse.json({ error: 'Task ID is required for deletion' }, { status: 400 });
+      }
+
+      const db = await getDb();
+      const [updates]: any = await db.query(
+        `SELECT COUNT(*) as count FROM ccms_task_update WHERE CM_Task_ID = ?`,
+        [taskId]
+      );
+      const updateCount = Array.isArray(updates) && updates.length > 0 ? updates[0].count : 0;
+
+      if (updateCount > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete task because it has updates recorded in the database' },
+          { status: 400 }
+        );
+      }
+
+      await db.query(
+        `DELETE FROM ccms_task_master WHERE CM_Task_ID = ?`,
+        [taskId]
+      );
+
+      return NextResponse.json({ success: true, message: 'Task deleted successfully' });
     }
 
     if (method === "PUT") {
@@ -131,7 +166,9 @@ export async function POST(request: Request) {
     }
 
     const db = await getDb();
-    const body = await request.json();
+    if (!body) {
+      body = await request.json();
+    }
 
     const requiredFields = [
       "CM_Company_ID",
@@ -333,24 +370,29 @@ export async function DELETE(request: Request) {
       return res;
     }
 
-    // Start a transaction
-    await db.query('START TRANSACTION');
-
+    // Start a transaction or run checks
     try {
-      // First, delete related records in the ccms_task_update table
-      await db.query(
-        `DELETE FROM ccms_task_update WHERE CM_Task_ID = ?`,
+      // Check if task is used in ccms_task_update table
+      const [updates]: any = await db.query(
+        `SELECT COUNT(*) as count FROM ccms_task_update WHERE CM_Task_ID = ?`,
         [taskId]
       );
+      const updateCount = Array.isArray(updates) && updates.length > 0 ? updates[0].count : 0;
+
+      if (updateCount > 0) {
+        const res = NextResponse.json(
+          { error: 'Cannot delete task because it has updates recorded in the database' },
+          { status: 400 }
+        );
+        res.headers.set('Cache-Control', 'no-store');
+        return res;
+      }
 
       // Now it's safe to delete the task
       await db.query(
         `DELETE FROM ccms_task_master WHERE CM_Task_ID = ?`,
         [taskId]
       );
-
-      // Commit the transaction
-      await db.query('COMMIT');
 
       const res = NextResponse.json(
         { success: true, message: 'Task deleted successfully' },
@@ -359,8 +401,6 @@ export async function DELETE(request: Request) {
       res.headers.set('Cache-Control', 'no-store');
       return res;
     } catch (error) {
-      // If anything goes wrong, roll back the transaction
-      await db.query('ROLLBACK');
       throw error;
     }
   } catch (error: any) {

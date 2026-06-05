@@ -38,6 +38,8 @@ export default function ProjectDetails({ params }) {
   const [searchMilestone, setSearchMilestone] = useState("");
   const [laborMonthFilter, setLaborMonthFilter] = useState(new Date().getMonth().toString());
   const [laborYearFilter, setLaborYearFilter] = useState(new Date().getFullYear().toString());
+  const [taskStatusFilter, setTaskStatusFilter] = useState("all");
+  const [taskEngineerFilter, setTaskEngineerFilter] = useState("all");
 
   useEffect(() => {
     const fetchProjectDetails = async () => {
@@ -131,6 +133,45 @@ export default function ProjectDetails({ params }) {
       </div>
     );
   }
+
+  // Milestones & Tasks Filter calculations
+  const allTasks = projectData?.tasks || projectData?.milestones?.flatMap(m => m.tasks || []) || [];
+
+  const uniqueEngineers = Array.from(
+    new Set(
+      allTasks.map(t =>
+        (t.Engineer_First_Name || t.Engineer_Last_Name)
+          ? `${t.Engineer_First_Name || ""} ${t.Engineer_Last_Name || ""}`.trim()
+          : "Unassigned"
+      )
+    )
+  ).filter(Boolean).sort();
+
+  const uniqueStatuses = Array.from(
+    new Set(
+      allTasks.map(t => t.latestUpdate?.CM_Status || t.CM_Is_Active)
+    )
+  ).filter(Boolean).sort();
+
+  const filteredMilestones = (projectData?.milestones || [])
+    .map(m => {
+      const filteredTasks = (m.tasks || []).filter(t => {
+        const matchesSearch = t.CM_Task_Name.toLowerCase().includes(searchMilestone.toLowerCase()) || m.CM_Milestone_Name.toLowerCase().includes(searchMilestone.toLowerCase());
+        const taskStatus = t.latestUpdate?.CM_Status || t.CM_Is_Active || "Pending";
+        const matchesStatus = taskStatusFilter === "all" || taskStatus === taskStatusFilter;
+        const engineerName = (t.Engineer_First_Name || t.Engineer_Last_Name) ? `${t.Engineer_First_Name || ""} ${t.Engineer_Last_Name || ""}`.trim() : "Unassigned";
+        const matchesEngineer = taskEngineerFilter === "all" || engineerName === taskEngineerFilter;
+        return matchesSearch && matchesStatus && matchesEngineer;
+      });
+      return { ...m, filteredTasks };
+    })
+    .filter(m => {
+      if (m.filteredTasks.length > 0) return true;
+      if ((m.tasks || []).length === 0 && taskStatusFilter === "all" && taskEngineerFilter === "all") {
+        return m.CM_Milestone_Name.toLowerCase().includes(searchMilestone.toLowerCase());
+      }
+      return false;
+    });
 
   // Helper functions
   const formatDate = (dateString) => {
@@ -2170,17 +2211,45 @@ export default function ProjectDetails({ params }) {
                     Project Milestones & Tasks
                   </h2>
 
-                  <div className="relative w-full md:w-64">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <FileText className="h-4 w-4 text-gray-400" />
+                  <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <div className="flex gap-2">
+                      <select
+                        value={taskStatusFilter}
+                        onChange={(e) => setTaskStatusFilter(e.target.value)}
+                        className="block w-full pl-3 pr-8 py-1.5 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-700 font-medium"
+                      >
+                        <option value="all">All Statuses</option>
+                        {uniqueStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={taskEngineerFilter}
+                        onChange={(e) => setTaskEngineerFilter(e.target.value)}
+                        className="block w-full pl-3 pr-8 py-1.5 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-700 font-medium"
+                      >
+                        <option value="all">All Engineers</option>
+                        {uniqueEngineers.map((eng) => (
+                          <option key={eng} value={eng}>
+                            {eng}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <input
-                      type="text"
-                      className="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Search Milestone or Task..."
-                      value={searchMilestone}
-                      onChange={(e) => setSearchMilestone(e.target.value)}
-                    />
+                    <div className="relative w-full md:w-64">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="Search Milestone or Task..."
+                        value={searchMilestone}
+                        onChange={(e) => setSearchMilestone(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -2190,13 +2259,15 @@ export default function ProjectDetails({ params }) {
                     <h3 className="text-gray-700 font-medium mb-1">No Milestones Found</h3>
                     <p className="text-gray-500 text-xs md:text-sm">This project doesn't have any milestones defined yet.</p>
                   </div>
+                ) : filteredMilestones.length === 0 ? (
+                  <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 md:p-8 text-center">
+                    <CheckSquare className="h-8 w-8 md:h-12 md:w-12 text-gray-400 mx-auto mb-2 md:mb-3" />
+                    <h3 className="text-gray-700 font-medium mb-1">No Matching Tasks or Milestones</h3>
+                    <p className="text-gray-500 text-xs md:text-sm">No tasks or milestones match your current filter criteria.</p>
+                  </div>
                 ) : (
                   <div className="space-y-5 md:space-y-8">
-                    {projectData.milestones
-                      .filter(m =>
-                        m.CM_Milestone_Name.toLowerCase().includes(searchMilestone.toLowerCase()) ||
-                        m.tasks?.some(t => t.CM_Task_Name.toLowerCase().includes(searchMilestone.toLowerCase()))
-                      )
+                    {filteredMilestones
                       .map((milestone, milestoneIndex) => (
                         <div key={`milestone-${milestoneIndex}`} className="bg-white border-2 border-gray-300 rounded-md overflow-hidden shadow-sm">
                           {/* Milestone Header */}
@@ -2213,12 +2284,11 @@ export default function ProjectDetails({ params }) {
                           </div>
 
                           {/* Tasks for this milestone */}
-                          {milestone.tasks && milestone.tasks.length > 0 ? (
+                          {milestone.filteredTasks && milestone.filteredTasks.length > 0 ? (
                             <div className="overflow-x-auto">
                               {/* Mobile View - Task Cards */}
                               <div className="md:hidden grid grid-cols-1 gap-3 p-3">
-                                {milestone.tasks
-                                  .filter(t => t.CM_Task_Name.toLowerCase().includes(searchMilestone.toLowerCase()) || milestone.CM_Milestone_Name.toLowerCase().includes(searchMilestone.toLowerCase()))
+                                {milestone.filteredTasks
                                   .map((task, taskIndex) => {
                                     const isExpanded = expandedTasks.has(task.CM_Task_ID);
                                     const taskHistory = projectData.taskUpdates?.filter(update => update.CM_Task_ID === task.CM_Task_ID) || [];
@@ -2284,8 +2354,7 @@ export default function ProjectDetails({ params }) {
                                   </tr>
                                 </thead>
                                 <tbody className="bg-white">
-                                  {milestone.tasks
-                                    .filter(t => t.CM_Task_Name.toLowerCase().includes(searchMilestone.toLowerCase()) || milestone.CM_Milestone_Name.toLowerCase().includes(searchMilestone.toLowerCase()))
+                                  {milestone.filteredTasks
                                     .map((task, taskIndex) => {
                                       const isExpanded = expandedTasks.has(task.CM_Task_ID);
                                       const taskHistory = projectData.taskUpdates?.filter(update =>

@@ -370,6 +370,7 @@ export default function ProjectPage() {
                 handleProductAllocation={handleProductAllocation}
                 handleExpenseTracker={handleExpenseTracker}
                 status={projects.CM_Status}
+                onDeleteSuccess={fetchProjects}
               />
             )}
 

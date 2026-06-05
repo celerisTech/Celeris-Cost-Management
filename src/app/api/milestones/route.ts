@@ -56,7 +56,58 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
-  const method = new URL(request.url).searchParams.get("_method");
+  const url = new URL(request.url);
+  let method = url.searchParams.get("_method");
+  let body: any = null;
+
+  if (!method) {
+    const clonedRequest = request.clone();
+    try {
+      body = await clonedRequest.json();
+      method = body?._method;
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  if (method === "DELETE") {
+    const milestoneId = (body && body.id) || url.searchParams.get('milestoneId');
+    if (!milestoneId) {
+      return NextResponse.json({ error: 'Milestone ID is required for deletion' }, { status: 400 });
+    }
+
+    try {
+      const db = await getDb();
+
+      // Check if milestone is used in ccms_task_master table
+      const [tasks]: any = await db.query(
+        `SELECT COUNT(*) as count FROM ccms_task_master WHERE CM_Milestone_ID = ?`,
+        [milestoneId]
+      );
+      const taskCount = Array.isArray(tasks) && tasks.length > 0 ? tasks[0].count : 0;
+
+      if (taskCount > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete milestone because it has tasks associated with it' },
+          { status: 400 }
+        );
+      }
+
+      await db.query(
+        `DELETE FROM ccms_milestone WHERE CM_Milestone_ID = ?`,
+        [milestoneId]
+      );
+
+      return NextResponse.json({ success: true, message: 'Milestone deleted successfully' });
+    } catch (err: any) {
+      console.error('Error deleting milestone:', err);
+      return NextResponse.json(
+        { error: 'Failed to delete milestone', details: err.message },
+        { status: 500 }
+      );
+    }
+  }
+
   if (method === "PUT") return PUT(request);
 
   try {

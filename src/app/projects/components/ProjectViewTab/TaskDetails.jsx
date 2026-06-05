@@ -34,13 +34,65 @@ export default function TaskDetails({
   updatesLoading,
   updatesError,
   calculateDelayDays,
-  milestones // Make sure milestones prop contains the actual milestone data
+  milestones, // Make sure milestones prop contains the actual milestone data
+  onDeleteSuccess
 }) {
+  const [alertInfo, setAlertInfo] = React.useState({ show: false, message: '', type: 'info' });
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState(null);
+
+  const showLocalAlert = (message, type = 'info') => {
+    setAlertInfo({ show: true, message, type });
+    setTimeout(() => {
+      setAlertInfo(prev => ({ ...prev, show: false }));
+    }, 4500);
+  };
+
+  const performDeleteTask = async (taskId) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: taskId,
+          _method: "DELETE",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        showLocalAlert(data.error || "Failed to delete task", "error");
+        return;
+      }
+
+      showLocalAlert("Task deleted successfully", "success");
+      if (onDeleteSuccess) {
+        onDeleteSuccess();
+      }
+    } catch (err) {
+      console.error("Error deleting task:", err);
+      showLocalAlert("An error occurred while deleting the task", "error");
+    }
+  };
+
+  const handleDeleteTask = (taskId) => {
+    setDeleteConfirmId(taskId);
+  };
+
   // State for edit modal
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [expandedTaskId, setExpandedTaskId] = React.useState(null);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterStatus, setFilterStatus] = React.useState('All');
+  const [filterEngineer, setFilterEngineer] = React.useState('All');
+
+  const projectEngineers = React.useMemo(() => {
+    if (!engineers || !projectTasks) return [];
+    const activeEngineerIds = new Set(projectTasks.map(t => t.CM_Engineer_ID).filter(Boolean));
+    return engineers.filter(e => activeEngineerIds.has(e.CM_User_ID));
+  }, [engineers, projectTasks]);
 
   const filteredTasks = React.useMemo(() => {
     return projectTasks.filter(task => {
@@ -54,9 +106,18 @@ export default function TaskDetails({
         matchesStatus = latestStatus === filterStatus;
       }
 
-      return matchesSearch && matchesStatus;
+      let matchesEngineer = true;
+      if (filterEngineer !== 'All') {
+        if (filterEngineer === 'Unassigned') {
+          matchesEngineer = !task.CM_Engineer_ID;
+        } else {
+          matchesEngineer = String(task.CM_Engineer_ID) === String(filterEngineer);
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesEngineer;
     });
-  }, [projectTasks, searchTerm, filterStatus, getTaskDelayInfo]);
+  }, [projectTasks, searchTerm, filterStatus, filterEngineer, getTaskDelayInfo]);
 
   // Group tasks by milestone with proper milestone data
   const tasksByMilestone = React.useMemo(() => {
@@ -243,13 +304,27 @@ export default function TaskDetails({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full p-2.5 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black"
+              className="w-full p-2.5 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black font-medium"
             >
               <option value="All">All Statuses</option>
               <option value="Completed">Completed</option>
               <option value="In Progress">In Progress</option>
               <option value="On Hold">On Hold</option>
               <option value="Not Started">Not Started</option>
+            </select>
+          </div>
+          <div className="sm:w-48">
+            <select
+              value={filterEngineer}
+              onChange={(e) => setFilterEngineer(e.target.value)}
+              className="w-full p-2.5 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black font-medium"
+            >
+              <option value="All">All Engineers</option>
+              {projectEngineers && projectEngineers.map((engineer) => (
+                <option key={engineer.CM_User_ID} value={engineer.CM_User_ID}>
+                  {engineer.CM_Full_Name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -544,23 +619,33 @@ export default function TaskDetails({
                                 )}
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-500">
-                                {/* Edit Button Only */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation(); // Prevent row click
-                                    const actualMilestone = milestones.find(m => m.CM_Milestone_ID === task.CM_Milestone_ID);
-                                    setEditTask({
-                                      ...task,
-                                      CM_Assign_Date: toDateInputValue(task.CM_Assign_Date),
-                                      CM_Due_Date: toDateInputValue(task.CM_Due_Date),
-                                      _milestone: actualMilestone || null,
-                                    });
-                                    setIsEditModalOpen(true);
-                                  }}
-                                  className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 text-center"
-                                >
-                                  Edit
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // Prevent row click
+                                      const actualMilestone = milestones.find(m => m.CM_Milestone_ID === task.CM_Milestone_ID);
+                                      setEditTask({
+                                        ...task,
+                                        CM_Assign_Date: toDateInputValue(task.CM_Assign_Date),
+                                        CM_Due_Date: toDateInputValue(task.CM_Due_Date),
+                                        _milestone: actualMilestone || null,
+                                      });
+                                      setIsEditModalOpen(true);
+                                    }}
+                                    className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 text-center"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // Prevent row click
+                                      handleDeleteTask(task.CM_Task_ID);
+                                    }}
+                                    className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 text-center"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                             {expandedTaskId === task.CM_Task_ID && selectedTask && selectedTask.CM_Task_ID === task.CM_Task_ID && (
@@ -820,6 +905,82 @@ export default function TaskDetails({
         </div>
       )}
 
+      {/* Custom Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 bg-red-500 text-white flex items-center gap-2">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <h3 className="text-lg font-bold">Confirm Deletion</h3>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 text-black">
+              <p className="text-gray-700 font-medium mb-1">Are you sure you want to delete this task?</p>
+              <p className="text-gray-500 text-xs">This action is permanent and cannot be undone.</p>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  performDeleteTask(deleteConfirmId);
+                  setDeleteConfirmId(null);
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-md"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Premium Toast Alert */}
+      {alertInfo.show && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] max-w-sm w-[90%] animate-fade-in-up">
+          <div className={`rounded-xl shadow-xl px-4 py-3 sm:px-5 sm:py-3.5 flex items-center gap-3 border backdrop-blur-md transition-all duration-300 ${
+            alertInfo.type === 'success'
+              ? 'bg-green-50/95 border-green-200 text-green-800'
+              : alertInfo.type === 'error'
+              ? 'bg-red-50/95 border-red-200 text-red-800'
+              : 'bg-blue-50/95 border-blue-200 text-blue-800'
+          }`}>
+            <div className="flex-shrink-0">
+              {alertInfo.type === 'success' ? (
+                <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : alertInfo.type === 'error' ? (
+                <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm truncate">{alertInfo.message}</p>
+            </div>
+            <button onClick={() => setAlertInfo(prev => ({ ...prev, show: false }))} className="ml-auto text-gray-400 hover:text-gray-600">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -44,10 +44,3 @@ export async function POST(request) {
   }
 }
 
-// This config is handled differently in Next.js App Router
-export const config = {
-  api: {
-    bodyParser: false,
-    responseLimit: '10mb',
-  },
-};
