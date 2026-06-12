@@ -96,6 +96,7 @@ export default function NewProjectTab({
     CM_Assign_Date: "",
     CM_Due_Date: "",
     CM_Is_Active: "Active",
+    CM_Image_URL: "",
     CM_Created_By: authUser?.CM_Full_Name ?? "",
     CM_Uploaded_By: authUser?.CM_Full_Name ?? "",
   };
@@ -119,6 +120,20 @@ export default function NewProjectTab({
 
   // Effects
 
+  const fetchCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+      const res = await fetch("/api/customers/add");
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      const data = await res.json();
+      setCustomers(Array.isArray(data) ? data : []);
+      setLoadingCustomers(false);
+    } catch (err) {
+      setCustomersError("Failed to load customers.");
+      setLoadingCustomers(false);
+    }
+  };
+
   // Load engineers and customers on initial mount
   useEffect(() => {
     let cancelled = false;
@@ -139,23 +154,6 @@ export default function NewProjectTab({
       }
     };
 
-    const fetchCustomers = async () => {
-      try {
-        const res = await fetch("/api/customers/add");
-        if (!res.ok) throw new Error("Failed to fetch customers");
-        const data = await res.json();
-        if (!cancelled) {
-          setCustomers(Array.isArray(data) ? data : []);
-          setLoadingCustomers(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setCustomersError("Failed to load customers.");
-          setLoadingCustomers(false);
-        }
-      }
-    };
-
     fetchEngineers();
     fetchCustomers();
 
@@ -166,7 +164,7 @@ export default function NewProjectTab({
 
   // Handle initialProjectId changes
   useEffect(() => {
-    if (initialProjectId) {
+    if (initialProjectId && initialProjectId !== 'new' && initialProjectId !== 'null' && initialProjectId !== 'undefined') {
       setIsEditMode(true);
       setCreatedProjectId(initialProjectId);
       fetchProject(initialProjectId);
@@ -202,7 +200,7 @@ export default function NewProjectTab({
 
   // Helper functions
   const fetchProject = async (projectId) => {
-    if (!projectId) return;
+    if (!projectId || projectId === 'new' || projectId === 'null' || projectId === 'undefined') return;
 
     try {
       const res = await fetch(`/api/projects?projectId=${projectId}`);
@@ -276,7 +274,7 @@ export default function NewProjectTab({
   };
 
   const fetchMilestonesForProject = async (projectId) => {
-    if (!projectId) return;
+    if (!projectId || projectId === 'new' || projectId === 'null' || projectId === 'undefined') return;
 
     try {
       setMilestonesLoading(true);
@@ -299,7 +297,7 @@ export default function NewProjectTab({
   };
 
   const fetchTasksForProject = async (projectId) => {
-    if (!projectId) return;
+    if (!projectId || projectId === 'new' || projectId === 'null' || projectId === 'undefined') return;
 
     try {
       setLoadingHistory(true);
@@ -672,6 +670,7 @@ export default function NewProjectTab({
             setActiveStep={setActiveStep}
             customers={customers}
             handleStepNavigation={handleStepNavigation}
+            refreshCustomers={fetchCustomers}
           />
         )}
 
@@ -705,6 +704,8 @@ export default function NewProjectTab({
             setTaskForms={setTaskForms}
             isEditMode={isEditMode}
             handleStepNavigation={handleStepNavigation}
+            fetchProject={fetchProject}
+            refreshProjects={fetchProjectsHistory}
           />
         )}
 

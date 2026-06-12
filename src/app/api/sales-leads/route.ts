@@ -70,47 +70,173 @@ export async function GET(request: NextRequest) {
     // Dashboard stats
     if (type === 'dashboard') {
       const [statsRows]: any = await db.query(`
-        SELECT 
-          (SELECT COUNT(*) FROM ccms_sales_lead WHERE CM_Is_Deleted = 0) AS total_leads,
-          (SELECT COUNT(*) FROM ccms_sales_lead WHERE CM_Lead_Status = 'New Lead' AND CM_Is_Deleted = 0) AS new_leads,
-          (SELECT COUNT(*) FROM ccms_sales_lead WHERE CM_Lead_Status = 'Converted' AND CM_Is_Deleted = 0) AS converted_leads,
-          (SELECT COUNT(*) FROM ccms_sales_lead WHERE CM_Lead_Status = 'Rejected' AND CM_Is_Deleted = 0) AS rejected_leads,
-          (SELECT COUNT(*) FROM ccms_sales_visit WHERE CM_Next_Followup_Date < CURDATE() AND CM_Is_Deleted = 0) AS pending_followups
-      `);
-      const stats = statsRows[0] || { total_leads: 0, new_leads: 0, converted_leads: 0, rejected_leads: 0, pending_followups: 0 };
-      Object.keys(stats).forEach(key => { stats[key] = Number(stats[key] || 0); });
+    SELECT 
+      (SELECT COUNT(*) 
+       FROM ccms_sales_lead 
+       WHERE CM_Is_Deleted = 0) AS total_leads,
 
+      (SELECT COUNT(*) 
+       FROM ccms_sales_lead 
+       WHERE CM_Lead_Status = 'New Lead' 
+         AND CM_Is_Deleted = 0) AS new_leads,
+
+      (SELECT COUNT(*) 
+       FROM ccms_sales_lead 
+       WHERE CM_Lead_Status = 'Converted' 
+         AND CM_Is_Deleted = 0) AS converted_leads,
+
+      (SELECT COUNT(*) 
+       FROM ccms_sales_visit 
+       WHERE CM_Visit_Status IN ('Rejected', 'Not Interested') 
+         AND CM_Is_Deleted = 0) AS rejected_leads,
+
+      (SELECT COUNT(*) 
+       FROM ccms_sales_lead 
+       WHERE CM_Lead_Status = 'On Hold' 
+         AND CM_Is_Deleted = 0) AS on_hold_leads
+  `);
+
+      const stats =
+        statsRows[0] || {
+          total_leads: 0,
+          new_leads: 0,
+          converted_leads: 0,
+          rejected_leads: 0,
+          on_hold_leads: 0,
+        };
+
+      Object.keys(stats).forEach((key) => {
+        stats[key] = Number(stats[key] || 0);
+      });
+
+      // Pending / Upcoming Followups (latest visit only)
       const [followups]: any = await db.query(`
-        SELECT v.*, l.CM_Client_Name, l.CM_Company_Name, u.CM_Full_Name AS Executive_Name
-        FROM ccms_sales_visit v
-        LEFT JOIN ccms_sales_lead l ON v.CM_Lead_ID COLLATE utf8mb4_general_ci = l.CM_Lead_ID COLLATE utf8mb4_general_ci
-        LEFT JOIN ccms_users u ON v.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
-        WHERE v.CM_Next_Followup_Date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
-          AND v.CM_Is_Deleted = 0 
-          AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested')
-        ORDER BY v.CM_Next_Followup_Date ASC LIMIT 10
-      `);
+    SELECT
+      v.*,
+      l.CM_Client_Name,
+      l.CM_Company_Name,
+      l.CM_Lead_Status,
+      u.CM_Full_Name AS Executive_Name
+    FROM ccms_sales_visit v
+    INNER JOIN (
+      SELECT
+        CM_Lead_ID,
+        MAX(CM_Visit_Date) AS LastVisitDate
+      FROM ccms_sales_visit
+      WHERE CM_Is_Deleted = 0
+      GROUP BY CM_Lead_ID
+    ) lv
+      ON v.CM_Lead_ID = lv.CM_Lead_ID
+      AND v.CM_Visit_Date = lv.LastVisitDate
 
+    LEFT JOIN ccms_sales_lead l
+      ON v.CM_Lead_ID COLLATE utf8mb4_general_ci =
+         l.CM_Lead_ID COLLATE utf8mb4_general_ci
+
+    LEFT JOIN ccms_users u
+      ON v.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci =
+         u.CM_User_ID COLLATE utf8mb4_general_ci
+
+    WHERE v.CM_Is_Deleted = 0
+      AND v.CM_Next_Followup_Date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested')
+      AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested')
+
+    ORDER BY v.CM_Next_Followup_Date ASC
+  `);
+
+      // Overdue Followup Count (latest visit only)
+      const [overdueRows]: any = await db.query(`
+    SELECT COUNT(*) AS pending_followups
+    FROM ccms_sales_visit v
+    INNER JOIN (
+      SELECT
+        CM_Lead_ID,
+        MAX(CM_Visit_Date) AS LastVisitDate
+      FROM ccms_sales_visit
+      WHERE CM_Is_Deleted = 0
+      GROUP BY CM_Lead_ID
+    ) lv
+      ON v.CM_Lead_ID = lv.CM_Lead_ID
+      AND v.CM_Visit_Date = lv.LastVisitDate
+
+    LEFT JOIN ccms_sales_lead l
+      ON v.CM_Lead_ID COLLATE utf8mb4_general_ci =
+         l.CM_Lead_ID COLLATE utf8mb4_general_ci
+
+    WHERE v.CM_Is_Deleted = 0
+      AND v.CM_Next_Followup_Date < CURDATE()
+      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested')
+      AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested')
+  `);
+
+      stats.pending_followups = Number(
+        overdueRows?.[0]?.pending_followups || 0
+      );
+
+      // Finance Stats
       const [financesRows]: any = await db.query(`
-        SELECT 
-          SUM(CASE WHEN CM_Payment_Status = 'Paid' THEN CM_Amount ELSE 0 END) AS total_collection,
-          SUM(CASE WHEN CM_Payment_Status = 'Pending' THEN CM_Amount ELSE 0 END) AS pending_payments
-        FROM ccms_sales_payment WHERE CM_Is_Deleted = 0
-      `);
-      const finances = financesRows[0] || { total_collection: 0, pending_payments: 0 };
+    SELECT 
+      SUM(
+        CASE 
+          WHEN CM_Payment_Status = 'Paid' 
+          THEN CM_Amount 
+          ELSE 0 
+        END
+      ) AS total_collection,
 
+      SUM(
+        CASE 
+          WHEN CM_Payment_Status = 'Pending' 
+          THEN CM_Amount 
+          ELSE 0 
+        END
+      ) AS pending_payments
+
+    FROM ccms_sales_payment
+    WHERE CM_Is_Deleted = 0
+  `);
+
+      const finances = financesRows[0] || {
+        total_collection: 0,
+        pending_payments: 0,
+      };
+
+      // Top Executives
       const [topExecs]: any = await db.query(`
-        SELECT u.CM_User_ID, u.CM_Full_Name, 
-          COUNT(sl.CM_Lead_ID) as lead_count,
-          SUM(CASE WHEN sl.CM_Lead_Status = 'Converted' THEN 1 ELSE 0 END) as converted
-        FROM ccms_users u
-        JOIN ccms_sales_lead sl ON u.CM_User_ID COLLATE utf8mb4_general_ci = sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci
-        WHERE sl.CM_Is_Deleted = 0
-        GROUP BY u.CM_User_ID, u.CM_Full_Name
-        ORDER BY converted DESC LIMIT 5
-      `);
+    SELECT
+      u.CM_User_ID,
+      u.CM_Full_Name,
+      COUNT(sl.CM_Lead_ID) AS lead_count,
+      SUM(
+        CASE
+          WHEN sl.CM_Lead_Status = 'Converted'
+          THEN 1
+          ELSE 0
+        END
+      ) AS converted
 
-      const [todayVisitsRow]: any = await db.query(`SELECT COUNT(*) as count FROM ccms_sales_visit WHERE CM_Visit_Date = CURDATE() AND CM_Is_Deleted = 0`);
+    FROM ccms_users u
+    INNER JOIN ccms_sales_lead sl
+      ON u.CM_User_ID COLLATE utf8mb4_general_ci =
+         sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci
+
+    WHERE sl.CM_Is_Deleted = 0
+
+    GROUP BY
+      u.CM_User_ID,
+      u.CM_Full_Name
+
+    ORDER BY converted DESC, lead_count DESC
+  `);
+
+      // Today's Visits
+      const [todayVisitsRow]: any = await db.query(`
+    SELECT COUNT(*) AS count
+    FROM ccms_sales_visit
+    WHERE CM_Visit_Date = CURDATE()
+      AND CM_Is_Deleted = 0
+  `);
 
       return safeJsonResponse({
         stats,
@@ -118,10 +244,9 @@ export async function GET(request: NextRequest) {
         totalCollection: Number(finances.total_collection || 0),
         pendingPayments: Number(finances.pending_payments || 0),
         topExecutives: topExecs || [],
-        todayVisits: Number(todayVisitsRow?.[0]?.count || 0)
+        todayVisits: Number(todayVisitsRow?.[0]?.count || 0),
       });
     }
-
     // Sales executives list
     if (type === 'executives') {
       const [executives] = await db.query(
@@ -180,7 +305,14 @@ export async function GET(request: NextRequest) {
     let whereClause = 'WHERE sl.CM_Is_Deleted = 0';
     const params: any[] = [];
 
-    if (status) { whereClause += ' AND sl.CM_Lead_Status = ?'; params.push(status); }
+    if (status) {
+      if (status === 'Rejected' || status === 'Not Interested') {
+        whereClause += " AND sl.CM_Lead_Status IN ('Rejected', 'Not Interested')";
+      } else {
+        whereClause += ' AND sl.CM_Lead_Status = ?';
+        params.push(status);
+      }
+    }
     if (executiveId) { whereClause += ' AND sl.CM_Sales_Executive_ID = ?'; params.push(executiveId); }
     if (industrialId) { whereClause += ' AND sl.CM_Industrial_ID = ?'; params.push(industrialId); }
     if (categoryId) { whereClause += ' AND sl.CM_Category_ID = ?'; params.push(categoryId); }

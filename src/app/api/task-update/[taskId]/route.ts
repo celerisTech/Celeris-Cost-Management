@@ -34,15 +34,21 @@ export async function POST(
     }
 
     let imagePath: string | null = null;
-    const file = formData.get("image") as File | null;
+    const imageInput = formData.get("image");
 
-    if (file) {
-      const bytes = Buffer.from(await file.arrayBuffer());
-      const filename = `${Date.now()}-${file.name}`;
-      const publicDir = path.join(process.cwd(), "public", "uploads");
+    if (imageInput) {
+      if (typeof imageInput === 'string' && imageInput.startsWith('data:image')) {
+        imagePath = imageInput;
+      } else if (imageInput instanceof File) {
+        const bytes = Buffer.from(await imageInput.arrayBuffer());
+        const filename = `${Date.now()}-${imageInput.name}`;
+        const publicDir = path.join(process.cwd(), "public", "uploads");
 
-      await writeFile(path.join(publicDir, filename), bytes);
-      imagePath = `/uploads/${filename}`;
+        await writeFile(path.join(publicDir, filename), bytes);
+        imagePath = `/uploads/${filename}`;
+      } else if (typeof imageInput === 'string') {
+        imagePath = imageInput; // In case it's already a URL
+      }
     }
 
     const db = await getDb();

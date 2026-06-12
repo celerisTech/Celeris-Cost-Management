@@ -211,3 +211,37 @@ async function PUT(req: Request) {
     return res;
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const customerId = request.nextUrl.searchParams.get('customerId');
+    if (!customerId) {
+      return NextResponse.json({ error: 'Customer ID is required' }, { status: 400 });
+    }
+
+    const db = await getDb();
+
+    // Check if customer is linked to any project
+    const [projects]: any = await db.query(
+      `SELECT COUNT(*) as count FROM ccms_projects WHERE CM_Customer_ID = ?`,
+      [customerId]
+    );
+    const count = Array.isArray(projects) && projects.length > 0 ? projects[0].count : 0;
+
+    if (count > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete customer because they have projects associated with them.' },
+        { status: 400 }
+      );
+    }
+
+    await db.query(`DELETE FROM ccms_customer WHERE CM_Customer_ID = ?`, [customerId]);
+    return NextResponse.json({ success: true, message: 'Customer deleted successfully' });
+  } catch (error: any) {
+    console.error("❌ MySQL Error (DELETE customer):", error);
+    return NextResponse.json(
+      { error: "Failed to delete customer", details: error.message },
+      { status: 500 }
+    );
+  }
+}

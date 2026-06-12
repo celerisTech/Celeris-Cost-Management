@@ -42,6 +42,7 @@ export default function EngineerUpdatePage() {
     image: null,
     updateDate: '',
   });
+  const [previewImage, setPreviewImage] = useState(null);
 
   // New state for search and filtering
   const [searchTerm, setSearchTerm] = useState('');
@@ -473,7 +474,12 @@ export default function EngineerUpdatePage() {
 
   const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setUpdateData({ ...updateData, image: e.target.files[0] });
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUpdateData({ ...updateData, image: reader.result });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -829,7 +835,18 @@ export default function EngineerUpdatePage() {
                   return (
                     <div key={`mobile-${task.CM_Task_ID}`} className="bg-white border border-slate-300 rounded-md shadow-sm p-4 flex flex-col gap-3">
                       <div className="flex justify-between items-start gap-2">
-                        <h3 className="font-bold text-blue-600 text-sm leading-tight">{task.CM_Task_Name}</h3>
+                        <div>
+                          <h3 className="font-bold text-blue-600 text-sm leading-tight">{task.CM_Task_Name}</h3>
+                          {task.CM_Image_URL && (
+                            <button 
+                              onClick={() => setPreviewImage(task.CM_Image_URL)}
+                              className="mt-1.5 flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 hover:bg-blue-100 transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                              View Task Image
+                            </button>
+                          )}
+                        </div>
                         <div className="flex flex-col items-end gap-1 flex-shrink-0">
                           {getStatusBadge(delayInfo.latestStatus)}
                           {delayInfo.isDelayed && delayInfo.latestStatus !== "Completed" && (
@@ -904,10 +921,13 @@ export default function EngineerUpdatePage() {
                               <p className="text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100"><span className="font-semibold text-slate-700 block mb-0.5">Remarks:</span> {update.CM_Remarks || '-'}</p>
                               <div className="flex justify-end items-center mt-1 pt-1.5 border-t border-slate-100 gap-2">
                                 {update.CM_Image_URL && (
-                                  <a href={update.CM_Image_URL} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                                  <button 
+                                    onClick={() => setPreviewImage(update.CM_Image_URL)}
+                                    className="text-blue-600 font-medium hover:underline flex items-center gap-1 bg-transparent border-none p-0 cursor-zoom-in"
+                                  >
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                     View Image
-                                  </a>
+                                  </button>
                                 )}
                                 <button
                                   onClick={() => handleEditUpdate(update, task)}
@@ -949,7 +969,21 @@ export default function EngineerUpdatePage() {
                         <tbody key={task.CM_Task_ID}>
                           <tr className="border-b border-slate-300 hover:bg-slate-50 transition-colors odd:bg-white even:bg-slate-50">
                             <td className="px-3 py-2 border border-slate-300 font-medium text-blue-600">
-                              {task.CM_Task_Name}
+                              <div className="flex flex-col items-start gap-1">
+                                <span>{task.CM_Task_Name}</span>
+                                {task.CM_Image_URL && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPreviewImage(task.CM_Image_URL);
+                                    }}
+                                    className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    Attachment
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2 border border-slate-300 text-slate-600">
                               {task.CM_Milestone_Name || 'Unassigned'}
@@ -1031,7 +1065,12 @@ export default function EngineerUpdatePage() {
                                               <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 max-w-[200px] truncate" title={update.CM_Remarks || ''}>{update.CM_Remarks || '-'}</td>
                                               <td className="px-3 py-1.5 border-r border-slate-200 text-center">
                                                 {update.CM_Image_URL ? (
-                                                  <a href={update.CM_Image_URL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View</a>
+                                                  <img
+                                                    src={update.CM_Image_URL}
+                                                    alt="Update Attachment"
+                                                    className="w-6 h-6 object-cover rounded border border-gray-200 cursor-zoom-in mx-auto hover:opacity-80 transition-opacity"
+                                                    onClick={() => setPreviewImage(update.CM_Image_URL)}
+                                                  />
                                                 ) : '-'}
                                               </td>
                                               <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{update.CM_Uploaded_By || 'System'}</td>
@@ -1085,8 +1124,8 @@ export default function EngineerUpdatePage() {
 
         {/* Update Task Modal */}
         {showUpdateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm animate-fadeIn p-4">
-            <div className="bg-white border-3 border-blue-500 rounded-xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-95 hover:scale-100">
+          <div className="fixed bg-black/50 inset-0 z-50 flex items-center justify-center backdrop-blur-sm animate-fadeIn p-4">
+            <div className="bg-white border border-blue-500 rounded-xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-95 hover:scale-100">
               <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Update Task Status</h3>
               <p className="text-sm sm:text-base text-gray-600 mb-6 break-words"><span className="font-semibold text-blue-600">{updatingTask?.CM_Task_Name}</span></p>
 
@@ -1193,6 +1232,30 @@ export default function EngineerUpdatePage() {
 
                 <div>
                   <label htmlFor="image" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Upload Image (optional)</label>
+                  
+                  {updateData.image && (
+                    <div className="mb-2 relative w-24 h-24 sm:w-32 sm:h-32 group">
+                      <img
+                        src={updateData.image}
+                        alt="Preview"
+                        className="w-full h-full object-cover rounded border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUpdateData(prev => ({ ...prev, image: null }));
+                          // Reset the file input
+                          const fileInput = document.getElementById('image');
+                          if (fileInput) fileInput.value = '';
+                        }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs hover:bg-red-600 shadow-md transition"
+                        title="Remove Image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
                   <input
                     type="file"
                     id="image"
@@ -1201,7 +1264,7 @@ export default function EngineerUpdatePage() {
                     onChange={handleImageChange}
                     className="w-full text-xs sm:text-sm text-gray-800 file:mr-2 sm:file:mr-4 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-blue-300 file:text-blue-900 hover:file:bg-blue-300"
                   />
-                </div>
+                 </div>
 
                 <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-4 pt-4 sm:pt-6">
                   <button type="button" onClick={() => setShowUpdateModal(false)} className="px-4 sm:px-5 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors order-2 sm:order-1">
@@ -1230,8 +1293,8 @@ export default function EngineerUpdatePage() {
 
         {/* Edit Task Update Modal */}
         {showEditModal && editingUpdate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm animate-fadeIn p-4">
-            <div className="bg-white border-3 border-emerald-500 rounded-xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-95 hover:scale-100">
+          <div className="fixed bg-black/50 inset-0 z-50 flex items-center justify-center backdrop-blur-sm animate-fadeIn p-4">
+            <div className="bg-white border border-emerald-500 rounded-xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-95 hover:scale-100">
               <div className="flex justify-between items-center mb-4 sm:mb-6">
                 <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 flex-1">Edit Task Update</h3>
                 <button
@@ -1379,7 +1442,18 @@ export default function EngineerUpdatePage() {
                     id="editImage"
                     name="editImage"
                     accept="image/*"
-                    onChange={(e) => setEditData({ ...editData, image: e.target.files?.[0] || null })}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setEditData({ ...editData, image: reader.result });
+                        };
+                        reader.readAsDataURL(file);
+                      } else {
+                        setEditData({ ...editData, image: null });
+                      }
+                    }}
                     className="w-full text-xs sm:text-sm text-gray-800 file:mr-2 sm:file:mr-4 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-emerald-300 file:text-emerald-900 hover:file:bg-emerald-300"
                   />
                   <p className="text-xs text-gray-500 mt-1">Leave empty to keep the current image</p>
@@ -1467,6 +1541,21 @@ export default function EngineerUpdatePage() {
                 </svg>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Image Preview Lightbox */}
+        {previewImage && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4" 
+            onClick={() => setPreviewImage(null)}
+          >
+            <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain" />
+            <button className="absolute top-4 right-4 text-white hover:text-gray-300">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 

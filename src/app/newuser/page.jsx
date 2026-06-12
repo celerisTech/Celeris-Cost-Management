@@ -406,302 +406,204 @@ function AddUser() {
             year: 'numeric',
         });
     };
-    return (
-    <div className="flex h-screen bg-white">
-        <Navbar />
-        <div className="flex-1 overflow-y-auto p-6 min-h-screen flex items-start justify-center relative overflow-hidden">
-            {/* Animated Background */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-200/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
-            </div>
 
-            <div className="relative z-10 w-full mt-6">
-                {/* Header Section */}
-                <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg shadow-sm">
-                            <UserPlus className="h-10 w-10 text-blue-600" />
-                        </div>
+    // Excel Row Component
+    const ExcelRow = ({ label, children, required }) => (
+        <div className="flex flex-col sm:flex-row border-b border-gray-300 last:border-b-0">
+            <div className="sm:w-1/3 bg-gray-100 p-3 text-sm font-medium text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-300 flex items-center">
+                {label} {required && <span className="text-red-500 ml-1">*</span>}
+            </div>
+            <div className="sm:w-2/3 bg-white relative">
+                {children}
+            </div>
+        </div>
+    );
+
+    const inputClasses = "w-full h-full px-3 py-2.5 text-sm text-gray-800 bg-transparent focus:outline-none focus:bg-blue-50 focus:ring-inset focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-50";
+
+    return (
+        <div className="flex h-screen bg-gray-50">
+            <Navbar />
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 min-h-screen">
+                <div className="max-w-6xl mx-auto">
+                    {/* Header Section */}
+                    <div className="flex items-center justify-between mb-6">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-800">Add New User</h1>
+                            <p className="text-sm text-gray-500 mt-1">Enter user details in the grid below</p>
                         </div>
-                    </div>
-                    <button
-                        onClick={() => window.history.back()}
-                        className="flex items-center gap-2 px-4 py-2.5 text-gray-600 bg-white hover:bg-gray-200 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md border border-gray-200"
-                        aria-label="Go back"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                        >
-                            <path
-                                fillRule="evenodd"
-                                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                                clipRule="evenodd"
-                            />
-                        </svg>
-                        <span className="text-sm font-medium">Back</span>
-                    </button>
-                </div>
-
-                {/* Main Form Container */}
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden">
-                    <form onSubmit={handleSubmit} className="space-y-8 p-8">
-                        {/* New: Top Save Button */}
-                        <div className="flex items-center justify-between border-b border-gray-200 pb-5">
-                            <h2 className="text-xl font-semibold text-gray-800">Create New User Account</h2>
+                        <div className="flex gap-3">
                             <button
-                                type="submit"
+                                type="button"
+                                onClick={() => window.history.back()}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md shadow-sm transition-all"
+                            >
+                                Back
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSubmit}
                                 disabled={isLoading}
-                                className="py-2.5 px-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-800 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center group shadow-md hover:shadow-lg"
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-all disabled:opacity-60 flex items-center"
                             >
                                 {isLoading ? (
-                                    <>
-                                        <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                                        <span>Saving...</span>
-                                    </>
+                                    <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Saving...</>
                                 ) : (
-                                    <>
-                                        <UserPlus className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                                        <span>Save User</span>
-                                    </>
+                                    <><UserPlus className="h-4 w-4 mr-2" /> Save User</>
                                 )}
                             </button>
                         </div>
+                    </div>
 
-                        {/* Labor Search Section */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-purple-50 rounded-lg">
-                                    <Search className="h-5 w-5 text-purple-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">Search Employee</h2>
-                            </div>
-
-                            <div className="relative">
-                                <div className="flex">
-                                    <div className="relative flex-1">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                        <input
-                                            ref={inputRefs.searchInput}
-                                            type="text"
-                                            placeholder="Search by Labor Code, Name, or Phone"
-                                            value={searchTerm}
-                                            onChange={handleSearchChange}
-                                            className="w-full pl-12 pr-4 py-3 bg-white/80 border border-gray-300 rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200"
-                                        />
-                                        {isSearching && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={searchLabors}
-                                        className="ml-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                                    >
-                                        Search
+                    <div className="bg-white border border-gray-300 shadow-sm rounded-none overflow-hidden">
+                        <form onSubmit={handleSubmit}>
+                            
+                            {/* SECTION: Employee Search */}
+                            <div className="bg-gray-800 text-white px-4 py-2 text-sm font-semibold uppercase tracking-wider flex items-center justify-between">
+                                <span>Search Employee</span>
+                                {selectedLabor && (
+                                    <button type="button" onClick={clearSelectedLabor} className="text-xs text-red-300 hover:text-red-100 flex items-center">
+                                        <XCircle className="w-3 h-3 mr-1" /> Clear Selection
                                     </button>
-                                </div>
+                                )}
+                            </div>
+                            <div className="border-b border-gray-300 p-4 bg-gray-50">
+                                <div className="relative max-w-xl">
+                                    <div className="flex">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                                            <input
+                                                ref={inputRefs.searchInput}
+                                                type="text"
+                                                placeholder="Search by Labor Code, Name, or Phone..."
+                                                value={searchTerm}
+                                                onChange={handleSearchChange}
+                                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-l-md text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                            />
+                                            {isSearching && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={searchLabors}
+                                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium border border-blue-600 rounded-r-md hover:bg-blue-700 transition-colors"
+                                        >
+                                            Search
+                                        </button>
+                                    </div>
 
-                                {/* Search Results Dropdown */}
-                                {showSearchResults && laborResults.length > 0 && (
-                                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                        <ul className="py-1">
-                                            {laborResults.map((labor) => (
-                                                <li
-                                                    key={labor.CM_Labor_Type_ID}
-                                                    onClick={() => handleLaborSelect(labor)}
-                                                    className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-gray-100 last:border-none"
-                                                >
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium text-gray-800">
-                                                            {labor.CM_Labor_Code} - {labor.CM_First_Name} {labor.CM_Last_Name}
+                                    {/* Search Results */}
+                                    {showSearchResults && laborResults.length > 0 && (
+                                        <div className="absolute z-20 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                            <ul className="py-1">
+                                                {laborResults.map((labor) => (
+                                                    <li
+                                                        key={labor.CM_Labor_Type_ID}
+                                                        onClick={() => handleLaborSelect(labor)}
+                                                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex justify-between items-center text-sm border-b border-gray-100 last:border-none"
+                                                    >
+                                                        <div>
+                                                            <span className="font-medium text-gray-800">
+                                                                {labor.CM_Labor_Code} - {labor.CM_First_Name} {labor.CM_Last_Name}
+                                                            </span>
+                                                            <div className="text-xs text-gray-500">{labor.CM_Phone_Number}</div>
+                                                        </div>
+                                                        <span className={`px-2 py-0.5 text-[10px] rounded bg-gray-100 border border-gray-200`}>
+                                                            {labor.CM_Labor_Type}
                                                         </span>
-                                                        <span className="text-sm text-gray-500">
-                                                            {labor.CM_Phone_Number}
-                                                        </span>
-                                                    </div>
-                                                    <span className={`px-2 py-1 text-xs rounded-full ${labor.CM_Labor_Type === 'Permanent' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                                                        {labor.CM_Labor_Type}
-                                                    </span>
-                                                </li>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {showSearchResults && searchTerm && laborResults.length === 0 && (
+                                        <div className="absolute z-20 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-3 text-center text-sm text-gray-600">
+                                            No employees found
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* SECTION: Role & Status */}
+                            <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                                Role & Status
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                                <div className="border-r border-gray-300">
+                                    <ExcelRow label="User Role" required>
+                                        <select
+                                            value={userData.CM_Role_ID}
+                                            onChange={(e) => handleInputChange("CM_Role_ID", e.target.value)}
+                                            className={inputClasses}
+                                            required
+                                        >
+                                            <option value="" disabled>Select Role...</option>
+                                            {roles.map((r) => (
+                                                <option key={r.CM_Role_ID} value={r.CM_Role_ID}>
+                                                    {r.CM_Role_Description}
+                                                </option>
                                             ))}
-                                        </ul>
-                                    </div>
-                                )}
-
-                                {showSearchResults && searchTerm && laborResults.length === 0 && (
-                                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center">
-                                        <p className="text-gray-600">No employees found matching "{searchTerm}"</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Selected Employee Information */}
-                            {selectedLabor && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center">
-                                            <div className="p-1.5 bg-blue-100 rounded-md mr-3">
-                                                <User className="h-4 w-4 text-blue-700" />
-                                            </div>
-                                            <h3 className="font-semibold text-blue-800">Selected Employee</h3>
-
-                                        </div>
-
-                                    </div>
-                                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        <div>
-                                            <span className="text-sm text-gray-800">Labor Code:</span>
-                                            <p className="font-medium text-gray-800">{selectedLabor.CM_Labor_Code}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm text-gray-800">Name:</span>
-                                            <p className="font-medium text-gray-800">{selectedLabor.CM_First_Name} {selectedLabor.CM_Last_Name}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm text-gray-800">Current Type:</span>
-                                            <p className="font-medium text-gray-800">{selectedLabor.CM_Labor_Type}</p>
-                                        </div>
-                                    </div>
+                                        </select>
+                                    </ExcelRow>
                                 </div>
-                            )}
-                        </div>
-
-                        {/* Section: Role & Status */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-red-50 rounded-lg">
-                                    <Key className="h-5 w-5 text-red-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">Role & Status</h2>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="relative">
-                                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <select
-                                        id="role"
-                                        value={userData.CM_Role_ID}
-                                        onChange={(e) => handleInputChange("CM_Role_ID", e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 appearance-none"
-                                        required
-                                    >
-                                        <option value="" disabled>Select User Role</option>
-                                        {roles.map((r) => (
-                                            <option key={r.CM_Role_ID} value={r.CM_Role_ID}>
-                                                {r.CM_Role_Description}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="relative">
-                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none">
-                                        {userData.CM_Is_Active === "Active" ? (
-                                            <div className="text-green-500">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                                    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                        ) : (
-                                            <div className="text-red-500">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                                    <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <select
-                                        id="status"
-                                        value={userData.CM_Is_Active}
-                                        onChange={(e) => handleInputChange("CM_Is_Active", e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 appearance-none"
-                                    >
-                                        <option value="Active">Active</option>
-                                        <option value="Inactive">Inactive</option>
-                                    </select>
+                                <div>
+                                    <ExcelRow label="Account Status">
+                                        <select
+                                            value={userData.CM_Is_Active}
+                                            onChange={(e) => handleInputChange("CM_Is_Active", e.target.value)}
+                                            className={inputClasses}
+                                        >
+                                            <option value="Active">Active</option>
+                                            <option value="Inactive">Inactive</option>
+                                        </select>
+                                    </ExcelRow>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Section: Personal Information */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-blue-50 rounded-lg">
-                                    <User className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">Personal Information</h2>
-
+                            {/* SECTION: Personal Information */}
+                            <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider mt-4 lg:mt-0 lg:border-t-0">
+                                Personal Information
                             </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                {/* First Name */}
-                                <div className="lg:col-span-1">
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
+                            <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                                <div className="border-r border-gray-300 flex flex-col">
+                                    <ExcelRow label="First Name" required>
                                         <input
                                             ref={inputRefs.firstName}
-                                            id="first-name"
                                             type="text"
-                                            placeholder="First Name"
                                             value={userData.CM_First_Name}
                                             onChange={(e) => handleInputChange("CM_First_Name", e.target.value)}
-                                            // disabled={fieldsLocked}
+                                            className={inputClasses}
                                             required
-                                            className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
                                         />
-                                    </div>
-                                </div>
-
-                                {/* Last Name */}
-                                <div className="lg:col-span-1">
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
+                                    </ExcelRow>
+                                    <ExcelRow label="Last Name" required>
                                         <input
                                             ref={inputRefs.lastName}
-                                            id="last-name"
                                             type="text"
-                                            placeholder="Last Name"
                                             value={userData.CM_Last_Name}
                                             onChange={(e) => handleInputChange("CM_Last_Name", e.target.value)}
-                                            // disabled={fieldsLocked}
+                                            className={inputClasses}
                                             required
-                                            className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
                                         />
-                                    </div>
-                                </div>
-
-                                {/* Father's Name */}
-                                <div className="lg:col-span-1">
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
+                                    </ExcelRow>
+                                    <ExcelRow label="Father's Name">
                                         <input
                                             ref={inputRefs.fatherName}
-                                            id="father-name"
                                             type="text"
-                                            placeholder="Father's Name"
                                             value={userData.CM_Father_Name}
                                             onChange={(e) => handleInputChange("CM_Father_Name", e.target.value)}
-                                            // disabled={fieldsLocked}
-                                            className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
+                                            className={inputClasses}
                                         />
-                                    </div>
+                                    </ExcelRow>
                                 </div>
-
-                                {/* Date of Birth */}
-                                <div className="lg:col-span-1">
-                                    <div className="relative">
-                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
+                                <div className="flex flex-col">
+                                    <ExcelRow label="Date of Birth">
                                         <input
-                                            id="dob"
                                             type="date"
-                                            placeholder="Date of Birth"
                                             value={
                                                 userData.CM_Date_Of_Birth
                                                     ? new Date(
@@ -713,438 +615,289 @@ function AddUser() {
                                                     : ""
                                             }
                                             onChange={(e) => handleInputChange("CM_Date_Of_Birth", e.target.value)}
-                                            // disabled={fieldsLocked}
-                                            className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
+                                            className={inputClasses}
                                         />
-                                    </div>
-                                </div>
-
-                                {/* Gender */}
-                                <div className="lg:col-span-1">
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
+                                    </ExcelRow>
+                                    <ExcelRow label="Gender">
                                         <select
-                                            id="gender"
                                             value={userData.CM_Gender}
                                             onChange={(e) => handleInputChange("CM_Gender", e.target.value)}
-                                            // disabled={fieldsLocked}
-                                            className={`w-full pl-12 pr-4 py-3.5 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 appearance-none`}
+                                            className={inputClasses}
                                         >
-                                            <option value="">Select Gender</option>
+                                            <option value="">Select Gender...</option>
                                             <option value="Male">Male</option>
                                             <option value="Female">Female</option>
                                             <option value="Other">Other</option>
                                         </select>
-                                    </div>
-                                </div>
-
-                                {/* Marriage Status */}
-                                <div className="lg:col-span-1">
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
+                                    </ExcelRow>
+                                    <ExcelRow label="Marriage Status">
                                         <select
-                                            id="CM_Marriage_Status"
                                             value={userData.CM_Marriage_Status || ""}
                                             onChange={(e) => handleInputChange("CM_Marriage_Status", e.target.value)}
-                                            // disabled={fieldsLocked}
-                                            className={`w-full pl-12 pr-4 py-3.5 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 appearance-none`}
+                                            className={inputClasses}
                                         >
-                                            <option value="">Select Marriage Status</option>
+                                            <option value="">Select Status...</option>
                                             <option value="Single">Single</option>
                                             <option value="Married">Married</option>
                                             <option value="Divorced">Divorced</option>
                                             <option value="Widowed">Widowed</option>
                                         </select>
-                                    </div>
+                                    </ExcelRow>
                                 </div>
-
-                                {/* Photo Upload Box */}
-                                <div className="lg:col-span-1">
-                                    <label
-                                        htmlFor="photo-upload"
-                                        className="flex items-center justify-between border border-gray-300 rounded-lg bg-gray-50 px-4 py-3 cursor-pointer hover:border-blue-400 transition-all h-full"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-white rounded-lg shadow-sm">
-                                                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth={2}
-                                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                                    />
-                                                </svg>
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-gray-700 font-medium text-sm">
-                                                    {photoPreview ? "Change Photo" : "Upload Photo"}
-                                                </span>
-                                                <span className="text-gray-400 text-xs">
-                                                    {photoPreview ? "Selected" : "JPG, PNG"}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {photoPreview && (
-                                            <img
-                                                src={photoPreview}
-                                                alt="Preview"
-                                                className="w-10 h-10 object-cover rounded-lg border-2 border-green-200"
-                                            />
-                                        )}
-
+                            </div>
+                            <div className="border-b border-gray-300">
+                                <ExcelRow label="Photo Upload">
+                                    <div className="flex items-center px-3 py-1">
                                         <input
                                             id="photo-upload"
                                             type="file"
                                             accept="image/*"
                                             onChange={handleFileChange}
-                                            className="hidden"
+                                            className="text-sm file:mr-4 file:py-1 file:px-3 file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                         />
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Section: Employment Details */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-green-50 rounded-lg">
-                                    <Briefcase className="h-5 w-5 text-green-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">Employment Details</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Employee Type */}
-                                <div className="relative">
-                                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <select
-                                        id="employee-type"
-                                        value={userData.CM_Employee_Type}
-                                        onChange={(e) => handleInputChange("CM_Employee_Type", e.target.value)}
-                                        // disabled={fieldsLocked}
-                                        className={`w-full pl-12 pr-4 py-3.5 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 appearance-none`}
-                                    >
-                                        <option value="">Select Employee Type</option>
-                                        <option value="Permanent">Permanent</option>
-                                        <option value="Temporary">Temporary</option>
-                                        <option value="Contract">Contract</option>
-                                    </select>
-                                </div>
-
-                                {/* Wage Type */}
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <select
-                                        id="wage-type"
-                                        value={userData.CM_Wage_Type}
-                                        onChange={(e) => handleInputChange("CM_Wage_Type", e.target.value)}
-                                        // disabled={fieldsLocked}
-                                        className={`w-full pl-12 pr-4 py-3.5 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 appearance-none`}
-                                    >
-                                        <option value="">Select Wage Type</option>
-                                        <option value="PerHour">Per Hour</option>
-                                        <option value="PerDay">Per Day</option>
-                                        <option value="PerMonth">Per Month</option>
-                                    </select>
-                                </div>
-
-                                {/* Wage Amount */}
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        id="wage-amount"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        placeholder="Wage Amount"
-                                        value={userData.CM_Wage_Amount}
-                                        onChange={(e) => handleInputChange("CM_Wage_Amount", e.target.value)}
-                                        // disabled={fieldsLocked}
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Section: Education & Experience */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-amber-50 rounded-lg">
-                                    <GraduationCap className="h-5 w-5 text-amber-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">Education & Experience</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Higher Education */}
-                                <div className="relative">
-                                    <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        id="education"
-                                        type="text"
-                                        placeholder="Higher Education"
-                                        value={userData.CM_Higher_Education}
-                                        onChange={(e) => handleInputChange("CM_Higher_Education", e.target.value)}
-                                        // disabled={fieldsLocked}
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                    />
-                                </div>
-
-                                {/* Company Association */}
-                                <div className="relative">
-                                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    {user?.CM_Company_ID ? (
-                                        // Display the user's company if they're already associated with one
-                                        <div className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg text-gray-800 flex items-center">
-                                            <span className="text-gray-700">
-                                                {companies.find(c => c.CM_Company_ID === user.CM_Company_ID)?.CM_Company_Name || 'Your Company'}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        // Allow selection if user doesn't have a company
-                                        <select
-                                            id="company"
-                                            value={userData.CM_Company_ID}
-                                            onChange={(e) => handleInputChange("CM_Company_ID", e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 appearance-none"
-                                            required
-                                        >
-                                            <option value="" disabled>Select Company</option>
-                                            {companies.map((c) => (
-                                                <option key={c.CM_Company_ID} value={c.CM_Company_ID}>
-                                                    {c.CM_Company_Name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Previous Experiences */}
-                            <div className="relative">
-                                <Briefcase className="absolute left-3 top-4 h-5 w-5 text-gray-500 pointer-events-none" />
-                                <textarea
-                                    id="experiences"
-                                    placeholder="Previous Experiences"
-                                    value={userData.CM_Previous_Experiences}
-                                    onChange={(e) => handleInputChange("CM_Previous_Experiences", e.target.value)}
-                                    // disabled={fieldsLocked}
-                                    className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 resize-none`}
-                                    rows="3"
-                                />
-                                {fieldsLocked && (
-                                    <div className="absolute right-3 top-4">
-                                        <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                                        {photoPreview && (
+                                            <img src={photoPreview} alt="Preview" className="h-8 w-8 object-cover border border-gray-300 ml-4" />
+                                        )}
                                     </div>
-                                )}
+                                </ExcelRow>
                             </div>
-                        </div>
 
-                        {/* Section: Contact Information */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-green-50 rounded-lg">
-                                    <Phone className="h-5 w-5 text-green-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">Contact Information</h2>
+                            {/* SECTION: Employment Details */}
+                            <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider mt-4 lg:mt-0 lg:border-t-0">
+                                Employment Details
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        ref={inputRefs.phone}
-                                        id="phone"
-                                        type="tel"
-                                        placeholder="Phone Number"
-                                        value={userData.CM_Phone_Number}
-                                        onChange={(e) =>
-                                            handleInputChange("CM_Phone_Number", e.target.value.replace(/\D/g, ""))
-                                        }
-                                        // disabled={fieldsLocked}
-                                        required
-                                        maxLength={10}
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                    />
+                            <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                                <div className="border-r border-gray-300 flex flex-col">
+                                    <ExcelRow label="Employee Type">
+                                        <select
+                                            value={userData.CM_Employee_Type}
+                                            onChange={(e) => handleInputChange("CM_Employee_Type", e.target.value)}
+                                            className={inputClasses}
+                                        >
+                                            <option value="">Select Type...</option>
+                                            <option value="Permanent">Permanent</option>
+                                            <option value="Temporary">Temporary</option>
+                                            <option value="Contract">Contract</option>
+                                        </select>
+                                    </ExcelRow>
+                                    <ExcelRow label="Company" required>
+                                        {user?.CM_Company_ID ? (
+                                            <div className="px-3 py-2.5 text-sm text-gray-700 bg-gray-50 border-none h-full w-full">
+                                                {companies.find(c => c.CM_Company_ID === user.CM_Company_ID)?.CM_Company_Name || 'Your Company'}
+                                            </div>
+                                        ) : (
+                                            <select
+                                                value={userData.CM_Company_ID}
+                                                onChange={(e) => handleInputChange("CM_Company_ID", e.target.value)}
+                                                className={inputClasses}
+                                                required
+                                            >
+                                                <option value="" disabled>Select Company...</option>
+                                                {companies.map((c) => (
+                                                    <option key={c.CM_Company_ID} value={c.CM_Company_ID}>
+                                                        {c.CM_Company_Name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </ExcelRow>
                                 </div>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        id="alt-phone"
-                                        type="tel"
-                                        placeholder="Alternative Phone (Optional)"
-                                        value={userData.CM_Alternative_Phone}
-                                        onChange={(e) =>
-                                            handleInputChange("CM_Alternative_Phone", e.target.value.replace(/\D/g, ""))
-                                        }
-                                        // disabled={fieldsLocked}
-                                        maxLength={10}
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                    />
-                                    {fieldsLocked && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        ref={inputRefs.email}
-                                        id="email"
-                                        type="email"
-                                        placeholder="Email Address"
-                                        value={userData.CM_Email}
-                                        onChange={(e) => handleInputChange("CM_Email", e.target.value)}
-                                        // disabled={fieldsLocked}
-                                        required
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        id="password"
-                                        type="password"
-                                        placeholder="Password (Optional)"
-                                        value={userData.CM_Password}
-                                        onChange={(e) => handleInputChange("CM_Password", e.target.value)}
-                                        autoComplete="new-password"
-                                        className="w-full pl-12 pr-4 py-3 bg-white/80 border border-gray-300 rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200"
-                                    />
+                                <div className="flex flex-col">
+                                    <ExcelRow label="Wage Type">
+                                        <select
+                                            value={userData.CM_Wage_Type}
+                                            onChange={(e) => handleInputChange("CM_Wage_Type", e.target.value)}
+                                            className={inputClasses}
+                                        >
+                                            <option value="">Select Wage Type...</option>
+                                            <option value="PerHour">Per Hour</option>
+                                            <option value="PerDay">Per Day</option>
+                                            <option value="PerMonth">Per Month</option>
+                                        </select>
+                                    </ExcelRow>
+                                    <ExcelRow label="Wage Amount">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={userData.CM_Wage_Amount}
+                                            onChange={(e) => handleInputChange("CM_Wage_Amount", e.target.value)}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
                                 </div>
                             </div>
-                        </div>
 
+                            {/* SECTION: Education & Experience */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                                <div className="border-r border-gray-300">
+                                    <ExcelRow label="Higher Education">
+                                        <input
+                                            type="text"
+                                            value={userData.CM_Higher_Education}
+                                            onChange={(e) => handleInputChange("CM_Higher_Education", e.target.value)}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
+                                </div>
+                                <div>
+                                    <ExcelRow label="Previous Experience">
+                                        <input
+                                            type="text"
+                                            value={userData.CM_Previous_Experiences}
+                                            onChange={(e) => handleInputChange("CM_Previous_Experiences", e.target.value)}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
+                                </div>
+                            </div>
 
-                        {/* Section: ID Documents */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-purple-50 rounded-lg">
-                                    <CreditCard className="h-5 w-5 text-purple-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">ID Documents</h2>
+                            {/* SECTION: Contact Information */}
+                            <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider mt-4 lg:mt-0 lg:border-t-0">
+                                Contact Information
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="relative">
-                                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        id="aadhaar"
-                                        type="text"
-                                        placeholder="Aadhaar Number"
-                                        value={userData.CM_Aadhaar_Number}
-                                        onChange={(e) =>
-                                            handleInputChange("CM_Aadhaar_Number", e.target.value.replace(/\D/g, ""))
-                                        }
-                                        // disabled={fieldsLocked}
-                                        maxLength={12}
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                    />
-                                    {fieldsLocked && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                                        </div>
-                                    )}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                                <div className="border-r border-gray-300 flex flex-col">
+                                    <ExcelRow label="Phone Number" required>
+                                        <input
+                                            ref={inputRefs.phone}
+                                            type="tel"
+                                            maxLength={10}
+                                            value={userData.CM_Phone_Number}
+                                            onChange={(e) => handleInputChange("CM_Phone_Number", e.target.value.replace(/\D/g, ""))}
+                                            className={inputClasses}
+                                            required
+                                        />
+                                    </ExcelRow>
+                                    <ExcelRow label="Email Address">
+                                        <input
+                                            ref={inputRefs.email}
+                                            type="email"
+                                            value={userData.CM_Email}
+                                            onChange={(e) => handleInputChange("CM_Email", e.target.value)}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
                                 </div>
-                                <div className="relative">
-                                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                                    <input
-                                        id="pan"
-                                        type="text"
-                                        placeholder="PAN Number"
-                                        value={userData.CM_PAN_Number}
-                                        onChange={(e) => handleInputChange("CM_PAN_Number", e.target.value.toUpperCase())}
-                                        // disabled={fieldsLocked}
-                                        maxLength={10}
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white/80'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                    />
+                                <div className="flex flex-col">
+                                    <ExcelRow label="Alt. Phone">
+                                        <input
+                                            type="tel"
+                                            maxLength={10}
+                                            value={userData.CM_Alternative_Phone}
+                                            onChange={(e) => handleInputChange("CM_Alternative_Phone", e.target.value.replace(/\D/g, ""))}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
+                                    <ExcelRow label="Account Password">
+                                        <input
+                                            type="password"
+                                            autoComplete="new-password"
+                                            value={userData.CM_Password}
+                                            onChange={(e) => handleInputChange("CM_Password", e.target.value)}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Section: Address */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
-                                <div className="p-2 bg-orange-50 rounded-lg">
-                                    <MapPin className="h-5 w-5 text-orange-600" />
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-800">Address Information</h2>
+                            {/* SECTION: ID Documents */}
+                            <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider mt-4 lg:mt-0 lg:border-t-0">
+                                ID Documents
                             </div>
-                            <div className="space-y-6">
-                                <div className="relative">
-                                    <MapPin className="absolute left-3 top-4 h-5 w-5 text-gray-500 pointer-events-none" />
+                            <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                                <div className="border-r border-gray-300">
+                                    <ExcelRow label="Aadhaar Number">
+                                        <input
+                                            type="text"
+                                            maxLength={12}
+                                            value={userData.CM_Aadhaar_Number}
+                                            onChange={(e) => handleInputChange("CM_Aadhaar_Number", e.target.value.replace(/\D/g, ""))}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
+                                </div>
+                                <div>
+                                    <ExcelRow label="PAN Number">
+                                        <input
+                                            type="text"
+                                            maxLength={10}
+                                            value={userData.CM_PAN_Number}
+                                            onChange={(e) => handleInputChange("CM_PAN_Number", e.target.value.toUpperCase())}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
+                                </div>
+                            </div>
+
+                            {/* SECTION: Address */}
+                            <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider mt-4 lg:mt-0 lg:border-t-0">
+                                Address Information
+                            </div>
+                            <div className="border-b border-gray-300">
+                                <ExcelRow label="Complete Address">
                                     <textarea
-                                        id="address"
-                                        placeholder="Complete Address"
                                         value={userData.CM_Address}
                                         onChange={(e) => handleInputChange("CM_Address", e.target.value)}
-                                        // disabled={fieldsLocked}
-                                        className={`w-full pl-12 pr-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200 resize-none`}
-                                        rows="3"
+                                        className={`${inputClasses} resize-y min-h-[60px]`}
+                                        rows="2"
                                     />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    <div className="relative">
+                                </ExcelRow>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                                <div className="border-r border-gray-300 flex flex-col">
+                                    <ExcelRow label="City">
                                         <input
                                             type="text"
-                                            placeholder="City"
                                             value={userData.CM_City}
                                             onChange={(e) => handleInputChange("CM_City", e.target.value)}
+                                            className={inputClasses}
                                             disabled={fieldsLocked}
-                                            className={`w-full px-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
                                         />
-                                    </div>
-                                    <div className="relative">
+                                    </ExcelRow>
+                                    <ExcelRow label="State">
                                         <input
                                             type="text"
-                                            placeholder="District"
-                                            value={userData.CM_District}
-                                            onChange={(e) => handleInputChange("CM_District", e.target.value)}
-                                            // disabled={fieldsLocked}
-                                            className={`w-full px-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                        />
-                                    </div>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            placeholder="State"
                                             value={userData.CM_State}
                                             onChange={(e) => handleInputChange("CM_State", e.target.value)}
+                                            className={inputClasses}
                                             disabled={fieldsLocked}
-                                            className={`w-full px-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
                                         />
-                                    </div>
-                                    <div className="relative">
+                                    </ExcelRow>
+                                    <ExcelRow label="Postal Code">
                                         <input
                                             type="text"
-                                            placeholder="Country"
+                                            maxLength={6}
+                                            value={userData.CM_Postal_Code}
+                                            onChange={(e) => handleInputChange("CM_Postal_Code", e.target.value.replace(/\D/g, ""))}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
+                                </div>
+                                <div className="flex flex-col">
+                                    <ExcelRow label="District">
+                                        <input
+                                            type="text"
+                                            value={userData.CM_District}
+                                            onChange={(e) => handleInputChange("CM_District", e.target.value)}
+                                            className={inputClasses}
+                                        />
+                                    </ExcelRow>
+                                    <ExcelRow label="Country">
+                                        <input
+                                            type="text"
                                             value={userData.CM_Country}
                                             onChange={(e) => handleInputChange("CM_Country", e.target.value)}
-                                            // disabled={fieldsLocked}
-                                            className={`w-full px-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
+                                            className={inputClasses}
                                         />
-                                    </div>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            placeholder="Postal Code"
-                                            value={userData.CM_Postal_Code}
-                                            onChange={(e) =>
-                                                handleInputChange("CM_Postal_Code", e.target.value.replace(/\D/g, ""))
-                                            }
-                                            // disabled={fieldsLocked}
-                                            className={`w-full px-4 py-3 ${fieldsLocked ? 'bg-white' : 'bg-white'} border ${fieldsLocked ? 'border-blue-200' : 'border-gray-300'} rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-200`}
-                                            maxLength={6}
-                                        />
-                                    </div>
+                                    </ExcelRow>
                                 </div>
                             </div>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     );
 }
 

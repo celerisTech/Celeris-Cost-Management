@@ -113,9 +113,18 @@ const MilestoneCreationStep = ({
     const handleMilestoneFieldChange = (index, e) => {
         const { name, value } = e.target;
         let formattedValue = value;
+        let errorMsg = '';
 
         if (name === "CM_Milestone_Name") {
             formattedValue = formatTitleCase(value);
+            const hasDuplicate = milestoneForms.some((m, i) => {
+                return i !== index &&
+                    m.CM_Milestone_Name &&
+                    m.CM_Milestone_Name.trim().toLowerCase() === formattedValue.trim().toLowerCase();
+            });
+            if (hasDuplicate) {
+                errorMsg = 'A milestone with this name already exists in this project';
+            }
         } else if (name === "CM_Description") {
             formattedValue = formatSentenceCase(value);
         }
@@ -126,10 +135,10 @@ const MilestoneCreationStep = ({
             return updated;
         });
 
-        // Clear error for this field
+        // Set or clear error for this field
         setMilestoneErrorsArray((prev) => {
             const updated = [...prev];
-            updated[index] = { ...updated[index], [name]: '' };
+            updated[index] = { ...updated[index], [name]: errorMsg };
             return updated;
         });
 
@@ -151,6 +160,15 @@ const MilestoneCreationStep = ({
 
         if (!milestone.CM_Milestone_Name) {
             errors.CM_Milestone_Name = 'Milestone name is required';
+        } else {
+            const hasDuplicate = milestoneForms.some((m, i) => {
+                return i !== index &&
+                    m.CM_Milestone_Name &&
+                    m.CM_Milestone_Name.trim().toLowerCase() === milestone.CM_Milestone_Name.trim().toLowerCase();
+            });
+            if (hasDuplicate) {
+                errors.CM_Milestone_Name = 'A milestone with this name already exists in this project';
+            }
         }
 
         if (!milestone.CM_Planned_Start_Date) {

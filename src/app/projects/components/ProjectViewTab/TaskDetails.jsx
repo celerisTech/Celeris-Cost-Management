@@ -26,6 +26,8 @@ export default function TaskDetails({
   showUpdatesModal,
   setShowUpdatesModal,
   fetchTaskDetailUpdates,
+  fetchTaskUpdates,
+  authUser,
   selectedTask,
   setSelectedTask,
   expandedImages,
@@ -39,6 +41,7 @@ export default function TaskDetails({
 }) {
   const [alertInfo, setAlertInfo] = React.useState({ show: false, message: '', type: 'info' });
   const [deleteConfirmId, setDeleteConfirmId] = React.useState(null);
+  const [previewImage, setPreviewImage] = React.useState(null);
 
   const showLocalAlert = (message, type = 'info') => {
     setAlertInfo({ show: true, message, type });
@@ -83,7 +86,162 @@ export default function TaskDetails({
 
   // State for edit modal
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+
+  // State for edit update modal
+  const [showEditUpdateModal, setShowEditUpdateModal] = React.useState(false);
+  const [editingUpdate, setEditingUpdate] = React.useState(null);
+  const [editUpdateData, setEditUpdateData] = React.useState({
+    updateDate: '',
+    status: '',
+    workHours: '',
+    remarks: '',
+    image: null
+  });
+
+  // State for add update modal
+  const [showAddUpdateModal, setShowAddUpdateModal] = React.useState(false);
+  const [addUpdateData, setAddUpdateData] = React.useState({
+    status: '',
+    workHours: '',
+    remarks: '',
+    image: null
+  });
+
+  const validateWorkHours = (hours) => {
+    const num = parseFloat(hours);
+    return !isNaN(num) && num >= 0 && num <= 24;
+  };
+
+  const getLatestInProgressDate = (taskId) => {
+    if (!selectedTask || selectedTask.CM_Task_ID !== taskId || !selectedTask.updates) return null;
+    const inProgressUpdates = selectedTask.updates.filter(u => u.CM_Status === "In Progress");
+    if (inProgressUpdates.length === 0) return null;
+    return new Date(Math.max(...inProgressUpdates.map(u => new Date(u.CM_Update_Date))));
+  };
+
+  const validateCompletionDate = (taskId, updateDate, status) => {
+    if (status !== "Completed") return true;
+    const latestInProgress = getLatestInProgressDate(taskId);
+    if (!latestInProgress) return true;
+    const completionDate = new Date(updateDate);
+    completionDate.setHours(0, 0, 0, 0);
+    latestInProgress.setHours(0, 0, 0, 0);
+    return completionDate >= latestInProgress;
+  };
+
+  const handleSubmitEditUpdate = async (e) => {
+    e.preventDefault();
+
+    if (editUpdateData.workHours && !validateWorkHours(editUpdateData.workHours)) {
+      showLocalAlert('Work hours must be between 0 and 24', 'error');
+      return;
+    }
+
+    if (editUpdateData.status === "Completed" && !validateCompletionDate(selectedTask?.CM_Task_ID, editUpdateData.updateDate, editUpdateData.status)) {
+      showLocalAlert('Completion date cannot be earlier than the latest "In Progress" date', 'error');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('updateId', editingUpdate.CM_Update_ID);
+      formData.append('projectId', selectedTask?.CM_Project_ID || selectedProject?.CM_Project_ID || '');
+      formData.append('engineerId', editingUpdate.CM_Engineer_ID || '');
+      formData.append('status', editUpdateData.status);
+      formData.append('remarks', editUpdateData.remarks);
+      formData.append('workHours', editUpdateData.workHours || '0');
+      formData.append('updateDate', editUpdateData.updateDate);
+      formData.append('uploadedBy', editingUpdate.CM_Uploaded_By || 'Project Manager');
+      formData.append('currentImageUrl', editingUpdate.CM_Image_URL || '');
+
+      if (editUpdateData.image) {
+        formData.append('image', editUpdateData.image);
+      }
+
+      const response = await fetch(`/api/task-update/${selectedTask?.CM_Task_ID}/edit?_method=PUT`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        showLocalAlert('Task update edited successfully!', 'success');
+        setShowEditUpdateModal(false);
+        if (fetchTaskDetailUpdates && selectedTask) {
+          fetchTaskDetailUpdates(selectedTask.CM_Task_ID);
+        }
+        if (fetchTaskUpdates) {
+          fetchTaskUpdates();
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to edit task update');
+      }
+    } catch (err) {
+      console.error('Error editing task update:', err);
+      showLocalAlert(`Error: ${err.message || 'Failed to edit task update'}. Please try again.`, 'error');
+    }
+  };
+
+  const handleAddUpdateSubmit = async (e) => {
+    e.preventDefault();
+    if (addUpdateData.workHours && !validateWorkHours(addUpdateData.workHours)) {
+      showLocalAlert('Work hours must be between 0 and 24', 'warning');
+      return;
+    }
+
+    if (addUpdateData.status === "Completed" && !validateCompletionDate(selectedTask?.CM_Task_ID, new Date().toISOString().split('T')[0], addUpdateData.status)) {
+      showLocalAlert('Completion date cannot be earlier than the latest "In Progress" date.', 'warning');
+      return;
+    }
+
+    try {
+      const payload = {
+        CM_Task_ID: selectedTask?.CM_Task_ID,
+        CM_Project_ID: selectedProject?.CM_Project_ID,
+        CM_Engineer_ID: selectedTask?.CM_Engineer_ID || null, // Assuming assigned engineer
+        CM_Status: addUpdateData.status,
+        CM_Work_Hours: addUpdateData.workHours || 0,
+        CM_Remarks: addUpdateData.remarks,
+        CM_Image_URL: addUpdateData.image, // base64 string
+        CM_Uploaded_By: authUser?.CM_User_ID || authUser?.id || authUser || null
+      };
+
+      const response = await fetch('/api/task-updates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        showLocalAlert('Task update added successfully!', 'success');
+        setShowAddUpdateModal(false);
+        if (fetchTaskDetailUpdates && selectedTask) {
+          fetchTaskDetailUpdates(selectedTask.CM_Task_ID);
+        }
+        if (fetchTaskUpdates) {
+          fetchTaskUpdates();
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add task update');
+      }
+    } catch (err) {
+      console.error('Error adding task update:', err);
+      showLocalAlert(`Error: ${err.message || 'Failed to add task update'}. Please try again.`, 'error');
+    }
+  };
+
   const [expandedTaskId, setExpandedTaskId] = React.useState(null);
+  const [expandedMilestones, setExpandedMilestones] = React.useState({});
+
+  const toggleMilestone = (milestoneId) => {
+    setExpandedMilestones(prev => ({
+      ...prev,
+      [milestoneId]: !prev[milestoneId]
+    }));
+  };
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterStatus, setFilterStatus] = React.useState('All');
   const [filterEngineer, setFilterEngineer] = React.useState('All');
@@ -280,7 +438,7 @@ export default function TaskDetails({
             onClick={() => setIsAddingTask(!isAddingTask)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto text-sm sm:text-base"
           >
-            {isAddingTask ? 'Cancel.' : 'Add Task.'}
+            {isAddingTask ? 'Cancel.' : 'Add Task'}
           </button>
         </div>
 
@@ -463,6 +621,51 @@ export default function TaskDetails({
                     <option value="Inactive">Inactive</option>
                   </select>
                 </div>
+
+                {/* Task Image */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Task Image
+                  </label>
+                  {newTask.CM_Image_URL && (
+                    <div className="mb-2 relative w-32 h-32 group">
+                      <img
+                        src={newTask.CM_Image_URL}
+                        alt="Preview"
+                        className="w-full h-full object-cover rounded border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleTaskChange({
+                            target: { name: 'CM_Image_URL', value: '' }
+                          });
+                        }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs hover:bg-red-600 shadow-md transition"
+                        title="Remove Image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          handleTaskChange({
+                            target: { name: 'CM_Image_URL', value: reader.result }
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="w-full p-2 border rounded-lg text-sm bg-gray-50 text-black"
+                  />
+                </div>
               </div>
 
               {/* Footer Buttons */}
@@ -500,12 +703,22 @@ export default function TaskDetails({
 
 
           {/* Milestone Groups */}
-          {Object.entries(tasksByMilestone).map(([milestoneId, group]) => (
+          {Object.entries(tasksByMilestone).map(([milestoneId, group]) => {
+            const isExpanded = expandedMilestones[milestoneId] !== false;
+            return (
             <div key={milestoneId} className="border-b border-gray-200 last:border-b-0">
               {/* Milestone Header */}
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 border-b border-gray-200">
+              <div 
+                className="bg-gray-50 px-4 py-3 sm:px-6 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => toggleMilestone(milestoneId)}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center space-x-3">
+                    <div className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                      <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                     {group.milestone?.CM_Milestone_Name?.trim() && (
                       <h3 className="text-lg font-semibold text-gray-900">
                         {group.milestone.CM_Milestone_Name}
@@ -523,14 +736,14 @@ export default function TaskDetails({
                   )}
                 </div>
                 {group.tasks.length > 0 && (
-                  <div className="mt-2 text-sm text-gray-600">
+                  <div className="mt-2 text-sm text-gray-600 pl-8">
                     {group.tasks.length} task{group.tasks.length !== 1 ? "s" : ""}
                   </div>
                 )}
               </div>
 
               {/* Tasks Table for this Milestone */}
-              {group.tasks.length > 0 ? (
+              {isExpanded && group.tasks.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -583,7 +796,17 @@ export default function TaskDetails({
                                 <div className="break-words line-clamp-2">
                                   {task.CM_Task_Name}
                                 </div>
-
+                                {task.CM_Image_URL && (
+                                  <div className="mt-1 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                    <img
+                                      src={task.CM_Image_URL}
+                                      alt="Attachment"
+                                      className="w-10 h-10 object-cover rounded border border-gray-200 cursor-zoom-in hover:scale-105 transition-transform"
+                                      onClick={() => setPreviewImage(task.CM_Image_URL)}
+                                    />
+                                    <span className="text-[10px] text-gray-500 font-mono">Attachment</span>
+                                  </div>
+                                )}
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-900 hidden xs:table-cell">
                                 <div className="truncate max-w-[100px] sm:max-w-[150px]">
@@ -619,23 +842,39 @@ export default function TaskDetails({
                                 )}
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-500">
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation(); // Prevent row click
-                                      const actualMilestone = milestones.find(m => m.CM_Milestone_ID === task.CM_Milestone_ID);
-                                      setEditTask({
-                                        ...task,
-                                        CM_Assign_Date: toDateInputValue(task.CM_Assign_Date),
-                                        CM_Due_Date: toDateInputValue(task.CM_Due_Date),
-                                        _milestone: actualMilestone || null,
-                                      });
-                                      setIsEditModalOpen(true);
-                                    }}
-                                    className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 text-center"
-                                  >
-                                    Edit
-                                  </button>
+                                  <div className="flex gap-2 flex-wrap">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent row click
+                                        setSelectedTask(task);
+                                        setAddUpdateData({
+                                          status: '',
+                                          workHours: '',
+                                          remarks: '',
+                                          image: null
+                                        });
+                                        setShowAddUpdateModal(true);
+                                      }}
+                                      className="px-2 py-1 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 text-center"
+                                    >
+                                      Update
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent row click
+                                        const actualMilestone = milestones.find(m => m.CM_Milestone_ID === task.CM_Milestone_ID);
+                                        setEditTask({
+                                          ...task,
+                                          CM_Assign_Date: toDateInputValue(task.CM_Assign_Date),
+                                          CM_Due_Date: toDateInputValue(task.CM_Due_Date),
+                                          _milestone: actualMilestone || null,
+                                        });
+                                        setIsEditModalOpen(true);
+                                      }}
+                                      className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 text-center"
+                                    >
+                                      Edit
+                                    </button>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation(); // Prevent row click
@@ -652,6 +891,24 @@ export default function TaskDetails({
                               <tr className="bg-slate-50 border-b border-gray-200">
                                 <td colSpan="8" className="p-0">
                                   <div className="p-4 sm:p-6 border-l-4 border-blue-500 shadow-inner overflow-y-auto max-h-[400px]">
+                                    <div className="flex justify-between items-center mb-4">
+                                      <h4 className="text-sm font-semibold text-gray-800">Task Updates</h4>
+                                      <button
+                                        onClick={() => {
+                                          setAddUpdateData({
+                                            status: '',
+                                            workHours: '',
+                                            remarks: '',
+                                            image: null
+                                          });
+                                          setShowAddUpdateModal(true);
+                                        }}
+                                        className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 flex items-center gap-1"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                                        Add Update
+                                      </button>
+                                    </div>
                                     {updatesLoading ? (
                                       <div className="flex justify-center items-center py-4">
                                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -671,13 +928,14 @@ export default function TaskDetails({
                                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Delay</th>
                                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Updated By</th>
+                                              <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-100 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)]">Actions</th>
                                             </tr>
                                           </thead>
                                           <tbody className="bg-white divide-y divide-gray-200">
                                             {selectedTask.updates.map((update) => {
                                               const delayDays = calculateDelayDays(selectedTask.CM_Due_Date, update.CM_Update_Date);
                                               return (
-                                                <tr key={update.CM_Update_ID} className="hover:bg-gray-50 transition-colors">
+                                                <tr key={update.CM_Update_ID} className="group hover:bg-gray-50 transition-colors">
                                                   <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{formatDate(update.CM_Update_Date)}</td>
                                                   <td className="px-3 py-2">{getStatusDisplay(update.CM_Status)}</td>
                                                   <td className="px-3 py-2 max-w-[150px] hidden sm:table-cell">
@@ -700,7 +958,7 @@ export default function TaskDetails({
                                                           src={update.CM_Image_URL}
                                                           alt="Update"
                                                           className="w-8 h-8 object-cover rounded border border-gray-200 cursor-zoom-in hover:shadow-md transition-shadow"
-                                                          onClick={() => window.open(update.CM_Image_URL, '_blank', 'noopener,noreferrer')}
+                                                          onClick={() => setPreviewImage(update.CM_Image_URL)}
                                                         />
                                                       </div>
                                                     ) : (
@@ -711,6 +969,24 @@ export default function TaskDetails({
                                                     <div className="truncate max-w-[100px]">
                                                       {update.Uploaded_By_Name || update.CM_Uploaded_By || 'Unknown'}
                                                     </div>
+                                                  </td>
+                                                  <td className="px-3 py-2 text-center sticky right-0 bg-white group-hover:bg-gray-50 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)] transition-colors">
+                                                    <button
+                                                      onClick={() => {
+                                                        setEditingUpdate(update);
+                                                        setEditUpdateData({
+                                                          updateDate: update.CM_Update_Date ? new Date(update.CM_Update_Date).toISOString().split('T')[0] : '',
+                                                          status: update.CM_Status || '',
+                                                          workHours: update.CM_Work_Hours || '',
+                                                          remarks: update.CM_Remarks || '',
+                                                          image: null
+                                                        });
+                                                        setShowEditUpdateModal(true);
+                                                      }}
+                                                      className="text-blue-600 hover:text-blue-800 text-xs font-medium px-2 py-1 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                                                    >
+                                                      Edit
+                                                    </button>
                                                   </td>
                                                 </tr>
                                               );
@@ -742,7 +1018,8 @@ export default function TaskDetails({
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
       ) : (
         <div className="text-center py-8 sm:py-12">
@@ -766,8 +1043,8 @@ export default function TaskDetails({
 
       {/* Edit Task Modal */}
       {isEditModalOpen && editTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-opacity-50 p-2 sm:p-4 text-black">
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto  border-5 border-blue-400">
+        <div className="fixed bg-black/50 inset-0 z-50 flex items-center justify-center bg-opacity-50 p-2 sm:p-4 text-black">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto  border border-blue-400">
             <div className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">Edit Task</h2>
               <button
@@ -879,6 +1156,51 @@ export default function TaskDetails({
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task Image</label>
+                {editTask.CM_Image_URL && (
+                  <div className="mb-2 relative w-32 h-32 group">
+                    <img
+                      src={editTask.CM_Image_URL}
+                      alt="Task Attachment"
+                      className="w-full h-full object-cover rounded border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditTask(prev => ({
+                          ...prev,
+                          CM_Image_URL: ''
+                        }));
+                      }}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs hover:bg-red-600 shadow-md transition"
+                      title="Remove Image"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setEditTask(prev => ({
+                          ...prev,
+                          CM_Image_URL: reader.result
+                        }));
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full p-2 border rounded text-sm bg-gray-50 text-black"
+                />
+                <p className="text-[10px] text-gray-500 mt-1 font-mono">Select an image to attach/update. Stored in Base64 format.</p>
+              </div>
             </div>
 
             <div className="px-4 sm:px-6 py-4 bg-gray-50 flex justify-end gap-2">
@@ -978,6 +1300,376 @@ export default function TaskDetails({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Image Preview Lightbox */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[10000] bg-black/50 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-5xl max-h-[90vh] w-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={previewImage} 
+              alt="Task Attachment Fullscreen" 
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+            />
+            <button 
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl shadow-lg transition-all"
+              title="Close Fullscreen View"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Task Update Modal */}
+      {showAddUpdateModal && (
+        <div className="fixed bg-black/50 inset-0 z-[9999] flex items-center justify-center backdrop-blur-sm animate-fadeIn p-4">
+          <div className="bg-white border border-emerald-500 rounded-xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-95 hover:scale-100 text-black">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 flex-1">Add Task Update</h3>
+              <button
+                onClick={() => setShowAddUpdateModal(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors ml-2"
+              >
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6 break-words">
+              Adding new update for task <span className="font-semibold text-blue-600">{selectedTask?.CM_Task_Name}</span>
+            </p>
+
+            <form onSubmit={handleAddUpdateSubmit} className="space-y-4 sm:space-y-5">
+              <div>
+                <label htmlFor="addStatus" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Status *</label>
+                <select
+                  id="addStatus"
+                  name="addStatus"
+                  required
+                  value={addUpdateData.status}
+                  onChange={(e) => setAddUpdateData({ ...addUpdateData, status: e.target.value })}
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 text-black text-xs sm:text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition"
+                >
+                  <option value="" disabled>Select a status</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On Hold">On Hold</option>
+                  <option value="Pending">Pending</option>
+                </select>
+
+                {addUpdateData.status === "Completed" && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs sm:text-sm">
+                    <p className="font-medium text-yellow-700">
+                      <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                      Important:
+                    </p>
+                    <p className="text-yellow-600 text-xs mt-1">
+                      {getLatestInProgressDate(selectedTask?.CM_Task_ID)
+                        ? `Latest "In Progress" date: ${formatDate(getLatestInProgressDate(selectedTask?.CM_Task_ID))} - Completion date must be on or after this date.`
+                        : 'No "In Progress" updates yet - you can complete this task on any date'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="addWorkHours" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Work Hours * (0–24 hours)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    id="addWorkHours"
+                    name="addWorkHours"
+                    step="0.1"
+                    min="0"
+                    max="24"
+                    required
+                    value={addUpdateData.workHours}
+                    onChange={(e) => setAddUpdateData({ ...addUpdateData, workHours: e.target.value })}
+                    className="w-full px-3 sm:px-4 py-2 border text-black text-xs sm:text-sm border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition pr-12"
+                    placeholder="e.g., 8.5"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <span className="text-gray-500 text-xs sm:text-sm">hours</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-700 mt-1">
+                  Must be between 0 and 24 hours. Current: {addUpdateData.workHours || 0}h
+                  {addUpdateData.workHours && !validateWorkHours(addUpdateData.workHours) && (
+                    <span className="text-red-600 font-medium ml-2">⚠️ Invalid hours</span>
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="addRemarks" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Remarks (optional)</label>
+                <textarea
+                  id="addRemarks"
+                  name="addRemarks"
+                  rows="2"
+                  value={addUpdateData.remarks}
+                  onChange={(e) => setAddUpdateData({ ...addUpdateData, remarks: formatSentenceCase(e.target.value) })}
+                  className="w-full px-3 sm:px-4 py-2 text-black text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition"
+                  placeholder="Add any relevant notes or comments..."
+                ></textarea>
+              </div>
+
+              <div>
+                <label htmlFor="addImage" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Upload Task Image (optional)
+                </label>
+                <input
+                  type="file"
+                  id="addImage"
+                  name="addImage"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setAddUpdateData({ ...addUpdateData, image: reader.result });
+                      };
+                      reader.readAsDataURL(file);
+                    } else {
+                      setAddUpdateData({ ...addUpdateData, image: null });
+                    }
+                  }}
+                  className="w-full text-xs sm:text-sm text-gray-800 file:mr-2 sm:file:mr-4 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-emerald-300 file:text-emerald-900 hover:file:bg-emerald-300"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 sm:pt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUpdateModal(false)}
+                  className="px-4 sm:px-5 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors order-2 sm:order-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    (addUpdateData.workHours && !validateWorkHours(addUpdateData.workHours)) ||
+                    (addUpdateData.status === "Completed" && !validateCompletionDate(selectedTask?.CM_Task_ID, new Date().toISOString().split('T')[0], addUpdateData.status))
+                  }
+                  className={`px-4 sm:px-5 py-2 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm hover:shadow-md order-1 sm:order-2
+            ${(addUpdateData.workHours && !validateWorkHours(addUpdateData.workHours)) ||
+                      (addUpdateData.status === "Completed" && !validateCompletionDate(selectedTask?.CM_Task_ID, new Date().toISOString().split('T')[0], addUpdateData.status))
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                >
+                  Save Update
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Task Update Modal */}
+      {showEditUpdateModal && editingUpdate && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-sm animate-fadeIn p-4">
+          <div className="bg-white border-3 border-emerald-500 rounded-xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-95 hover:scale-100 text-black">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 flex-1">Edit Task Update</h3>
+              <button
+                onClick={() => setShowEditUpdateModal(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors ml-2"
+              >
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6 break-words">
+              Editing update from <span className="font-semibold text-emerald-600">{formatDate(editingUpdate.CM_Update_Date)}</span>
+              for task <span className="font-semibold text-blue-600">{selectedTask?.CM_Task_Name}</span>
+            </p>
+
+            <form onSubmit={handleSubmitEditUpdate} className="space-y-4 sm:space-y-5">
+              <div>
+                <label htmlFor="editUpdateDate" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Working Date *
+                </label>
+                <input
+                  type="date"
+                  id="editUpdateDate"
+                  name="editUpdateDate"
+                  required
+                  value={editUpdateData.updateDate}
+                  onChange={(e) => setEditUpdateData({ ...editUpdateData, updateDate: e.target.value })}
+                  className="w-full text-black text-xs sm:text-sm px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Due Date: {formatDate(selectedTask?.CM_Due_Date)} •
+                  {calculateDelayDays(selectedTask?.CM_Due_Date, editUpdateData.updateDate) > 0 ? (
+                    <span className="text-red-600 font-medium">
+                      {' '}Will be delayed by {calculateDelayDays(selectedTask?.CM_Due_Date, editUpdateData.updateDate)} day{calculateDelayDays(selectedTask?.CM_Due_Date, editUpdateData.updateDate) !== 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-green-600 font-medium"> On Time</span>
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="editStatus" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Status *</label>
+                <select
+                  id="editStatus"
+                  name="editStatus"
+                  required
+                  value={editUpdateData.status}
+                  onChange={(e) => setEditUpdateData({ ...editUpdateData, status: e.target.value })}
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 text-black text-xs sm:text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition"
+                >
+                  <option value="" disabled>Select a status</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On Hold">On Hold</option>
+                  <option value="Pending">Pending</option>
+                </select>
+
+                {editUpdateData.status === "Completed" && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs sm:text-sm">
+                    <p className="font-medium text-yellow-700">
+                      <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                      Important:
+                    </p>
+                    <p className="text-yellow-600 text-xs mt-1">
+                      {getLatestInProgressDate(selectedTask?.CM_Task_ID)
+                        ? `Latest "In Progress" date: ${formatDate(getLatestInProgressDate(selectedTask?.CM_Task_ID))} - Completion date must be on or after this date.`
+                        : 'No "In Progress" updates yet - you can complete this task on any date'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="editWorkHours" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Work Hours * (0–24 hours)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    id="editWorkHours"
+                    name="editWorkHours"
+                    step="0.1"
+                    min="0"
+                    max="24"
+                    required
+                    value={editUpdateData.workHours}
+                    onChange={(e) => setEditUpdateData({ ...editUpdateData, workHours: e.target.value })}
+                    className="w-full px-3 sm:px-4 py-2 border text-black text-xs sm:text-sm border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition pr-12"
+                    placeholder="e.g., 8.5"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <span className="text-gray-500 text-xs sm:text-sm">hours</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-700 mt-1">
+                  Must be between 0 and 24 hours. Current: {editUpdateData.workHours || 0}h
+                  {editUpdateData.workHours && !validateWorkHours(editUpdateData.workHours) && (
+                    <span className="text-red-600 font-medium ml-2">⚠️ Invalid hours</span>
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="editRemarks" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Remarks (optional)</label>
+                <textarea
+                  id="editRemarks"
+                  name="editRemarks"
+                  rows="2"
+                  value={editUpdateData.remarks}
+                  onChange={(e) => setEditUpdateData({ ...editUpdateData, remarks: formatSentenceCase(e.target.value) })}
+                  className="w-full px-3 sm:px-4 py-2 text-black text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition"
+                  placeholder="Add any relevant notes or comments..."
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Current Image</label>
+                {editingUpdate.CM_Image_URL ? (
+                  <div className="flex items-center gap-3 mb-3">
+                    <a
+                      href={editingUpdate.CM_Image_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 font-medium text-xs sm:text-sm flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      View Current Image
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-xs sm:text-sm mb-3">No image currently attached</p>
+                )}
+
+                <label htmlFor="editImage" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Upload New Image (optional)
+                </label>
+                <input
+                  type="file"
+                  id="editImage"
+                  name="editImage"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setEditUpdateData({ ...editUpdateData, image: reader.result });
+                      };
+                      reader.readAsDataURL(file);
+                    } else {
+                      setEditUpdateData({ ...editUpdateData, image: null });
+                    }
+                  }}
+                  className="w-full text-xs sm:text-sm text-gray-800 file:mr-2 sm:file:mr-4 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-emerald-300 file:text-emerald-900 hover:file:bg-emerald-300"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave empty to keep the current image</p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 sm:pt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditUpdateModal(false)}
+                  className="px-4 sm:px-5 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors order-2 sm:order-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    (editUpdateData.workHours && !validateWorkHours(editUpdateData.workHours)) ||
+                    (editUpdateData.status === "Completed" && !validateCompletionDate(selectedTask?.CM_Task_ID, editUpdateData.updateDate, editUpdateData.status))
+                  }
+                  className={`px-4 sm:px-5 py-2 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm hover:shadow-md order-1 sm:order-2
+            ${(editUpdateData.workHours && !validateWorkHours(editUpdateData.workHours)) ||
+                      (editUpdateData.status === "Completed" && !validateCompletionDate(selectedTask?.CM_Task_ID, editUpdateData.updateDate, editUpdateData.status))
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

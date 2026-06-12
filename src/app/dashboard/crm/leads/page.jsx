@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Target, Plus, Search, Filter, Download, MoreVertical,
   Edit2, Trash2, Eye, Phone, Mail, MapPin, Building2,
@@ -35,6 +36,9 @@ const STATUS_COLORS = {
 };
 
 export default function LeadsPage() {
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get("status") || "";
+
   const { user } = useAuthStore();
   const [leads, setLeads] = useState([]);
   const [executives, setExecutives] = useState([]);
@@ -46,7 +50,7 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(50);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [execFilter, setExecFilter] = useState("");
   const [industrialFilter, setIndustrialFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -1080,7 +1084,7 @@ export default function LeadsPage() {
       {/* Detail Slide-over / Modal */}
       {isDetailOpen && selectedLead && (
         <div className="fixed inset-0 z-[60] flex items-center justify-end bg-black/40 backdrop-blur-sm">
-          <div className="bg-white h-full w-full max-w-3xl shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="bg-white h-full w-full max-w-6xl shadow-md flex flex-col animate-in slide-in-from-right duration-300">
             <div className="px-6 pt-6 border-b border-gray-100 bg-white sticky top-0 z-10">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -1093,20 +1097,20 @@ export default function LeadsPage() {
                 </button>
               </div>
               <div className="flex gap-6">
-                <button 
+                <button
                   onClick={() => setActiveTab('details')}
                   className={`text-sm font-bold pb-3 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                   Details
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('history')}
                   className={`text-sm font-bold pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                   History
                   <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadVisits.length}</span>
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('payments')}
                   className={`text-sm font-bold pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'payments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
@@ -1119,118 +1123,118 @@ export default function LeadsPage() {
             <div className="flex-1 overflow-y-auto p-6">
               {activeTab === 'details' && (
                 <div className="space-y-8">
-              {/* Quick Status Bar */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Status</p>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[selectedLead.CM_Lead_Status]}`}>
-                      {selectedLead.CM_Lead_Status}
-                    </span>
+                  {/* Quick Status Bar */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Status</p>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[selectedLead.CM_Lead_Status]}`}>
+                          {selectedLead.CM_Lead_Status}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedLead.CM_Lead_Status !== "Converted" && (
+                      <button
+                        onClick={() => setIsConvertModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100"
+                      >
+                        Convert to Project <ArrowRight className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
-                </div>
-                {selectedLead.CM_Lead_Status !== "Converted" && (
-                  <button
-                    onClick={() => setIsConvertModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100"
-                  >
-                    Convert to Project <ArrowRight className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
 
-              {/* Information Sections */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Company</p>
-                  <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Company_Name || "Not specified"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sales Executive</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <User className="h-4 w-4 text-indigo-500" /> {selectedLead.Executive_Name || "Unassigned"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-emerald-500" /> {selectedLead.CM_Phone}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alt Phone</p>
-                  <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Alt_Phone || "N/A"}</p>
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-blue-500" /> {selectedLead.CM_Email || "No email provided"}
-                  </p>
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Address</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" /> {selectedLead.CM_Address || "No address provided"}
-                  </p>
-                </div>
-              </div>
+                  {/* Information Sections */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Company</p>
+                      <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Company_Name || "Not specified"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sales Executive</p>
+                      <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <User className="h-4 w-4 text-indigo-500" /> {selectedLead.Executive_Name || "Unassigned"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone</p>
+                      <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-emerald-500" /> {selectedLead.CM_Phone}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alt Phone</p>
+                      <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Alt_Phone || "N/A"}</p>
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</p>
+                      <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-blue-500" /> {selectedLead.CM_Email || "No email provided"}
+                      </p>
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Address</p>
+                      <p className="text-sm font-bold text-gray-700 flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" /> {selectedLead.CM_Address || "No address provided"}
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="h-px bg-gray-100" />
+                  <div className="h-px bg-gray-100" />
 
-              <div className="space-y-6">
-                <h3 className="text-sm font-bold text-gray-900 border-l-4 border-indigo-600 pl-3">Requirement Details</h3>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</p>
-                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Product_Required || "Not specified"}</p>
+                  <div className="space-y-6">
+                    <h3 className="text-sm font-bold text-gray-900 border-l-4 border-indigo-600 pl-3">Requirement Details</h3>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</p>
+                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Product_Required || "Not specified"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
+                        <p className="text-sm font-extrabold text-indigo-600">{selectedLead.CM_Expected_Budget ? `₹${Number(selectedLead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
+                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Lead_Source || "Direct"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Created On</p>
+                        <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-gray-400" /> {new Date(selectedLead.CM_Created_At).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
-                    <p className="text-sm font-extrabold text-indigo-600">{selectedLead.CM_Expected_Budget ? `₹${Number(selectedLead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
+
+                  <div className="h-px bg-gray-100" />
+
+                  <div className="space-y-6">
+                    <h3 className="text-sm font-bold text-gray-900 border-l-4 border-blue-600 pl-3">Classification</h3>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Industrial</p>
+                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Industrial_Name || "Not specified"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
+                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Category_Name || "Not specified"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subcategory</p>
+                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Subcategory_Name || "Not specified"}</p>
+                      </div>
+                    </div>
                   </div>
+
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
-                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Lead_Source || "Direct"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Created On</p>
-                    <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-400" /> {new Date(selectedLead.CM_Created_At).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
-                    </p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remarks</p>
+                    <div className="p-4 bg-gray-50 rounded-2xl text-sm text-gray-600 leading-relaxed italic border border-gray-100">
+                      "{selectedLead.CM_Remarks || "No additional remarks recorded."}"
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div className="h-px bg-gray-100" />
-
-              <div className="space-y-6">
-                <h3 className="text-sm font-bold text-gray-900 border-l-4 border-blue-600 pl-3">Classification</h3>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Industrial</p>
-                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Industrial_Name || "Not specified"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
-                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Category_Name || "Not specified"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subcategory</p>
-                    <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Subcategory_Name || "Not specified"}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remarks</p>
-                <div className="p-4 bg-gray-50 rounded-2xl text-sm text-gray-600 leading-relaxed italic border border-gray-100">
-                  "{selectedLead.CM_Remarks || "No additional remarks recorded."}"
-                </div>
-              </div>
-              </div>
-            )}
-            
-            {activeTab === 'history' && (
+              {activeTab === 'history' && (
                 <div className="space-y-4">
                   {loadingVisits ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -1251,8 +1255,8 @@ export default function LeadsPage() {
                             <tr className="bg-gray-50 border-b border-gray-200">
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Client / Company</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Purpose & Remarks</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Purpose</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Remarks</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Follow-up</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36">Status</th>
@@ -1268,11 +1272,9 @@ export default function LeadsPage() {
                                   </p>
                                 </td>
                                 <td className="px-4 py-3 border-r border-gray-100">
-                                  <p className="text-xs font-extrabold text-gray-900 truncate">{v.CM_Client_Name || selectedLead.CM_Client_Name}</p>
-                                  <p className="text-[10px] text-gray-500 truncate">{v.CM_Company_Name || selectedLead.CM_Company_Name || "Individual"}</p>
-                                </td>
+
+                                  <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p> </td>
                                 <td className="px-4 py-3 border-r border-gray-100">
-                                  <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p>
                                   <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-3">{v.CM_Remarks || "No remarks recorded"}</p>
                                 </td>
                                 <td className="px-4 py-3 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
@@ -1348,10 +1350,10 @@ export default function LeadsPage() {
                                 <td className="px-4 py-3 border-r border-gray-100">
                                   <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
                                     p.CM_Payment_Type === "Partial Payment" ? "bg-purple-100 text-purple-700 border-purple-200" :
-                                    p.CM_Payment_Type === "Final Payment" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
-                                    p.CM_Payment_Type === "Domain Payment" ? "bg-teal-100 text-teal-700 border-teal-200" :
-                                    "bg-gray-100 text-gray-600 border-gray-200"
-                                  }`}>
+                                      p.CM_Payment_Type === "Final Payment" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                                        p.CM_Payment_Type === "Domain Payment" ? "bg-teal-100 text-teal-700 border-teal-200" :
+                                          "bg-gray-100 text-gray-600 border-gray-200"
+                                    }`}>
                                     {p.CM_Payment_Type}
                                   </span>
                                 </td>
@@ -1361,8 +1363,8 @@ export default function LeadsPage() {
                                 <td className="px-4 py-3">
                                   <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Status === "Pending" ? "bg-amber-100 text-amber-700 border-amber-200" :
                                     p.CM_Payment_Status === "Paid" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                                    "bg-red-100 text-red-700 border-red-200"
-                                  }`}>
+                                      "bg-red-100 text-red-700 border-red-200"
+                                    }`}>
                                     {p.CM_Payment_Status}
                                   </span>
                                 </td>

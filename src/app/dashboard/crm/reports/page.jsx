@@ -217,7 +217,7 @@ export default function ReportsPage() {
 
   const filterData = (dataArray) => {
     if (!dataArray) return [];
-    
+
     return dataArray.filter(row => {
       // Filter by Executive Name
       if (executiveFilter !== "All") {
@@ -228,7 +228,7 @@ export default function ReportsPage() {
       if (statusFilter !== "All" && row.status) {
         if (row.status !== statusFilter) return false;
       }
-      
+
       // Filter by Search Term
       if (searchTerm) {
         const lowerTerm = searchTerm.toLowerCase();
@@ -237,7 +237,7 @@ export default function ReportsPage() {
         );
         if (!matchesSearch) return false;
       }
-      
+
       return true;
     });
   };
@@ -297,7 +297,7 @@ export default function ReportsPage() {
               </select>
             </div>
           )}
-          
+
           <div className="flex items-center gap-1">
             <input
               type="date"
@@ -416,11 +416,11 @@ export default function ReportsPage() {
                         </td>
                         <td className="px-2 py-1 text-center border border-slate-300">
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${row.status === 'Converted' ? 'bg-green-100 text-green-700' :
-                              row.status === 'Proposal Sent' ? 'bg-blue-100 text-blue-700' :
-                                row.status === 'Interested' || row.status === 'Demo Given' ? 'bg-indigo-100 text-indigo-700' :
-                                  row.status === 'Rejected' || row.status === 'Not Interested' ? 'bg-rose-100 text-rose-700' :
-                                    row.status === 'Follow-up Needed' || row.status === 'Visited' ? 'bg-amber-100 text-amber-700' :
-                                      'bg-slate-100 text-slate-500'
+                            row.status === 'Proposal Sent' ? 'bg-blue-100 text-blue-700' :
+                              row.status === 'Interested' || row.status === 'Demo Given' ? 'bg-indigo-100 text-indigo-700' :
+                                row.status === 'Rejected' || row.status === 'Not Interested' ? 'bg-rose-100 text-rose-700' :
+                                  row.status === 'Follow-up Needed' || row.status === 'Visited' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-slate-100 text-slate-500'
                             }`}>
                             {row.status || 'Pending'}
                           </span>
@@ -546,7 +546,7 @@ export default function ReportsPage() {
                 <Users className="h-4 w-4 text-emerald-600" />
                 {detailModalConfig.title}
               </h2>
-              
+
               <div className="flex-1 flex justify-end">
                 <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-slate-300">
                   <input
@@ -585,7 +585,7 @@ export default function ReportsPage() {
                     <option value="Pending">Pending</option>
                   </select>
                 </div>
-                
+
                 <div className="flex gap-1 ml-2 shrink-0">
                   <button onClick={exportDetailToExcel} className="flex items-center gap-1 h-7 px-2.5 bg-white border border-slate-300 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 text-[11px] font-bold rounded-sm transition-colors">
                     <Download className="h-3 w-3 text-emerald-600" /> Excel
@@ -663,11 +663,11 @@ export default function ReportsPage() {
                           </td>
                           <td className="px-2 py-1 text-center border border-slate-300">
                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${row.status === 'Converted' ? 'bg-green-100 text-green-700' :
-                                row.status === 'Proposal Sent' ? 'bg-blue-100 text-blue-700' :
-                                  row.status === 'Interested' || row.status === 'Demo Given' ? 'bg-indigo-100 text-indigo-700' :
-                                    row.status === 'Rejected' || row.status === 'Not Interested' ? 'bg-rose-100 text-rose-700' :
-                                      row.status === 'Follow-up Needed' || row.status === 'Visited' ? 'bg-amber-100 text-amber-700' :
-                                        'bg-slate-100 text-slate-500'
+                              row.status === 'Proposal Sent' ? 'bg-blue-100 text-blue-700' :
+                                row.status === 'Interested' || row.status === 'Demo Given' ? 'bg-indigo-100 text-indigo-700' :
+                                  row.status === 'Rejected' || row.status === 'Not Interested' ? 'bg-rose-100 text-rose-700' :
+                                    row.status === 'Follow-up Needed' || row.status === 'Visited' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-slate-100 text-slate-500'
                               }`}>
                               {row.status || 'Pending'}
                             </span>

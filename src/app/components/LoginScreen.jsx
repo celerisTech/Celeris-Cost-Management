@@ -88,7 +88,7 @@ function LoginScreen() {
       }
       
       .solar-gradient {
-          background-image: url("loginbg.jpg");
+          background-image: url("/loginbg.jpg");
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
@@ -110,7 +110,7 @@ function LoginScreen() {
       
       .golden-gradient {
         background: linear-gradient(135deg, 
-          #FFD700 0%, 
+          #cfb107ff 0%, 
           #FFB347 25%, 
           #FF8C00 50%, 
           #FFA500 75%, 
@@ -139,7 +139,7 @@ function LoginScreen() {
         left: 0;
         right: 0;
         height: 2px;
-        background: linear-gradient(90deg, transparent, #FFD700, transparent);
+        background: linear-gradient(90deg, transparent, #aa9315ff, transparent);
         animation: shimmer 2s infinite;
       }
       
@@ -580,7 +580,7 @@ function LoginScreen() {
               fontSize: '0.95rem',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
@@ -603,7 +603,7 @@ function LoginScreen() {
                 fontSize: '0.95rem',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               });
@@ -679,7 +679,7 @@ function LoginScreen() {
     return (
       <div className="flex justify-center items-center h-full" style={{
         backgroundImage:
-          "url('loginbg.jpg')",
+          "url('/loginbg.jpg')",
       }}>
         <div className="flex justify-center items-center h-64">
           <div className="relative w-20 h-20">
@@ -956,7 +956,7 @@ function LoginScreen() {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                 position: 'relative',
-                overflow: 'hidden',marginBottom: '1.5rem'
+                overflow: 'hidden', marginBottom: '1.5rem'
               }}
               onMouseEnter={(e) => {
                 Object.assign(e.target.style, {
@@ -979,7 +979,7 @@ function LoginScreen() {
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                   position: 'relative',
-                  overflow: 'hidden',marginBottom: '1.5rem'
+                  overflow: 'hidden', marginBottom: '1.5rem'
                 });
               }}
               disabled={isLoading}
@@ -1071,7 +1071,7 @@ function LoginScreen() {
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                     position: 'relative',
-                    overflow: 'hidden',marginBottom: '1.5rem'
+                    overflow: 'hidden', marginBottom: '1.5rem'
                   }}
                   onMouseEnter={(e) => {
                     Object.assign(e.target.style, {
@@ -1094,7 +1094,7 @@ function LoginScreen() {
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                       boxShadow: '0 4px 20px rgba(255, 215, 0, 0.3)',
                       position: 'relative',
-                      overflow: 'hidden',marginBottom: '1.5rem'
+                      overflow: 'hidden', marginBottom: '1.5rem'
                     });
                   }}
                   disabled={isLoading}
@@ -1146,7 +1146,7 @@ function LoginScreen() {
                       color: 'white',
                       fontWeight: '500',
                       outline: 'none',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',paddingRight: '3rem'
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', paddingRight: '3rem'
                     }}
                     onFocus={(e) => {
                       e.target.style.borderColor = '#FFD700';
@@ -1223,7 +1223,7 @@ function LoginScreen() {
                       color: 'white',
                       fontWeight: '500',
                       outline: 'none',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',paddingRight: '3rem'
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', paddingRight: '3rem'
                     }}
                     onFocus={(e) => {
                       e.target.style.borderColor = '#FFD700';
@@ -1355,7 +1355,7 @@ function LoginScreen() {
               fontSize: '0.95rem',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
@@ -1378,7 +1378,7 @@ function LoginScreen() {
                 fontSize: '0.95rem',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',display: 'flex',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               });

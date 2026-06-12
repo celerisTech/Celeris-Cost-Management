@@ -35,7 +35,7 @@ export default function CRMDashboardPage() {
     fetchDashboard();
   }, []);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async () => { 
     try {
       setLoading(true);
       const res = await fetch("/api/sales-leads?type=dashboard");
@@ -52,101 +52,101 @@ export default function CRMDashboardPage() {
   const topExecs = data?.topExecutives || [];
 
   const statCards = [
-    { 
-      label: "Total Leads", 
-      value: fmt(stats.total_leads), 
-      icon: Target, 
-      gradient: "from-blue-50 to-white", 
-      border: "border-blue-100", 
+    {
+      label: "Total Leads",
+      value: fmt(stats.total_leads),
+      icon: Target,
+      gradient: "from-blue-50 to-white",
+      border: "border-blue-100",
       accent: "border-blue-500",
       textColor: "text-blue-900",
       iconBg: "bg-blue-50",
       iconColor: "text-blue-600",
-      link: "/dashboard/crm/leads" 
+      link: "/dashboard/crm/leads"
     },
-    { 
-      label: "New Leads", 
-      value: fmt(stats.new_leads), 
-      icon: Star, 
-      gradient: "from-indigo-50 to-white", 
-      border: "border-indigo-100", 
+    {
+      label: "New Leads",
+      value: fmt(stats.new_leads),
+      icon: Star,
+      gradient: "from-indigo-50 to-white",
+      border: "border-indigo-100",
       accent: "border-indigo-500",
       textColor: "text-indigo-900",
       iconBg: "bg-indigo-50",
       iconColor: "text-indigo-600",
-      link: "/dashboard/crm/leads?status=New+Lead" 
+      link: "/dashboard/crm/leads?status=New+Lead"
     },
-    { 
-      label: "Today's Visits", 
-      value: fmt(data?.todayVisits), 
-      icon: MapPin, 
-      gradient: "from-violet-50 to-white", 
-      border: "border-violet-100", 
+    {
+      label: "Today's Visits",
+      value: fmt(data?.todayVisits),
+      icon: MapPin,
+      gradient: "from-violet-50 to-white",
+      border: "border-violet-100",
       accent: "border-violet-500",
       textColor: "text-violet-900",
       iconBg: "bg-violet-50",
       iconColor: "text-violet-600",
-      link: "/dashboard/crm/visits" 
+      link: "/dashboard/crm/visits"
     },
-    { 
-      label: "Pending Followups", 
-      value: fmt(stats.pending_followups), 
-      icon: Clock, 
-      gradient: "from-amber-50 to-white", 
-      border: "border-amber-100", 
+    {
+      label: "Pending Followups",
+      value: fmt(stats.pending_followups),
+      icon: Clock,
+      gradient: "from-amber-50 to-white",
+      border: "border-amber-100",
       accent: "border-amber-500",
       textColor: "text-amber-900",
       iconBg: "bg-amber-50",
       iconColor: "text-amber-600",
-      link: "/dashboard/crm/visits" 
+      link: "/dashboard/crm/visits"
     },
-    { 
-      label: "Converted", 
-      value: fmt(stats.converted_leads), 
-      icon: CheckCircle2, 
-      gradient: "from-emerald-50 to-white", 
-      border: "border-emerald-100", 
+    {
+      label: "Converted",
+      value: fmt(stats.converted_leads),
+      icon: CheckCircle2,
+      gradient: "from-emerald-50 to-white",
+      border: "border-emerald-100",
       accent: "border-emerald-500",
       textColor: "text-emerald-900",
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-600",
-      link: "/dashboard/crm/leads?status=Converted" 
+      link: "/dashboard/crm/leads?status=Converted"
     },
-    { 
-      label: "Rejected", 
-      value: fmt(stats.rejected_leads), 
-      icon: AlertCircle, 
-      gradient: "from-rose-50 to-white", 
-      border: "border-rose-100", 
+    {
+      label: "Not Interested",
+      value: fmt(stats.rejected_leads),
+      icon: AlertCircle,
+      gradient: "from-rose-50 to-white",
+      border: "border-rose-100",
       accent: "border-rose-500",
       textColor: "text-rose-900",
       iconBg: "bg-rose-50",
       iconColor: "text-rose-600",
-      link: "/dashboard/crm/leads?status=Rejected" 
+      link: "/dashboard/crm/leads?status=Not+Interested"
     },
-    { 
-      label: "Total Collection", 
-      value: fmtCurrency(data?.totalCollection), 
-      icon: IndianRupee, 
-      gradient: "from-green-50 to-white", 
-      border: "border-green-100", 
+    {
+      label: "Total Collection",
+      value: fmtCurrency(data?.totalCollection),
+      icon: IndianRupee,
+      gradient: "from-green-50 to-white",
+      border: "border-green-100",
       accent: "border-green-500",
       textColor: "text-green-900",
       iconBg: "bg-green-50",
       iconColor: "text-green-600",
-      link: "/dashboard/crm/payments" 
+      link: "/dashboard/crm/payments"
     },
-    { 
-      label: "Pending Payments", 
-      value: fmtCurrency(data?.pendingPayments), 
-      icon: CreditCard, 
-      gradient: "from-orange-50 to-white", 
-      border: "border-orange-100", 
+    {
+      label: "Pending Payments",
+      value: fmtCurrency(data?.pendingPayments),
+      icon: CreditCard,
+      gradient: "from-orange-50 to-white",
+      border: "border-orange-100",
       accent: "border-orange-500",
       textColor: "text-orange-900",
       iconBg: "bg-orange-50",
       iconColor: "text-orange-600",
-      link: "/dashboard/crm/payments?status=Pending" 
+      link: "/dashboard/crm/payments?status=Pending"
     },
   ];
 
@@ -190,14 +190,14 @@ export default function CRMDashboardPage() {
             <div>
               <h3 className="text-sm font-bold text-red-900">Urgent Actions Required</h3>
               <p className="text-xs text-red-700">
-                You have <span className="font-bold">{stats.pending_followups}</span> overdue follow-ups and 
+                You have <span className="font-bold">{stats.pending_followups}</span> overdue follow-ups and
                 <span className="font-bold"> {fmtCurrency(data?.pendingPayments)}</span> pending in collections.
               </p>
             </div>
           </div>
           <div className="flex flex-col gap-2 w-full md:w-auto">
-            <button 
-              onClick={() => setIsFollowupsModalOpen(true)} 
+            <button
+              onClick={() => setIsFollowupsModalOpen(true)}
               className="w-full text-center px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Clock className="h-3.5 w-3.5" /> Follow-ups
@@ -217,8 +217,8 @@ export default function CRMDashboardPage() {
       {/* Stat Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map((card, i) => (
-          <Link 
-            key={i} 
+          <Link
+            key={i}
             href={card.link}
             className={`
               group relative p-3 rounded-xl border-l-4 
@@ -226,9 +226,9 @@ export default function CRMDashboardPage() {
               shadow-sm hover:shadow-md transition-all duration-300 
               hover:translate-y-[-2px]
             `}
-            style={{ 
+            style={{
               animation: `fadeIn 0.5s ease-out ${i * 50}ms forwards`,
-              opacity: 0 
+              opacity: 0
             }}
           >
             {/* Header Content */}
@@ -241,7 +241,7 @@ export default function CRMDashboardPage() {
                   {card.value}
                 </p>
               </div>
-              
+
               {/* Icon Container */}
               <div className={`p-2 rounded-xl ${card.iconBg} ${card.iconColor} transition-transform group-hover:scale-110`}>
                 <card.icon className="h-5 w-5" />
@@ -295,10 +295,25 @@ export default function CRMDashboardPage() {
                         {f.CM_Company_Name || "—"}
                       </td>
                       <td className="px-4 py-2 text-[11px] text-center font-medium border-b border-r border-gray-100">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 border border-gray-200">
-                          <Calendar className="h-3 w-3" />
-                          {f.CM_Next_Followup_Date ? new Date(f.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}
-                        </span>
+                        {(() => {
+                          if (!f.CM_Next_Followup_Date) return "—";
+                          const fDate = new Date(f.CM_Next_Followup_Date);
+                          fDate.setHours(0, 0, 0, 0);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const isPast = fDate < today;
+                          return (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 border border-gray-200">
+                                <Calendar className="h-3 w-3" />
+                                {fDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
+                              </span>
+                              <span className={`text-[9px] uppercase tracking-wider font-bold ${isPast ? 'text-red-500' : 'text-blue-500'}`}>
+                                {isPast ? "Not Visited" : "Next Follow-up"}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-600 border-b border-r border-gray-100">
                         <div className="flex items-center gap-1.5">
@@ -329,9 +344,9 @@ export default function CRMDashboardPage() {
         }
       `}</style>
 
-      <FollowupsOverviewModal 
-        isOpen={isFollowupsModalOpen} 
-        onClose={() => setIsFollowupsModalOpen(false)} 
+      <FollowupsOverviewModal
+        isOpen={isFollowupsModalOpen}
+        onClose={() => setIsFollowupsModalOpen(false)}
       />
     </div>
   );

@@ -487,7 +487,7 @@ const SalaryDashboard = () => {
   };
 
   if (loading)
-     return (
+    return (
       <div className="flex flex-row h-screen bg-white">
         {/* Navbar */}
         <Navbar />

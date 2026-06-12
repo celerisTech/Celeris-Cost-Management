@@ -315,7 +315,7 @@ export async function PUT(request: Request) {
         dueDate,
         body.CM_Is_Active || "Active",
         body.CM_Image_URL || null,
-        body.CM_Uploaded_By || body.CM_Created_By,
+        body.CM_Uploaded_By || body.CM_Created_By || null,
         CM_Task_ID
       ]
     );

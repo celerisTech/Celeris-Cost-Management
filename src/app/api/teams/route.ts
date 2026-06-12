@@ -21,9 +21,11 @@ export async function GET(req: NextRequest) {
     const [rows] = await db.query(
       `SELECT 
         u.*, 
-        r.CM_Role_Description 
+        r.CM_Role_Description,
+        l.CM_Labor_Roll
        FROM ccms_users u
        LEFT JOIN ccms_roles_master r ON u.CM_Role_ID = r.CM_Role_ID
+       LEFT JOIN ccms_labor l ON u.CM_Labor_Type_ID = l.CM_Labor_Type_ID
        WHERE u.CM_Company_ID = ?
        ORDER BY u.CM_Full_Name`,
       [companyId]

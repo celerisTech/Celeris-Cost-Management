@@ -32,6 +32,12 @@ export default function ProjectDetails({ params }) {
   const [expandedLabor, setExpandedLabor] = useState(new Set());
   const [expandedMaterials, setExpandedMaterials] = useState(new Set());
   const [expandedTasks, setExpandedTasks] = useState(new Set());
+  const [previewImage, setPreviewImage] = useState(null);
+
+  const getSafeBase64 = (base64String) => {
+    if (!base64String) return null;
+    return base64String.startsWith('data:image') ? base64String : `data:image/jpeg;base64,${base64String}`;
+  };
 
   // Search states
   const [searchLabor, setSearchLabor] = useState("");
@@ -2298,7 +2304,20 @@ export default function ProjectDetails({ params }) {
                                       <div key={`task-card-${taskIndex}`} className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                                         <div onClick={() => toggleTask(task.CM_Task_ID)} className="p-3 cursor-pointer">
                                           <div className="flex justify-between items-start mb-2">
-                                            <span className="font-bold text-gray-800 uppercase text-xs truncate max-w-[70%]">{task.CM_Task_Name}</span>
+                                            <div className="flex flex-col gap-1 max-w-[70%]">
+                                              <span className="font-bold text-gray-800 uppercase text-xs truncate">{task.CM_Task_Name}</span>
+                                              {task.CM_Image_URL && (
+                                                <button 
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPreviewImage(getSafeBase64(task.CM_Image_URL));
+                                                  }}
+                                                  className="self-start flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                                                >
+                                                  <Eye className="h-3 w-3" /> Image
+                                                </button>
+                                              )}
+                                            </div>
                                             <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${getTaskStatusColor(taskStatus)}`}>
                                               {taskStatus}
                                             </span>
@@ -2328,6 +2347,17 @@ export default function ProjectDetails({ params }) {
                                                       <span className="text-gray-500">{formatDate(update.CM_Update_Date)}</span>
                                                     </div>
                                                     <p className="text-gray-700 italic border-l-2 border-indigo-200 pl-2">"{update.CM_Remarks || 'No remarks'}"</p>
+                                                    {update.CM_Image_URL && (
+                                                      <button 
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setPreviewImage(getSafeBase64(update.CM_Image_URL));
+                                                        }}
+                                                        className="mt-1 flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-100 transition-colors"
+                                                      >
+                                                        <Eye className="h-3 w-3" /> View Update Image
+                                                      </button>
+                                                    )}
                                                   </div>
                                                 ))}
                                               </div>
@@ -2368,7 +2398,20 @@ export default function ProjectDetails({ params }) {
                                             className={`border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${isExpanded ? 'bg-blue-50/20' : ''}`}
                                           >
                                             <td className="px-4 py-2.5 border-r border-gray-200 font-bold text-gray-800 uppercase tracking-tight">
-                                              {task.CM_Task_Name}
+                                              <div className="flex flex-col items-start gap-1">
+                                                <span>{task.CM_Task_Name}</span>
+                                                {task.CM_Image_URL && (
+                                                  <button 
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setPreviewImage(getSafeBase64(task.CM_Image_URL));
+                                                    }}
+                                                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                                                  >
+                                                    <Eye className="h-3 w-3" /> Image
+                                                  </button>
+                                                )}
+                                              </div>
                                             </td>
                                             <td className="px-4 py-2.5 border-r border-gray-200">
                                               {(task.Engineer_First_Name || task.Engineer_Last_Name) ? (
@@ -2433,6 +2476,17 @@ export default function ProjectDetails({ params }) {
                                                             <span className="font-bold text-gray-500">{formatDate(update.CM_Update_Date)}</span>
                                                           </div>
                                                           <p className="text-gray-700 mb-2">"{update.CM_Remarks || 'No remarks provided'}"</p>
+                                                          {update.CM_Image_URL && (
+                                                            <button 
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setPreviewImage(getSafeBase64(update.CM_Image_URL));
+                                                              }}
+                                                              className="mb-2 flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-100 transition-colors cursor-zoom-in"
+                                                            >
+                                                              <Eye className="h-3 w-3" /> View Update Image
+                                                            </button>
+                                                          )}
                                                           <div className="flex justify-between items-center text-gray-500 font-bold border-t border-gray-200 pt-2">
                                                             <span className="flex items-center gap-1 uppercase"><User className="h-3 w-3" /> {update.Engineer_First_Name || 'System'}</span>
                                                             {update.CM_Work_Hours && <span className="font-mono">{update.CM_Work_Hours}H</span>}
@@ -2652,6 +2706,19 @@ export default function ProjectDetails({ params }) {
           </div>
         </div>
       </div>
+      {previewImage && (
+        <div 
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4" 
+            onClick={() => setPreviewImage(null)}
+        >
+            <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain" />
+            <button className="absolute top-4 right-4 text-white hover:text-gray-300">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+      )}
     </div>
   );
 }

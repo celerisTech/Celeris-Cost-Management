@@ -405,7 +405,7 @@ export default function ProjectCostReport() {
                     </div>
 
                     {/* Filter Dropdown Menu */}
-                    {showFilterMenu && ( 
+                    {showFilterMenu && (
                       <div className="absolute z-10 mt-2 w-full sm:w-64 bg-white rounded-lg shadow-lg ring-1  focus:outline-none animate-in fade-in-0 zoom-in-95">
                         <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="filter-menu-button">
                           {[
@@ -765,11 +765,10 @@ export default function ProjectCostReport() {
                 {sortedProjects.map((project, index) => (
                   <tr
                     key={project.CM_Project_ID}
-                    className={`border-b border-l border-gray-200 transition-colors duration-75 group  ${
-                      selectedProjects.has(project.CM_Project_ID) 
-                        ? 'bg-blue-50' 
+                    className={`border-b border-l border-gray-200 transition-colors duration-75 group  ${selectedProjects.has(project.CM_Project_ID)
+                        ? 'bg-blue-50'
                         : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                    } hover:bg-blue-50/70`}
+                      } hover:bg-blue-50/70`}
                     onClick={(e) => handleProjectClick(project.CM_Project_ID, e)}
                   >
                     <td className="px-2 py-1.5 border-r border-gray-200 text-center">
@@ -796,12 +795,11 @@ export default function ProjectCostReport() {
                       </div>
                     </td>
                     <td className="px-3 py-1.5 border-r border-gray-200">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                        project.CM_Project_Type === 'Web Development' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                        project.CM_Project_Type === 'Mobile Application' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                        project.CM_Project_Type === 'Web Application' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        'bg-gray-50 text-gray-700 border-gray-200'
-                      }`}>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${project.CM_Project_Type === 'Web Development' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          project.CM_Project_Type === 'Mobile Application' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            project.CM_Project_Type === 'Web Application' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              'bg-gray-50 text-gray-700 border-gray-200'
+                        }`}>
                         {project.CM_Project_Type || 'OTHER'}
                       </span>
                     </td>

@@ -112,8 +112,10 @@ export default function ProjectPage() {
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (activeTab === 'projects') {
+      fetchProjects();
+    }
+  }, [activeTab]);
 
   // Enhanced summary data calculation with proper field names
   const summaryData = useMemo(() => {
@@ -335,6 +337,7 @@ export default function ProjectPage() {
     setIsEditMode(false);
     setSelectedProject(null);
     setActiveTab('projects');
+    fetchProjects();
   };
 
   return (
@@ -394,6 +397,7 @@ export default function ProjectPage() {
                 handleEdit={handleEdit}
                 setActiveTab={setActiveTab}
                 handleProductAllocation={handleProductAllocation}
+                authUser={authUser}
               />
             )}
 

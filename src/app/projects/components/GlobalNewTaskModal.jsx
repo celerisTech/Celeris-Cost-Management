@@ -9,7 +9,8 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
     CM_Engineer_ID: '',
     CM_Assign_Date: '',
     CM_Due_Date: '',
-    CM_Is_Active: 'Active'
+    CM_Is_Active: 'Active',
+    CM_Image_URL: ''
   });
 
   const [engineers, setEngineers] = useState([]);
@@ -137,7 +138,8 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
           CM_Engineer_ID: '',
           CM_Assign_Date: '',
           CM_Due_Date: '',
-          CM_Is_Active: 'Active'
+          CM_Is_Active: 'Active',
+          CM_Image_URL: ''
         });
         if (onTaskCreated) onTaskCreated();
         onClose();
@@ -178,20 +180,20 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
             </div>
           )}
           
-          <div className="space-y-4 text-gray-700">
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+            <div className={`relative ${newTask.CM_Project_ID ? 'col-span-1' : 'md:col-span-2'}`}>
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Project *</label>
               
               <div 
                 className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white cursor-pointer flex justify-between items-center focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
                 onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
               >
-                <span className={newTask.CM_Project_ID ? 'text-gray-900' : 'text-gray-500'}>
+                <span className={newTask.CM_Project_ID ? 'text-gray-900 truncate' : 'text-gray-500'}>
                   {newTask.CM_Project_ID 
                     ? projects.find(p => p.CM_Project_ID === newTask.CM_Project_ID)?.CM_Project_Name 
                     : '-- Choose Project --'}
                 </span>
-                <span className="text-gray-400 text-xs">▼</span>
+                <span className="text-gray-400 text-xs flex-shrink-0 ml-2">▼</span>
               </div>
               
               {isProjectDropdownOpen && (
@@ -229,7 +231,7 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
             </div>
 
             {newTask.CM_Project_ID && (
-              <div>
+              <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Milestone (Optional)
                   {loadingMilestones && <span className="ml-2 text-blue-500 text-xs">Loading...</span>}
@@ -251,7 +253,7 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
               </div>
             )}
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
               <textarea
                 type="text"
@@ -265,7 +267,7 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
               />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Assign To (Engineer) *
                 {loadingEngineers && <span className="ml-2 text-blue-500 text-xs">Loading...</span>}
@@ -287,30 +289,73 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assign Date *</label>
-                <input
-                  type="date"
-                  name="CM_Assign_Date"
-                  value={newTask.CM_Assign_Date}
-                  onChange={handleChange}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
-                <input
-                  type="date"
-                  name="CM_Due_Date"
-                  value={newTask.CM_Due_Date}
-                  onChange={handleChange}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  required
-                />
-              </div>
+            <div className="col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assign Date *</label>
+              <input
+                type="date"
+                name="CM_Assign_Date"
+                value={newTask.CM_Assign_Date}
+                onChange={handleChange}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                required
+              />
             </div>
+            
+            <div className="col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
+              <input
+                type="date"
+                name="CM_Due_Date"
+                value={newTask.CM_Due_Date}
+                onChange={handleChange}
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Task Image (Optional)
+              </label>
+              {newTask.CM_Image_URL && (
+                <div className="mb-2 relative w-32 h-32 group">
+                  <img
+                    src={newTask.CM_Image_URL}
+                    alt="Preview"
+                    className="w-full h-full object-cover rounded border border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleChange({
+                        target: { name: 'CM_Image_URL', value: '' }
+                      });
+                    }}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs hover:bg-red-600 shadow-md transition"
+                    title="Remove Image"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      handleChange({
+                        target: { name: 'CM_Image_URL', value: reader.result }
+                      });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              </div>
           </div>
 
           <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">

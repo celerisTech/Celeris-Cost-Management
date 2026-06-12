@@ -347,7 +347,7 @@ function AttendanceForm({ laborType }) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-4 sm:p-6"
+      className="p-2 sm:p-3"
     >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -588,181 +588,151 @@ function AttendanceForm({ laborType }) {
               <>
                 {/* Desktop/Tablet: Table View */}
                 <div className="hidden md:block">
-                  <table className="w-full">
+                  <table className="w-full border-collapse border border-slate-300 bg-white">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="p-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Employee Name</th>
-                        <th className="p-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Status</th>
+                      <tr className="bg-slate-200">
+                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Employee Name</th>
+                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">Status</th>
                         {laborType !== "Office" && (
-                          <th className="p-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Project</th>
+                          <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Project</th>
                         )}
-                        <th className="p-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Time</th>
-                        <th className="p-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Shift & Remarks</th>
+                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">In Time</th>
+                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">Out Time</th>
+                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">Shift</th>
+                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Remarks</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody>
                       {filteredEmployees.map(emp => {
                         const state = attendanceState[emp.CM_Labor_Type_ID] || {};
                         const isPresent = state.status === "Present" || state.status === "Half-Day";
 
                         return (
-                          <motion.tr
+                          <tr
                             key={emp.CM_Labor_Type_ID}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className={`hover:bg-slate-50/50 transition-colors ${!isPresent ? "bg-slate-50/30" : ""}`}
+                            className={`hover:bg-blue-50 transition-colors ${!isPresent ? "bg-slate-50" : ""}`}
                           >
                             {/* Employee */}
-                            <td className="p-4">
-                              <div className="flex items-center gap-3">
-                                <div>
-                                  <h4 className="font-medium text-slate-800">
-                                    {emp.CM_First_Name} {emp.CM_Last_Name}
-                                  </h4>
-                                  <p className="text-sm text-slate-500 font-mono">{emp.CM_Labor_Code}</p>
-                                </div>
+                            <td className="border border-slate-300 p-2">
+                              <div className="font-medium text-slate-800 text-sm">
+                                {emp.CM_First_Name} {emp.CM_Last_Name}
                               </div>
+                              <div className="text-xs text-slate-500 font-mono">{emp.CM_Labor_Code}</div>
                             </td>
 
                             {/* Status */}
-                            <td className="p-4">
-                              <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => updateRow(emp.CM_Labor_Type_ID, "status", isPresent ? "Absent" : "Present")}
-                                    className={`w-8 h-8 rounded-xl flex items-center justify-center border-2 transition-all duration-200 ${isPresent
-                                        ? "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-500/25"
-                                        : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
-                                      }`}
-                                  >
-                                    {isPresent ? <FiCheck className="w-5 h-5" /> : <FiX className="w-5 h-5" />}
-                                  </button>
-                                  <span className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${getStatusColor(state.status)}`}>
-                                    {state.status}
-                                  </span>
-                                </div>
-                              </div>
+                            <td className="border border-slate-300 p-0 align-top">
+                              <select
+                                value={state.status}
+                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "status", e.target.value)}
+                                className={`w-full h-full min-h-[40px] p-2 text-sm outline-none bg-transparent ${
+                                  state.status === "Present" ? "text-emerald-700 font-medium" : 
+                                  state.status === "Absent" ? "text-rose-700 font-medium" : 
+                                  state.status === "Half-Day" ? "text-amber-700 font-medium" : "text-slate-700"
+                                }`}
+                              >
+                                <option value="Present">Present</option>
+                                <option value="Absent">Absent</option>
+                                <option value="Half-Day">Half-Day</option>
+                                <option value="Week-Off">Week-Off</option>
+                              </select>
                             </td>
 
                             {/* Project */}
                             {laborType !== "Office" && (
-                              <td className="p-4">
-                                <Select
-                                  isDisabled={!isPresent || locationRestricted}
-                                  options={projects.map(p => ({
-                                    value: p.CM_Project_ID,
-                                    label: p.CM_Project_Name
-                                  }))}
-                                  value={projects.find(p => p.CM_Project_ID === state.projectId) ? {
-                                    value: state.projectId,
-                                    label: projects.find(p => p.CM_Project_ID === state.projectId).CM_Project_Name
-                                  } : null}
-                                  onChange={(opt) => updateRow(emp.CM_Labor_Type_ID, "projectId", opt?.value)}
-                                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                  styles={{
-                                    control: (base) => ({
-                                      ...base,
-                                      borderRadius: "0.5rem",
-                                      borderColor: "#cbd5e1",
-                                      minHeight: "38px",
-                                      backgroundColor: !isPresent ? "#f8fafc" : "white"
-                                    }),
-                                    menuPortal: base => ({ ...base, zIndex: 9999 })
-                                  }}
-                                  placeholder={locationRestricted ? (globalProject?.label || "Global") : "Select project..."}
-                                  className="text-sm min-w-[200px]"
-                                />
+                              <td className="border border-slate-300 p-0 align-top">
+                                <select
+                                  disabled={!isPresent || locationRestricted}
+                                  value={state.projectId || ""}
+                                  onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "projectId", e.target.value)}
+                                  className="w-full h-full min-h-[40px] p-2 text-sm outline-none bg-transparent text-slate-700 disabled:opacity-50"
+                                >
+                                  <option value="" disabled>{locationRestricted ? (globalProject?.label || "Global") : "Select project..."}</option>
+                                  {projects.map(p => (
+                                    <option key={p.CM_Project_ID} value={p.CM_Project_ID}>{p.CM_Project_Name}</option>
+                                  ))}
+                                </select>
                               </td>
                             )}
 
-                            {/* Time */}
-                            <td className="p-4">
-                              <div className={`space-y-2 ${!isPresent ? "opacity-40" : ""}`}>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                  <span className="text-sm text-slate-600 w-8">IN</span>
-                                  <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1">
-                                    <select
-                                      value={state.inTime?.hour}
-                                      onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, hour: e.target.value })}
-                                      className="bg-transparent border-none outline-none text-sm text-slate-700 px-2 py-1"
-                                      disabled={!isPresent}
-                                    >
-                                      {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
-                                        <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
-                                      )}
-                                    </select>
-                                    <span className="text-slate-400">:</span>
-                                    <input
-                                      type="text"
-                                      value={state.inTime?.minute || "00"}
-                                      onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, minute: e.target.value })}
-                                      className="w-12 bg-transparent border-none outline-none text-sm text-slate-700 text-center"
-                                      disabled={!isPresent}
-                                    />
-                                    <button
-                                      onClick={() => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, period: state.inTime.period === "AM" ? "PM" : "AM" })}
-                                      className="px-2 py-1 text-xs text-black font-medium bg-white border border-green-300 rounded hover:bg-slate-50"
-                                      disabled={!isPresent}
-                                    >
-                                      {state.inTime?.period}
-                                    </button>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                                  <span className="text-sm text-slate-600 w-8">OUT</span>
-                                  <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1">
-                                    <select
-                                      value={state.outTime?.hour}
-                                      onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, hour: e.target.value })}
-                                      className="bg-transparent border-none outline-none text-sm text-slate-700 px-2 py-1"
-                                      disabled={!isPresent}
-                                    >
-                                      {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
-                                        <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
-                                      )}
-                                    </select>
-                                    <span className="text-slate-800">:</span>
-                                    <input
-                                      type="text"
-                                      value={state.outTime?.minute || "00"}
-                                      onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, minute: e.target.value })}
-                                      className="w-12 bg-transparent border-none outline-none text-sm text-slate-700 text-center"
-                                      disabled={!isPresent}
-                                    />
-                                    <button
-                                      onClick={() => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, period: state.outTime.period === "AM" ? "PM" : "AM" })}
-                                      className="px-2 py-1 text-xs text-black font-medium bg-white border border-green-300 rounded hover:bg-slate-50"
-                                      disabled={!isPresent}
-                                    >
-                                      {state.outTime?.period}
-                                    </button>
-                                  </div>
-                                </div>
+                            {/* In Time */}
+                            <td className="border border-slate-300 p-0 align-top">
+                              <div className={`flex items-center justify-center h-full min-h-[40px] px-1 ${!isPresent ? "opacity-50 pointer-events-none" : ""}`}>
+                                <select
+                                  value={state.inTime?.hour}
+                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, hour: e.target.value })}
+                                  className="bg-transparent border-none outline-none text-sm text-slate-700 p-1 w-10 text-center"
+                                >
+                                  {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
+                                    <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
+                                  )}
+                                </select>
+                                <span className="text-slate-400">:</span>
+                                <input
+                                  type="text"
+                                  value={state.inTime?.minute || "00"}
+                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, minute: e.target.value })}
+                                  className="w-8 bg-transparent border-none outline-none text-sm text-slate-700 text-center"
+                                />
+                                <button
+                                  onClick={() => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, period: state.inTime.period === "AM" ? "PM" : "AM" })}
+                                  className="px-1 py-1 text-xs text-black font-medium hover:bg-slate-100 rounded"
+                                >
+                                  {state.inTime?.period}
+                                </button>
                               </div>
                             </td>
 
-                            {/* Remarks */}
-                            <td className="p-4">
-                              <div className="space-y-2">
+                            {/* Out Time */}
+                            <td className="border border-slate-300 p-0 align-top">
+                              <div className={`flex items-center justify-center h-full min-h-[40px] px-1 ${!isPresent ? "opacity-50 pointer-events-none" : ""}`}>
+                                <select
+                                  value={state.outTime?.hour}
+                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, hour: e.target.value })}
+                                  className="bg-transparent border-none outline-none text-sm text-slate-700 p-1 w-10 text-center"
+                                >
+                                  {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
+                                    <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
+                                  )}
+                                </select>
+                                <span className="text-slate-400">:</span>
                                 <input
                                   type="text"
-                                  placeholder="Shift/Work Type"
-                                  value={state.shift || ""}
-                                  onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "shift", e.target.value)}
-                                  className="w-full text-black bg-slate-50 border border-blue-200 rounded-lg text-sm px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                  value={state.outTime?.minute || "00"}
+                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, minute: e.target.value })}
+                                  className="w-8 bg-transparent border-none outline-none text-sm text-slate-700 text-center"
                                 />
-                                <textarea
-                                  placeholder="Add remarks..."
-                                  value={state.remarks || ""}
-                                  onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "remarks", e.target.value)}
-                                  className="w-full text-black bg-slate-50 border border-blue-200 rounded-lg text-sm px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none h-16"
-                                  rows={2}
-                                />
+                                <button
+                                  onClick={() => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, period: state.outTime.period === "AM" ? "PM" : "AM" })}
+                                  className="px-1 py-1 text-xs text-black font-medium hover:bg-slate-100 rounded"
+                                >
+                                  {state.outTime?.period}
+                                </button>
                               </div>
                             </td>
-                          </motion.tr>
+
+                            {/* Shift */}
+                            <td className="border border-slate-300 p-0 align-top">
+                              <input
+                                type="text"
+                                placeholder="Shift/Type"
+                                value={state.shift || ""}
+                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "shift", e.target.value)}
+                                className="w-full h-full min-h-[40px] text-slate-700 bg-transparent text-sm p-2 outline-none text-center"
+                              />
+                            </td>
+
+                            {/* Remarks */}
+                            <td className="border border-slate-300 p-0 align-top">
+                              <input
+                                type="text"
+                                placeholder="Remarks..."
+                                value={state.remarks || ""}
+                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "remarks", e.target.value)}
+                                className="w-full h-full min-h-[40px] text-slate-700 bg-transparent text-sm p-2 outline-none"
+                              />
+                            </td>
+                          </tr>
                         );
                       })}
 

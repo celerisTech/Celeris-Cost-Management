@@ -329,6 +329,7 @@ export default function TaskAssignmentStep({
         CM_Assign_Date: _formatDateForApi(t.CM_Assign_Date),
         CM_Due_Date: _formatDateForApi(t.CM_Due_Date),
         CM_Is_Active: t.CM_Is_Active ?? 'Active',
+        CM_Image_URL: t.CM_Image_URL || null,
         CM_Created_By: t.CM_Created_By || authUser?.CM_Full_Name,
         CM_Uploaded_By: authUser?.CM_Full_Name || t.CM_Uploaded_By,
       };
@@ -724,6 +725,55 @@ export default function TaskAssignmentStep({
                 </div>
               </div>
 
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Task Image (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        handleSingleTaskFieldChange(taskForms.length - 1, {
+                          target: {
+                            name: "CM_Image_URL",
+                            value: reader.result,
+                          },
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+                {taskForms[taskForms.length - 1]?.CM_Image_URL && (
+                  <div className="mt-2 relative inline-block">
+                    <img
+                      src={taskForms[taskForms.length - 1].CM_Image_URL}
+                      alt="Task preview"
+                      className="h-20 w-auto rounded border border-gray-300 shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSingleTaskFieldChange(taskForms.length - 1, {
+                          target: {
+                            name: "CM_Image_URL",
+                            value: "",
+                          },
+                        });
+                      }}
+                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 shadow-md transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {taskMessagesArray[taskForms.length - 1] && (
                 <div
                   className={`mt-3 p-2 rounded-md text-sm ${taskMessagesArray[taskForms.length - 1].includes('✅')
@@ -822,8 +872,15 @@ export default function TaskAssignmentStep({
                 >
 
                   {/* Task Name Cell */}
-                  <div className="p-3 border-r border-gray-200 text-sm text-black truncate">
-                    {task.CM_Task_Name || "—"}
+                  <div className="p-3 border-r border-gray-200 text-sm text-black truncate flex items-center gap-2">
+                    {task.CM_Image_URL && (
+                      <img
+                        src={task.CM_Image_URL}
+                        alt="Task preview"
+                        className="w-6 h-6 rounded object-cover border border-gray-200 flex-shrink-0"
+                      />
+                    )}
+                    <span className="truncate">{task.CM_Task_Name || "—"}</span>
                   </div>
 
                   {/* Milestone Cell */}

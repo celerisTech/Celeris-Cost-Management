@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
                   tu.CM_Update_ID,
                   tu.CM_Task_ID,
                   t.CM_Task_Name,
+                  t.CM_Image_URL AS Task_Image_URL,
                   tu.CM_Project_ID,
                   p.CM_Project_Name,
                   tu.CM_Engineer_ID,
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
         SELECT 
             t.CM_Task_ID,
             t.CM_Task_Name,
+            t.CM_Image_URL,
             t.CM_Project_ID,
             p.CM_Project_Name,
             t.CM_Milestone_ID,

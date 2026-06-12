@@ -704,11 +704,12 @@ export default function ProjectViewTab({
       CM_Project_ID: projectId,
       CM_Company_ID: companyId,
       CM_Engineer_ID: editTask.CM_Engineer_ID || null,
-      CM_Milestone_ID: editTask.CM_Milestone_ID || null, // Add milestone ID
+      CM_Milestone_ID: editTask.CM_Milestone_ID || null,
       CM_Assign_Date: formattedAssignDate,
       CM_Due_Date: formattedDueDate,
       CM_Is_Active: editTask.CM_Is_Active ?? "Active",
       CM_Image_URL: editTask.CM_Image_URL || null,
+      CM_Uploaded_By: authUser?.CM_Full_Name || 'Unknown User',
     };
 
     try {
@@ -1815,6 +1816,8 @@ export default function ProjectViewTab({
             showUpdatesModal={showUpdatesModal}
             setShowUpdatesModal={setShowUpdatesModal}
             fetchTaskDetailUpdates={fetchTaskDetailUpdates}
+            fetchTaskUpdates={fetchTaskUpdates}
+            authUser={authUser}
             selectedTask={selectedTask}
             setSelectedTask={setSelectedTask}
             expandedImages={expandedImages}

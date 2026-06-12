@@ -1,0 +1,60 @@
+-- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
+--
+-- Host: 127.0.0.1    Database: cost_management
+-- ------------------------------------------------------
+-- Server version	8.0.46
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `ccms_privilege_master`
+--
+
+DROP TABLE IF EXISTS `ccms_privilege_master`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ccms_privilege_master` (
+  `CM_ID` varchar(25) NOT NULL,
+  `CM_Role_ID` varchar(25) DEFAULT NULL,
+  `CM_Nav_Link_ID` varchar(25) DEFAULT NULL,
+  `CM_Created_By` varchar(50) DEFAULT NULL,
+  `CM_Created_At` datetime DEFAULT NULL,
+  `CM_Uploaded_By` varchar(50) DEFAULT NULL,
+  `CM_Uploaded_At` datetime DEFAULT NULL,
+  PRIMARY KEY (`CM_ID`),
+  KEY `fk_priv_role` (`CM_Role_ID`),
+  KEY `fk_priv_nav` (`CM_Nav_Link_ID`),
+  CONSTRAINT `fk_priv_nav` FOREIGN KEY (`CM_Nav_Link_ID`) REFERENCES `ccms_nav_link` (`CM_Nav_Link_ID`),
+  CONSTRAINT `fk_priv_role` FOREIGN KEY (`CM_Role_ID`) REFERENCES `ccms_roles_master` (`CM_Role_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ccms_privilege_master`
+--
+
+LOCK TABLES `ccms_privilege_master` WRITE;
+/*!40000 ALTER TABLE `ccms_privilege_master` DISABLE KEYS */;
+INSERT INTO `ccms_privilege_master` VALUES ('PRV002052','ROL000003','NAV000012','Bharani Kumar.C','2026-05-02 09:06:55','Bharani Kumar.C','2026-05-02 09:06:55'),('PRV002053','ROL000003','NAV000006','Bharani Kumar.C','2026-05-02 09:06:55','Bharani Kumar.C','2026-05-02 09:06:55'),('PRV002054','ROL000003','NAV000005','Bharani Kumar.C','2026-05-02 09:06:55','Bharani Kumar.C','2026-05-02 09:06:55'),('PRV002055','ROL000003','NAV000011','Bharani Kumar.C','2026-05-02 09:06:55','Bharani Kumar.C','2026-05-02 09:06:55'),('PRV002056','ROL000003','NAV000016','Bharani Kumar.C','2026-05-02 09:06:55','Bharani Kumar.C','2026-05-02 09:06:55'),('PRV002057','ROL000003','NAV000017','Bharani Kumar.C','2026-05-02 09:06:55','Bharani Kumar.C','2026-05-02 09:06:55'),('PRV002058','ROL000003','NAV000018','Bharani Kumar.C','2026-05-02 09:06:55','Bharani Kumar.C','2026-05-02 09:06:55'),('PRV002082','ROL000003','NAV000020','SYSTEM','2026-05-15 00:25:58',NULL,NULL),('PRV002084','ROL000001','NAV000015','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002085','ROL000001','NAV000012','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002086','ROL000001','NAV000016','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002087','ROL000001','NAV000017','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002088','ROL000001','NAV000006','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002089','ROL000001','NAV000020','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002090','ROL000001','NAV000011','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002091','ROL000001','NAV000008','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002092','ROL000001','NAV000010','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002093','ROL000001','NAV000007','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002094','ROL000001','NAV000001','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002095','ROL000001','NAV000019','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002096','ROL000001','NAV000002','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002097','ROL000001','NAV000003','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002098','ROL000001','NAV000009','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002099','ROL000001','NAV000018','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002100','ROL000001','NAV000004','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002101','ROL000001','NAV000005','Bharani Kumar.C','2026-05-15 07:45:13','Bharani Kumar.C','2026-05-15 07:45:13'),('PRV002102','ROL000002','NAV000001','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002103','ROL000002','NAV000002','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002104','ROL000002','NAV000006','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002105','ROL000002','NAV000005','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002106','ROL000002','NAV000020','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002107','ROL000002','NAV000003','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002108','ROL000002','NAV000018','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002109','ROL000002','NAV000004','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002110','ROL000002','NAV000008','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002111','ROL000002','NAV000009','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002112','ROL000002','NAV000010','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002113','ROL000002','NAV000007','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002114','ROL000002','NAV000015','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002115','ROL000002','NAV000011','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002116','ROL000002','NAV000012','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002117','ROL000002','NAV000016','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50'),('PRV002118','ROL000002','NAV000017','Bharani Kumar.C','2026-05-18 12:30:50','Bharani Kumar.C','2026-05-18 12:30:50');
+/*!40000 ALTER TABLE `ccms_privilege_master` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-06-11 18:57:19

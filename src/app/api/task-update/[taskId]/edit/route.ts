@@ -37,11 +37,11 @@ export async function PUT(
     }
 
     let imagePath: string | null = null;
-    const file = formData.get("image") as File | null;
+    const imageInput = formData.get("image");
 
-    if (file) {
-      // Delete old image if it exists
-      if (currentImageUrl) {
+    if (imageInput) {
+      // Delete old image if it exists and is a file path
+      if (currentImageUrl && !currentImageUrl.startsWith('data:image')) {
         try {
           const oldImagePath = path.join(process.cwd(), "public", currentImageUrl.replace(/^\//, ''));
           if (existsSync(oldImagePath)) {
@@ -49,17 +49,21 @@ export async function PUT(
           }
         } catch (error) {
           console.error("Error removing old image:", error);
-          // Continue with the update even if old image deletion fails
         }
       }
 
-      // Save the new image
-      const bytes = Buffer.from(await file.arrayBuffer());
-      const filename = `${Date.now()}-${file.name}`;
-      const publicDir = path.join(process.cwd(), "public", "uploads");
+      if (typeof imageInput === 'string' && imageInput.startsWith('data:image')) {
+        imagePath = imageInput;
+      } else if (imageInput instanceof File) {
+        const bytes = Buffer.from(await imageInput.arrayBuffer());
+        const filename = `${Date.now()}-${imageInput.name}`;
+        const publicDir = path.join(process.cwd(), "public", "uploads");
 
-      await writeFile(path.join(publicDir, filename), bytes);
-      imagePath = `/uploads/${filename}`;
+        await writeFile(path.join(publicDir, filename), bytes);
+        imagePath = `/uploads/${filename}`;
+      } else if (typeof imageInput === 'string') {
+        imagePath = imageInput; // In case it's already a URL
+      }
     } else {
       // Keep the current image if no new one is provided
       imagePath = currentImageUrl || null;

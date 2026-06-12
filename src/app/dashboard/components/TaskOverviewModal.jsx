@@ -45,7 +45,7 @@ const StatusBadge = ({ status }) => {
     );
 };
 
-const TaskCard = ({ task, index }) => {
+const TaskCard = ({ task, index, onTaskClick, onPreviewImage }) => {
     return (
         <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -54,9 +54,26 @@ const TaskCard = ({ task, index }) => {
             className="bg-white rounded-xl border border-slate-200 shadow-sm p-4"
         >
             <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold text-slate-800 text-sm">
-                    {task.CM_Task_Name}
-                </h3>
+                <div className="flex flex-col gap-1 items-start">
+                    <button
+                        onClick={() => onTaskClick(task.CM_Task_Name)}
+                        className="font-semibold text-left text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                    >
+                        {task.CM_Task_Name}
+                    </button>
+                    {task.CM_Image_URL && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onPreviewImage(task.CM_Image_URL);
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                        >
+                            <Projector size={12} />
+                            Image
+                        </button>
+                    )}
+                </div>
                 <StatusBadge status={task.Latest_Status} />
             </div>
             <div className="text-xs text-slate-500 mb-3">
@@ -78,7 +95,7 @@ const TaskCard = ({ task, index }) => {
     );
 };
 
-const UpdateCard = ({ item, index }) => {
+const UpdateCard = ({ item, index, onPreviewImage }) => {
     return (
         <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -93,13 +110,35 @@ const UpdateCard = ({ item, index }) => {
                 <StatusBadge status={item.CM_Status} />
             </div>
             <h3 className="font-semibold text-slate-800 text-sm mb-2">
-                {item.CM_Task_Name}
+                <div className="flex flex-col items-start gap-1">
+                    <span>{item.CM_Task_Name}</span>
+                    {item.Task_Image_URL && (
+                        <button
+                            onClick={() => onPreviewImage(item.Task_Image_URL)}
+                            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                        >
+                            <Projector size={12} />
+                            Task Image
+                        </button>
+                    )}
+                </div>
             </h3>
             <div className="text-xs text-slate-500 mb-3">
                 {item.CM_Project_Name}
             </div>
             <div className="bg-slate-50 p-3 rounded border border-slate-200 mb-3 text-xs italic text-slate-700">
-                "{item.CM_Remarks || "No remarks"}"
+                <div className="flex flex-col items-start gap-2">
+                    <span>"{item.CM_Remarks || "No remarks"}"</span>
+                    {item.CM_Image_URL && (
+                        <button
+                            onClick={() => onPreviewImage(item.CM_Image_URL)}
+                            className="flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 bg-blue-100/50 hover:bg-blue-200/50 px-2 py-1 rounded border border-blue-200 transition-colors cursor-zoom-in font-medium not-italic"
+                        >
+                            <Projector size={12} />
+                            View Update Image
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="flex justify-between items-center text-xs">
                 <span className="font-medium text-slate-700">{item.Engineer_Name}</span>
@@ -120,6 +159,7 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
     const [filterProject, setFilterProject] = useState("All");
     const [filterEngineer, setFilterEngineer] = useState("All");
     const [filterStatus, setFilterStatus] = useState("All");
+    const [previewImage, setPreviewImage] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -218,6 +258,38 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                             </div>
 
                             <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar sm:flex-wrap sm:justify-end w-full sm:w-auto">
+                                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex-shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const today = new Date();
+                                            setStartDate(today);
+                                            setEndDate(today);
+                                        }}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${isToday(startDate) && isToday(endDate)
+                                                ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-semibold"
+                                                : "text-slate-600 hover:text-slate-800"
+                                            }`}
+                                    >
+                                        Today
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const yesterday = new Date();
+                                            yesterday.setDate(yesterday.getDate() - 1);
+                                            setStartDate(yesterday);
+                                            setEndDate(yesterday);
+                                        }}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${isYesterday(startDate) && isYesterday(endDate)
+                                                ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-semibold"
+                                                : "text-slate-600 hover:text-slate-800"
+                                            }`}
+                                    >
+                                        Yesterday
+                                    </button>
+                                </div>
+
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                     <DatePicker
                                         selected={startDate}
@@ -447,7 +519,25 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                                     {filteredData.map((task, idx) => (
                                                         <tr key={task.CM_Task_ID} className="hover:bg-blue-50 border-b border-slate-200 transition-colors">
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-center text-slate-500 bg-slate-50 font-mono text-xs">{idx + 1}</td>
-                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-800 font-medium">{task.CM_Task_Name}</td>
+                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-800 font-medium">
+                                                                <div className="flex flex-col items-start gap-1">
+                                                                    <span className="text-left text-blue-600 font-semibold">
+                                                                        {task.CM_Task_Name}
+                                                                    </span>
+                                                                    {task.CM_Image_URL && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setPreviewImage(task.CM_Image_URL);
+                                                                            }}
+                                                                            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                                                                        >
+                                                                            <Projector size={12} />
+                                                                            Image
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{task.CM_Project_Name}</td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{task.Engineer_Name}</td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-center text-slate-600 whitespace-nowrap">{format(new Date(task.CM_Assign_Date), "dd-MMM-yy")}</td>
@@ -463,7 +553,16 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                         <div className="block md:hidden p-2">
                                             <div className="grid grid-cols-1 gap-2">
                                                 {filteredData.map((task, idx) => (
-                                                    <TaskCard key={task.CM_Task_ID} task={task} index={idx} />
+                                                    <TaskCard
+                                                        key={task.CM_Task_ID}
+                                                        task={task}
+                                                        index={idx}
+                                                        onTaskClick={(taskName) => {
+                                                            setActiveTab("updates");
+                                                            setSearchTerm(taskName);
+                                                        }}
+                                                        onPreviewImage={setPreviewImage}
+                                                    />
                                                 ))}
                                             </div>
                                         </div>
@@ -481,7 +580,7 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                                         <th className="px-3 py-1.5 border-r border-slate-300">Project</th>
                                                         <th className="px-3 py-1.5 border-r border-slate-300">Engineer</th>
                                                         <th className="px-3 py-1.5 border-r border-slate-300 text-center">Status</th>
-                                                        <th className="px-3 py-1.5 border-r border-slate-300">Remarks</th>
+                                                        <th className="px-3 py-1.5 border-r border-slate-300">Update </th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -489,11 +588,37 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                                         <tr key={item.CM_Update_ID} className="hover:bg-blue-50 border-b border-slate-200 transition-colors">
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-center text-slate-500 bg-slate-50 font-mono text-xs">{idx + 1}</td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 whitespace-nowrap">{format(new Date(item.CM_Update_Date), "dd-MMM-yy")}</td>
-                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-800 font-medium">{item.CM_Task_Name}</td>
+                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-800 font-medium">
+                                                                <div className="flex flex-col items-start gap-1">
+                                                                    <span>{item.CM_Task_Name}</span>
+                                                                    {item.Task_Image_URL && (
+                                                                        <button
+                                                                            onClick={() => setPreviewImage(item.Task_Image_URL)}
+                                                                            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                                                                        >
+                                                                            <Projector size={12} />
+                                                                            Task Image
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{item.CM_Project_Name}</td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600">{item.Engineer_Name}</td>
                                                             <td className="px-3 py-1.5 border-r border-slate-200 text-center"><StatusBadge status={item.CM_Status} /></td>
-                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 text-sm min-w-[250px] max-w-md whitespace-normal break-words" title={item.CM_Remarks}>{item.CM_Remarks || "-"}</td>
+                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 text-sm min-w-[250px] max-w-md whitespace-normal break-words" title={item.CM_Remarks}>
+                                                                <div className="flex flex-col items-start gap-1">
+                                                                    <span>{item.CM_Remarks || "-"}</span>
+                                                                    {item.CM_Image_URL && (
+                                                                        <button
+                                                                            onClick={() => setPreviewImage(item.CM_Image_URL)}
+                                                                            className="flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-100 transition-colors cursor-zoom-in mt-1"
+                                                                        >
+                                                                            <Projector size={12} />
+                                                                            View Update Image
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -503,7 +628,12 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                         <div className="block md:hidden p-4">
                                             <div className="grid grid-cols-1 gap-4">
                                                 {filteredData.map((item, idx) => (
-                                                    <UpdateCard key={item.CM_Update_ID} item={item} index={idx} />
+                                                    <UpdateCard
+                                                        key={item.CM_Update_ID}
+                                                        item={item}
+                                                        index={idx}
+                                                        onPreviewImage={setPreviewImage}
+                                                    />
                                                 ))}
                                             </div>
                                         </div>
@@ -522,6 +652,21 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                             )}
                         </div>
                     </motion.div>
+
+                    {/* Image Preview Lightbox */}
+                    {previewImage && (
+                        <div
+                            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4"
+                            onClick={() => setPreviewImage(null)}
+                        >
+                            <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain" />
+                            <button className="absolute top-4 right-4 text-white hover:text-gray-300">
+                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </AnimatePresence>

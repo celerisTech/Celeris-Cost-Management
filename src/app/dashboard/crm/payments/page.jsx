@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  CreditCard, Plus, Search, Filter, Calendar, IndianRupee, 
+import {
+  CreditCard, Plus, Search, Filter, Calendar, IndianRupee,
   ChevronLeft, ChevronRight, X, Check, Eye, Trash2, Edit2,
   Download, Loader2, AlertCircle, CheckCircle2, Building2,
   TrendingUp, Clock, FileText, Receipt, ArrowUpRight, ArrowDownLeft
@@ -10,7 +10,7 @@ import {
 import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
 
-const PAYMENT_TYPE_OPTIONS = ["Advance", "Partial Payment", "Final Payment","Domain Payment"];
+const PAYMENT_TYPE_OPTIONS = ["Advance", "Partial Payment", "Final Payment", "Domain Payment"];
 const PAYMENT_STATUS_OPTIONS = ["Pending", "Paid", "Failed"];
 
 const STATUS_COLORS = {
@@ -54,7 +54,7 @@ export default function PaymentsPage() {
   const [leadSearchText, setLeadSearchText] = useState("");
   const [showLeadSuggestions, setShowLeadSuggestions] = useState(false);
 
-  const filteredLeads = leads.filter(l => 
+  const filteredLeads = leads.filter(l =>
     l.CM_Client_Name?.toLowerCase().includes(leadSearchText.toLowerCase()) ||
     l.CM_Company_Name?.toLowerCase().includes(leadSearchText.toLowerCase())
   );
@@ -230,7 +230,7 @@ export default function PaymentsPage() {
           </h1>
           <p className="text-sm text-gray-500">Track collections, advances, and pending balances</p>
         </div>
-        <button 
+        <button
           onClick={openAddModal}
           className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-all shadow-md font-medium"
         >
@@ -263,8 +263,8 @@ export default function PaymentsPage() {
           <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Ref #, Remarks, Client..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -275,7 +275,7 @@ export default function PaymentsPage() {
 
         <div className="w-full sm:w-64">
           <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Filter by Lead</label>
-          <select 
+          <select
             value={leadFilter}
             onChange={(e) => { setLeadFilter(e.target.value); setPage(1); }}
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none"
@@ -284,10 +284,10 @@ export default function PaymentsPage() {
             {leads.map(l => <option key={l.CM_Lead_ID} value={l.CM_Lead_ID}>{l.CM_Client_Name} ({l.CM_Company_Name || "Ind"})</option>)}
           </select>
         </div>
-        
+
         <div className="w-full sm:w-40">
           <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Status</label>
-          <select 
+          <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none"
@@ -299,8 +299,8 @@ export default function PaymentsPage() {
 
         <div className="w-full sm:w-36">
           <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">From Date</label>
-          <input 
-            type="date" 
+          <input
+            type="date"
             value={fromDate}
             onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
             className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
@@ -309,23 +309,23 @@ export default function PaymentsPage() {
 
         <div className="w-full sm:w-36">
           <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">To Date</label>
-          <input 
-            type="date" 
+          <input
+            type="date"
             value={toDate}
             onChange={(e) => { setToDate(e.target.value); setPage(1); }}
             className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
           />
         </div>
-        
-        <button 
-          onClick={() => { 
-            setLeadFilter(""); 
-            setStatusFilter(""); 
+
+        <button
+          onClick={() => {
+            setLeadFilter("");
+            setStatusFilter("");
             setSearch("");
             const d = new Date();
             setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
             setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
-            setPage(1); 
+            setPage(1);
           }}
           className="px-6 py-2.5 text-white bg-gray-600 hover:bg-gray-700 font-bold transition-all rounded-lg h-[42px] shadow-sm"
         >
@@ -358,7 +358,7 @@ export default function PaymentsPage() {
               ) : (
                 payments.map((p, idx) => (
                   <tr key={p.CM_Payment_ID} className="hover:bg-blue-50/30 transition-colors group">
-                    <td className="px-4 py-2.5 text-[11px] text-gray-600 text-center border-r border-gray-100">{(page-1)*limit + idx + 1}</td>
+                    <td className="px-4 py-2.5 text-[11px] text-gray-600 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
                     <td className="px-4 py-2.5 border-r border-gray-100">
                       <p className="text-sm font-medium text-gray-700">
                         {new Date(p.CM_Payment_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
@@ -423,7 +423,7 @@ export default function PaymentsPage() {
                     {p.CM_Payment_Status}
                   </span>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4 py-2 border-t border-b border-gray-50">
                   <div>
                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Amount</p>
@@ -489,7 +489,7 @@ export default function PaymentsPage() {
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Client Selector & Outstanding Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -547,7 +547,7 @@ export default function PaymentsPage() {
                     required
                   />
                 </div>
-                
+
                 {selectedLeadSummary && (
                   <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 flex flex-col justify-center">
                     <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Outstanding Balance</p>
@@ -568,22 +568,22 @@ export default function PaymentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Amount (₹) *</label>
-                  <input 
+                  <input
                     required
-                    type="number" 
+                    type="number"
                     value={formData.CM_Amount || ""}
-                    onChange={(e) => setFormData({...formData, CM_Amount: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, CM_Amount: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none font-black text-lg text-blue-600"
                     placeholder="0.00"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Date *</label>
-                  <input 
+                  <input
                     required
-                    type="date" 
+                    type="date"
                     value={formData.CM_Payment_Date || ""}
-                    onChange={(e) => setFormData({...formData, CM_Payment_Date: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, CM_Payment_Date: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                   />
                 </div>
@@ -592,9 +592,9 @@ export default function PaymentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Type</label>
-                  <select 
+                  <select
                     value={formData.CM_Payment_Type || ""}
-                    onChange={(e) => setFormData({...formData, CM_Payment_Type: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, CM_Payment_Type: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                   >
                     {PAYMENT_TYPE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -602,9 +602,9 @@ export default function PaymentsPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Mode</label>
-                  <select 
+                  <select
                     value={formData.CM_Payment_Mode || ""}
-                    onChange={(e) => setFormData({...formData, CM_Payment_Mode: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, CM_Payment_Mode: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                   >
                     <option value="Cash">Cash</option>
@@ -615,9 +615,9 @@ export default function PaymentsPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</label>
-                  <select 
+                  <select
                     value={formData.CM_Payment_Status || ""}
-                    onChange={(e) => setFormData({...formData, CM_Payment_Status: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, CM_Payment_Status: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                   >
                     {PAYMENT_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -627,10 +627,10 @@ export default function PaymentsPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Reference Number / Transaction ID</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formData.CM_Reference_Number || ""}
-                  onChange={(e) => setFormData({...formData, CM_Reference_Number: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, CM_Reference_Number: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                   placeholder="e.g. TXN123456789"
                 />
@@ -638,10 +638,10 @@ export default function PaymentsPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remarks</label>
-                <textarea 
+                <textarea
                   rows="2"
                   value={formData.CM_Remarks || ""}
-                  onChange={(e) => setFormData({...formData, CM_Remarks: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, CM_Remarks: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring focus:ring-blue-500 outline-none resize-none"
                 />
               </div>

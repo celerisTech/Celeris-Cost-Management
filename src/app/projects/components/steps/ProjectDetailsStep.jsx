@@ -2,6 +2,22 @@
 import React from 'react';
 import { formatTitleCase, formatSentenceCase } from "../../../utils/textUtils";
 import dynamic from "next/dynamic";
+import { 
+  User, 
+  Phone, 
+  MapPin, 
+  Calendar, 
+  FileText, 
+  ArrowRight, 
+  RefreshCw, 
+  Layers, 
+  FolderPlus, 
+  FolderOpen, 
+  Trash2, 
+  Search, 
+  Check, 
+  Briefcase 
+} from "lucide-react";
 
 const ProjectDetailsStep = ({
   form,
@@ -24,31 +40,66 @@ const ProjectDetailsStep = ({
   engineersError,
   projectCodeError,
   setProjectCodeError,
-  projectsHistory,
+  projectsHistory = [],
   authUser,
   taskForms,
   setTaskForms,
   isEditMode,
-  setForm
+  setForm,
+  fetchProject,
+  refreshProjects
 }) => {
+  const [activeProjectTab, setActiveProjectTab] = React.useState("add"); // "add" or "list"
+  const [localSearch, setLocalSearch] = React.useState("");
+
   // Dynamically import MapPicker with no SSR
   const MapPicker = dynamic(() => import("./MapPicker"), {
     ssr: false,
     loading: () => (
-      <div className="w-full h-64 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center">
+      <div className="w-full h-64 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading map...</p>
+          <p className="mt-2 text-sm text-gray-500">Loading map...</p>
         </div>
       </div>
     )
   });
 
+  const clearProjectForm = () => {
+    const keysToClear = [
+      "CM_Project_Name",
+      "CM_Project_Code",
+      "CM_Project_Leader_ID",
+      "CM_Project_Type",
+      "CM_Project_Location",
+      "CM_Latitude",
+      "CM_Longitude",
+      "CM_Radius_Meters",
+      "CM_Estimated_Cost",
+      "CM_Actual_Cost",
+      "CM_Status",
+      "CM_Planned_Start_Date",
+      "CM_Planned_End_Date",
+      "CM_Description",
+      "CM_Project_ID"
+    ];
+    keysToClear.forEach(k => {
+      setForm(prev => ({
+        ...prev,
+        [k]: k === "CM_Radius_Meters" ? 150 : k === "CM_Project_Type" ? "Web Development" : k === "CM_Status" ? "Active" : ""
+      }));
+    });
+    setCreatedProjectId(null);
+    setProjectMessage(null);
+    setCreatedProjectStartDate(null);
+    setCreatedProjectEndDate(null);
+  };
+
   const validateProjectCode = async (code) => {
     if (!code) return true;
 
     try {
-      const existingProject = projectsHistory.find(p =>
+      const existingProject = (projectsHistory || []).find(p =>
         p.CM_Project_Code === code &&
         (!createdProjectId || p.CM_Project_ID !== createdProjectId)
       );
@@ -76,7 +127,6 @@ const ProjectDetailsStep = ({
     setActiveStep(2);
   };
 
-  // Handle map selection - properly update both latitude and longitude
   const handleMapSelect = (lat, lng, address = null) => {
     setForm(prev => {
       const updates = {
@@ -85,8 +135,6 @@ const ProjectDetailsStep = ({
         CM_Longitude: lng,
       };
 
-      // Only update location text if an address is returned from search
-      // and the field is empty or user wants to overwrite (we'll just overwrite for now as it's a direct action)
       if (address) {
         updates.CM_Project_Location = address;
       }
@@ -95,12 +143,7 @@ const ProjectDetailsStep = ({
     });
   };
 
-
-
-
-  // Handle coordinate input changes
   const handleCoordinateChange = (e) => {
-    const { name, value } = e.target;
     handleChange(e);
   };
 
@@ -116,9 +159,6 @@ const ProjectDetailsStep = ({
       formattedValue = value.toUpperCase();
     }
 
-    // Call parent handleChange with formatted value
-    // Create a synthetic event-like object to pass to handleChange
-    // Assuming handleChange expects { target: { name, value } }
     handleChange({
       ...e,
       target: {
@@ -128,7 +168,6 @@ const ProjectDetailsStep = ({
       }
     });
 
-    // Also validate project code if needed
     if (name === "CM_Project_Code") {
       validateProjectCode(formattedValue);
     }
@@ -164,7 +203,6 @@ const ProjectDetailsStep = ({
     setSavingProject(true);
     setProjectMessage(null);
 
-    // Ensure coordinates are properly formatted
     const latitude = form.CM_Latitude ? parseFloat(form.CM_Latitude) : null;
     const longitude = form.CM_Longitude ? parseFloat(form.CM_Longitude) : null;
 
@@ -232,6 +270,7 @@ const ProjectDetailsStep = ({
       );
 
       setSavingProject(false);
+      if (refreshProjects) refreshProjects();
       setTimeout(() => setActiveStep(2), 200);
     } catch (err) {
       console.error("Error with project operation:", err);
@@ -241,177 +280,201 @@ const ProjectDetailsStep = ({
     }
   };
 
+  const handleSelectProject = async (proj) => {
+    setSavingProject(true);
+    try {
+      if (fetchProject) {
+        await fetchProject(proj.CM_Project_ID);
+      }
+      setCreatedProjectId(proj.CM_Project_ID);
+      setProjectMessage(`✅ Selected project: ${proj.CM_Project_Name}`);
+      setActiveProjectTab("add");
+    } catch (err) {
+      console.error(err);
+      setProjectMessage("❌ Failed to select project.");
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  const handleDeleteProject = async (projectId, e) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
+
+    try {
+      const res = await fetch(`/api/projects?_method=DELETE&projectId=${projectId}`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`❌ Failed to delete project: ${data.error || data.message || "Unknown error"}`);
+        return;
+      }
+
+      if (createdProjectId === projectId) {
+        clearProjectForm();
+      }
+
+      if (refreshProjects) refreshProjects();
+      setProjectMessage("✅ Project deleted successfully.");
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      alert("❌ Error deleting project.");
+    }
+  };
+
+  const filteredProjects = (projectsHistory || []).filter(p => {
+    const q = localSearch.toLowerCase();
+    return (
+      (p.CM_Project_Name || "").toLowerCase().includes(q) ||
+      (p.CM_Project_Code || "").toLowerCase().includes(q) ||
+      (p.CM_Project_ID || "").toString().includes(q) ||
+      (p.Project_Leader_Name || "").toLowerCase().includes(q) ||
+      (p.CM_Customer_Name || "").toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="min-h-full text-black">
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-              {isEditMode ? "Edit Project" : "Create New Project"}
-            </h1>
-            <p className="text-gray-500 text-sm mt-1">
-              {isEditMode
-                ? "Update project details and specifications"
-                : "Define project scope, timeline, and requirements"}
-            </p>
-          </div>
-          {isEditMode && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-              <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Edit Mode
-            </span>
-          )}
-        </div>
+    <div className="space-y-6 text-slate-800">
+      {/* Sleek Tab Navigation */}
+      <div className="flex border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => setActiveProjectTab("add")}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-medium text-sm transition-all ${
+            activeProjectTab === "add"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          }`}
+        >
+          <FolderPlus size={16} />
+          {createdProjectId ? "Edit Project Details" : "Add Project Details"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveProjectTab("list")}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-medium text-sm transition-all ${
+            activeProjectTab === "list"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          }`}
+        >
+          <FolderOpen size={16} />
+          Existing Projects ({(projectsHistory || []).length})
+        </button>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-8">
-          <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-red-800">{error}</p>
+      {/* Tab Content 1: Add/Edit Project Form */}
+      {activeProjectTab === "add" && (
+        <form onSubmit={handleProjectSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <div className="text-xs text-red-700 font-medium">{error}</div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      <form onSubmit={handleProjectSubmit} className="space-y-8">
-        {/* Customer Information Card */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Customer Information</h3>
-                <p className="text-sm text-gray-500 mt-1">Linked customer details for this project</p>
+          {/* Customer Information Card */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <User className="text-gray-500" size={18} />
+                <h3 className="font-semibold text-gray-800 text-sm">Customer Information</h3>
               </div>
+              {createdProjectId && (
+                <button
+                  type="button"
+                  onClick={clearProjectForm}
+                  className="px-3 py-1 bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-xs font-semibold shadow-sm transition"
+                >
+                  Clear / Add New
+                </button>
+              )}
             </div>
-          </div>
-          <div className="p-6">
-            {savedCustomer || customerFormData.CM_Customer_ID ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Customer Name</label>
-                  <div className="flex items-center px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
-                    <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span className="text-gray-900 font-medium">
+            <div className="p-6">
+              {savedCustomer || customerFormData.CM_Customer_ID ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-medium text-gray-500">Linked Customer</label>
+                    <div className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-800 font-medium">
                       {savedCustomer?.CM_Customer_Name || customerFormData.CM_Customer_Name}
-                    </span>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                  <div className="flex items-center px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
-                    <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    <span className="text-gray-900">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-medium text-gray-500">Contact Number</label>
+                    <div className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-800">
                       {savedCustomer?.CM_Phone_Number || customerFormData.CM_Phone_Number}
-                    </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-yellow-800">Customer Required</p>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      Please add or select a customer first to proceed with project creation.
-                    </p>
-                  </div>
+              ) : (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs">
+                  ⚠️ No customer linked. Please go back to the Customer tab.
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Basic Information Card */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
-                <p className="text-sm text-gray-500 mt-1">Core project details and specifications</p>
-              </div>
+              )}
             </div>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Project Name <span className="text-red-500 ml-1">*</span>
-                </label>
+
+          {/* Basic Project Details */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center gap-3">
+              <Layers className="text-gray-500" size={18} />
+              <h3 className="font-semibold text-gray-800 text-sm">Basic Specifications</h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Project Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-700">Project Name <span className="text-red-500">*</span></label>
                 <input
+                  type="text"
                   name="CM_Project_Name"
-                  onChange={handleProjectInputChange}
                   value={form.CM_Project_Name || ""}
-                  required
-                  className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  onChange={handleProjectInputChange}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="Enter project name"
+                  required
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Project Code
-                </label>
+              {/* Project Code */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-700">Project Code</label>
                 <input
+                  type="text"
                   name="CM_Project_Code"
-                  onChange={handleProjectInputChange}
                   value={form.CM_Project_Code || ""}
-                  className={`w-full px-4 py-3 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${projectCodeError ? "border-red-300 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
-                  placeholder="e.g., PRJ-2024-001"
+                  onChange={handleProjectInputChange}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${
+                    projectCodeError ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
+                  placeholder="e.g. PRJ-X1"
                 />
                 {projectCodeError && (
-                  <p className="text-xs text-red-600 flex items-center gap-1.5 mt-1">
-                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                    {projectCodeError}
-                  </p>
+                  <p className="text-[11px] text-red-600 mt-1">{projectCodeError}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Project Leader <span className="text-red-500 ml-1">*</span>
-                </label>
+              {/* Project Leader */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-700">Project Leader <span className="text-red-500">*</span></label>
                 {loadingEngineers ? (
-                  <div className="flex items-center px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
-                    <svg className="animate-spin h-4 w-4 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    Loading engineers...
+                  <div className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500 flex items-center gap-2">
+                    <RefreshCw className="animate-spin" size={14} /> Loading...
                   </div>
                 ) : engineersError ? (
-                  <div className="flex items-center px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700">
-                    <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    {engineersError}
-                  </div>
+                  <div className="px-3 py-2 text-sm border border-red-200 rounded-lg bg-red-50 text-red-700">{engineersError}</div>
                 ) : (
                   <select
                     name="CM_Project_Leader_ID"
-                    onChange={handleChange}
                     value={form.CM_Project_Leader_ID || ""}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white outline-none transition-all"
                     required
-                    className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   >
-                    <option value="">Select a Project Leader</option>
-                    {engineers.map((engineer) => (
+                    <option value="">Select Project Leader</option>
+                    {engineers.map(engineer => (
                       <option key={engineer.CM_User_ID} value={engineer.CM_User_ID}>
                         {engineer.CM_Full_Name}
                       </option>
@@ -420,16 +483,15 @@ const ProjectDetailsStep = ({
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Project Type <span className="text-red-500 ml-1">*</span>
-                </label>
+              {/* Project Type */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-700">Project Type <span className="text-red-500">*</span></label>
                 <select
                   name="CM_Project_Type"
-                  onChange={handleChange}
                   value={form.CM_Project_Type || "Web Development"}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white outline-none transition-all"
                   required
-                  className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 >
                   <option value="Web Development">Web Development</option>
                   <option value="Mobile Application">Mobile Application</option>
@@ -438,94 +500,69 @@ const ProjectDetailsStep = ({
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Project Location
-                </label>
+              {/* Project Location String */}
+              <div className="col-span-full space-y-1.5">
+                <label className="block text-xs font-medium text-gray-700">Project Location Site Address</label>
                 <input
+                  type="text"
                   name="CM_Project_Location"
-                  onChange={handleProjectInputChange}
                   value={form.CM_Project_Location || ""}
-                  className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  placeholder="Project site location"
+                  onChange={handleProjectInputChange}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  placeholder="e.g. Science Park, Block B"
                 />
               </div>
             </div>
+          </div>
 
-            {/* Location Coordinates and Map */}
-            <div className="mt-8 pt-8 border-t border-gray-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
-                <h4 className="text-base font-semibold text-gray-900">Geographic Location</h4>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Latitude</label>
+          {/* Geographic Coordinates and Map */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center gap-3">
+              <MapPin className="text-gray-500" size={18} />
+              <h3 className="font-semibold text-gray-800 text-sm">Geographical Location Settings</h3>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-gray-700">Latitude</label>
                   <input
+                    type="number"
+                    step="0.00000001"
                     name="CM_Latitude"
-                    onChange={handleCoordinateChange}
                     value={form.CM_Latitude || ""}
-                    type="number"
-                    step="0.00000001"
-                    className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="e.g., 11.0168"
-                  />
-                  {form.CM_Latitude && (
-                    <div className="flex items-center gap-1.5 text-xs text-green-600 mt-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Latitude set: {form.CM_Latitude}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Longitude</label>
-                  <input
-                    name="CM_Longitude"
                     onChange={handleCoordinateChange}
-                    value={form.CM_Longitude || ""}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="e.g. 11.0168"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-gray-700">Longitude</label>
+                  <input
                     type="number"
                     step="0.00000001"
-                    className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="e.g., 76.9558"
+                    name="CM_Longitude"
+                    value={form.CM_Longitude || ""}
+                    onChange={handleCoordinateChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="e.g. 76.9558"
                   />
-                  {form.CM_Longitude && (
-                    <div className="flex items-center gap-1.5 text-xs text-green-600 mt-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Longitude set: {form.CM_Longitude}
-                    </div>
-                  )}
                 </div>
-
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Radius (Meters)</label>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-gray-700">Radius Boundary (Meters)</label>
                   <input
-                    name="CM_Radius_Meters"
-                    onChange={handleChange}
                     type="number"
+                    name="CM_Radius_Meters"
                     value={form.CM_Radius_Meters ?? 150}
-                    className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="Radius in meters"
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="150"
                   />
                 </div>
               </div>
 
-              {/* Map Picker */}
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Select Location on Map</label>
-                <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-700 mb-4">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                    </svg>
-                    Debug coordinates: Latitude={form.CM_Latitude || 'null'}, Longitude={form.CM_Longitude || 'null'}
-                  </div>
-                </div>
+              {/* Map Picker Visual Area */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-gray-700">Map Pin Setter</label>
                 <MapPicker
                   lat={form.CM_Latitude ? parseFloat(form.CM_Latitude) : null}
                   lng={form.CM_Longitude ? parseFloat(form.CM_Longitude) : null}
@@ -535,158 +572,246 @@ const ProjectDetailsStep = ({
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Project Timeline Card */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
-                <p className="text-sm text-gray-500 mt-1">Schedule and important dates</p>
+          {/* Timeline */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center gap-3">
+              <Calendar className="text-gray-500" size={18} />
+              <h3 className="font-semibold text-gray-800 text-sm">Project Timeline</h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-700">Planned Start Date</label>
+                <input
+                  type="date"
+                  name="CM_Planned_Start_Date"
+                  value={form.CM_Planned_Start_Date || ""}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-700">Planned End Date</label>
+                <input
+                  type="date"
+                  name="CM_Planned_End_Date"
+                  value={form.CM_Planned_End_Date || ""}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                />
               </div>
             </div>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Planned Start Date</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="CM_Planned_Start_Date"
-                    onChange={handleChange}
-                    value={form.CM_Planned_Start_Date || ""}
-                    className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Planned End Date</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="CM_Planned_End_Date"
-                    onChange={handleChange}
-                    value={form.CM_Planned_End_Date || ""}
-                    className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  />
-                </div>
-              </div>
+          {/* Description */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center gap-3">
+              <FileText className="text-gray-500" size={18} />
+              <h3 className="font-semibold text-gray-800 text-sm">Project Description & Scope</h3>
+            </div>
+            <div className="p-6">
+              <textarea
+                name="CM_Description"
+                value={form.CM_Description || ""}
+                onChange={handleProjectInputChange}
+                rows={4}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+                placeholder="Scope details, goals, milestones targets, etc."
+              />
             </div>
           </div>
-        </div>
 
-        {/* Project Description Card */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Project Description</h3>
-                <p className="text-sm text-gray-500 mt-1">Detailed project overview and objectives</p>
-              </div>
+          {/* Actions Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              {projectMessage && (
+                <span
+                  className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                    projectMessage.includes("✅")
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : "bg-red-50 border-red-200 text-red-700"
+                  }`}
+                >
+                  {projectMessage}
+                </span>
+              )}
             </div>
-          </div>
-          <div className="p-6">
-            <textarea
-              name="CM_Description"
-              onChange={handleProjectInputChange}
-              value={form.CM_Description || ""}
-              rows={4}
-              className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none"
-              placeholder="Detailed project description including scope, objectives, key requirements, and any special notes..."
-            />
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setActiveStep(0)}
-                className="px-5 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200 font-medium flex items-center justify-center gap-2"
+                className="px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-lg shadow-sm transition"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
                 Previous
               </button>
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-5 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200 font-medium"
+                className="px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-lg shadow-sm transition"
               >
                 Cancel
               </button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleContinueWithoutSaving}
                 disabled={!createdProjectId}
-                className="px-5 py-3 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 border border-blue-600 text-blue-600 font-semibold text-sm rounded-lg hover:bg-blue-50 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue Without Saving
               </button>
               <button
                 type="submit"
                 disabled={savingProject}
-                className="px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium flex items-center justify-center gap-2 shadow-sm hover:shadow"
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm flex items-center gap-1.5 transition disabled:opacity-50"
               >
                 {savingProject ? (
                   <>
-                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
+                    <RefreshCw className="animate-spin" size={16} />
                     Saving...
                   </>
                 ) : createdProjectId ? (
                   <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Update Project & Continue
+                    Update Project
+                    <ArrowRight size={16} />
                   </>
                 ) : (
                   <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
                     Save Project & Continue
+                    <ArrowRight size={16} />
                   </>
                 )}
               </button>
             </div>
           </div>
+        </form>
+      )}
 
-          {projectMessage && (
-            <div className={`mt-4 p-4 rounded-xl border ${projectMessage.includes("✅")
-              ? "bg-green-50 border-green-200 text-green-700"
-              : "bg-red-50 border-red-200 text-red-700"
-              }`}>
-              <div className="flex items-start gap-3">
-                {projectMessage.includes("✅") ? (
-                  <svg className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                )}
-                <div className="text-sm">{projectMessage}</div>
-              </div>
+      {/* Tab Content 2: Existing Projects */}
+      {activeProjectTab === "list" && (
+        <div className="space-y-4">
+          {/* Filters & Refresh Bar */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input
+                type="text"
+                placeholder="Filter projects by Name, Code, Leader or Customer..."
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              />
             </div>
-          )}
+            {refreshProjects && (
+              <button
+                type="button"
+                onClick={refreshProjects}
+                className="px-3.5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-semibold flex items-center gap-1.5 transition shadow-sm"
+              >
+                <RefreshCw size={14} />
+                Refresh Database
+              </button>
+            )}
+          </div>
+
+          {/* Project Table Grid */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 text-xs font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3 text-center border-r border-gray-200 w-12 select-none bg-gray-100/50">#</th>
+                    <th className="px-4 py-3 text-left border-r border-gray-200">Project Code</th>
+                    <th className="px-4 py-3 text-left border-r border-gray-200">Project Name</th>
+                    <th className="px-4 py-3 text-left border-r border-gray-200">Linked Customer</th>
+                    <th className="px-4 py-3 text-left border-r border-gray-200">Leader</th>
+                    <th className="px-4 py-3 text-left border-r border-gray-200">Type / Status</th>
+                    <th className="px-4 py-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 text-sm">
+                  {filteredProjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-gray-500 bg-white">
+                        No projects found in database matching your filter query.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProjects.map((proj, idx) => {
+                      const isSelected = createdProjectId === proj.CM_Project_ID;
+                      return (
+                        <tr
+                          key={proj.CM_Project_ID}
+                          onDoubleClick={() => handleSelectProject(proj)}
+                          className={`hover:bg-blue-50/30 cursor-pointer transition ${
+                            isSelected ? "bg-blue-50/50 font-medium text-blue-900" : idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                          }`}
+                        >
+                          <td className="px-4 py-3 border-r border-gray-200 bg-gray-50 text-center font-bold text-gray-500 select-none">
+                            {idx + 1}
+                          </td>
+                          <td className="px-4 py-3 border-r border-gray-200 text-gray-700 font-mono text-xs font-semibold">
+                            {proj.CM_Project_Code || proj.CM_Project_ID}
+                          </td>
+                          <td className="px-4 py-3 border-r border-gray-200 text-gray-900 font-semibold">
+                            {proj.CM_Project_Name}
+                          </td>
+                          <td className="px-4 py-3 border-r border-gray-200 text-gray-600 text-xs">
+                            {proj.CM_Customer_Name || proj.CM_Project_Customer || "—"}
+                          </td>
+                          <td className="px-4 py-3 border-r border-gray-200 text-gray-600 text-xs">
+                            👤 {proj.Project_Leader_Name || "—"}
+                          </td>
+                          <td className="px-4 py-3 border-r border-gray-200 text-gray-600 text-xs">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-gray-500">{proj.CM_Project_Type}</span>
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] w-max font-semibold ${
+                                proj.CM_Status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {proj.CM_Status || 'Active'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSelectProject(proj)}
+                                className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition flex items-center gap-1 ${
+                                  isSelected
+                                    ? "bg-green-600 hover:bg-green-700 text-white"
+                                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                                }`}
+                              >
+                                {isSelected ? (
+                                  <>
+                                    <Check size={12} />
+                                    Selected
+                                  </>
+                                ) : (
+                                  "Select"
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteProject(proj.CM_Project_ID, e)}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded border border-transparent hover:border-red-200 transition-colors"
+                                title="Delete Project"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </form>
+      )}
     </div>
   );
 };
