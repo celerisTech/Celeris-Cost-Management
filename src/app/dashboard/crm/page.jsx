@@ -122,7 +122,7 @@ export default function CRMDashboardPage() {
       textColor: "text-rose-900",
       iconBg: "bg-rose-50",
       iconColor: "text-rose-600",
-      link: "/dashboard/crm/leads?status=Not+Interested"
+      link: "/dashboard/crm/visits?status=Not Interested"
     },
     {
       label: "Total Collection",

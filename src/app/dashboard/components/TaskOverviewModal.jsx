@@ -581,6 +581,7 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                                         <th className="px-3 py-1.5 border-r border-slate-300">Engineer</th>
                                                         <th className="px-3 py-1.5 border-r border-slate-300 text-center">Status</th>
                                                         <th className="px-3 py-1.5 border-r border-slate-300">Update </th>
+                                                        <th className="px-3 py-1.5 border-r border-slate-300">Update date </th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -619,7 +620,9 @@ export default function TaskOverviewModal({ isOpen, onClose }) {
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                        </tr>
+                                                            <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 whitespace-nowrap">
+                                                                {format(new Date(item.CM_Uploaded_At), "dd-MMM-yy hh:mm a")}
+                                                            </td>                                                        </tr>
                                                     ))}
                                                 </tbody>
                                             </table>

@@ -67,6 +67,11 @@ export async function GET(request: NextRequest) {
 
     // Dashboard stats
     if (type === 'dashboard') {
+      let statsWhere = 'WHERE CM_Is_Deleted = 0';
+      const statsParams: any[] = [];
+      if (fromDate) { statsWhere += ' AND CM_Payment_Date >= ?'; statsParams.push(formatDbDate(fromDate)); }
+      if (toDate) { statsWhere += ' AND CM_Payment_Date <= ?'; statsParams.push(formatDbDate(toDate)); }
+
       const [statsRows]: any = await db.query(`
         SELECT 
           COALESCE(SUM(CASE WHEN CM_Payment_Status = 'Paid' THEN CM_Amount ELSE 0 END), 0) AS total_collection,
@@ -76,8 +81,8 @@ export async function GET(request: NextRequest) {
           COALESCE(SUM(CASE WHEN CM_Payment_Type = 'Domain Payment' AND CM_Payment_Status = 'Paid' THEN CM_Amount ELSE 0 END), 0) AS domain_payments,
           COUNT(CASE WHEN CM_Payment_Status = 'Pending' THEN 1 END) AS pending_count,
           COUNT(CASE WHEN CM_Payment_Status = 'Paid' THEN 1 END) AS paid_count
-        FROM ccms_sales_payment WHERE CM_Is_Deleted = 0
-      `);
+        FROM ccms_sales_payment ${statsWhere}
+      `, statsParams);
       const stats = statsRows[0] || { total_collection: 0, pending_amount: 0, advance_payments: 0, final_payments: 0, domain_payments: 0, pending_count: 0, paid_count: 0 };
 
       const [monthly]: any = await db.query(`

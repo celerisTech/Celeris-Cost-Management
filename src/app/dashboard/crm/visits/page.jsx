@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   MapPin, Plus, Search, Filter, Calendar, User, Clock,
   ChevronLeft, ChevronRight, X, Check, Eye, Trash2, Edit2,
@@ -24,7 +25,7 @@ const STATUS_COLORS = {
   "Converted": "bg-indigo-100 text-indigo-700 border-indigo-200",
 };
 
-export default function VisitsPage() {
+function VisitsContent() {
   const { user } = useAuthStore();
   const [visits, setVisits] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -37,7 +38,15 @@ export default function VisitsPage() {
   const [limit] = useState(15);
   const [leadFilter, setLeadFilter] = useState("");
   const [execFilter, setExecFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const searchParams = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status) {
+      setStatusFilter(status);
+    }
+  }, [searchParams]);
   const [industrialFilter, setIndustrialFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateQuickFilter, setDateQuickFilter] = useState(""); // 'today' | 'yesterday' | ''
@@ -777,5 +786,13 @@ export default function VisitsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function VisitsPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-center text-gray-500 font-medium">Loading visits...</div>}>
+      <VisitsContent />
+    </Suspense>
   );
 }

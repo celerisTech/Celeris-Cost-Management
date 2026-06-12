@@ -112,7 +112,12 @@ export default function PaymentsPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch("/api/sales-payments?type=dashboard");
+      const params = new URLSearchParams({
+        type: "dashboard",
+        fromDate,
+        toDate
+      });
+      const res = await fetch(`/api/sales-payments?${params}`);
       const data = await res.json();
       if (res.ok) setStats(data.stats);
     } catch (error) {
