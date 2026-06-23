@@ -6,7 +6,7 @@ import {
   MapPin, Plus, Search, Filter, Calendar, User, Clock,
   ChevronLeft, ChevronRight, X, Check, Eye, Trash2, Edit2,
   Image as ImageIcon, MoreVertical, Loader2, AlertCircle,
-  ArrowRight, CheckCircle2, MessageSquare, Phone, Building2,
+  ArrowRight, CheckCircle2, MessageSquare, Phone,
   TrendingUp, Activity, ClipboardList, Info, Settings
 } from "lucide-react";
 import { FiRotateCcw } from "react-icons/fi";
