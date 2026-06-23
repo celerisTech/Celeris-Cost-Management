@@ -35,7 +35,7 @@ function VisitsContent() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(15);
+  const [limit] = useState(1000);
   const [leadFilter, setLeadFilter] = useState("");
   const [execFilter, setExecFilter] = useState("");
   const searchParams = useSearchParams();
