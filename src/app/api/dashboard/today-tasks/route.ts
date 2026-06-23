@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
                   tu.CM_Update_ID,
                   tu.CM_Task_ID,
                   t.CM_Task_Name,
+                  t.CM_Assign_Date,
+                  t.CM_Due_Date,
                   t.CM_Image_URL AS Task_Image_URL,
                   tu.CM_Project_ID,
                   p.CM_Project_Name,

@@ -7,7 +7,7 @@ import FollowupsOverviewModal from "../components/FollowupsOverviewModal";
 import {
   Target, MapPin, CreditCard, TrendingUp, Users, Calendar,
   ArrowRight, AlertCircle, CheckCircle2, Clock, IndianRupee,
-  BarChart3, ChevronRight, Phone, Building2, Eye, Star
+  BarChart3, ChevronRight, Phone, Building2, Eye, Star, FileText, Settings
 } from "lucide-react";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -177,6 +177,15 @@ export default function CRMDashboardPage() {
             Sales Dashboard
           </h1>
           <p className="text-sm text-gray-500 mt-1">Sales pipeline overview & performance metrics</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/dashboard/crm/today-report" 
+            className="group flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+          >
+            <FileText size={18} className="transition-transform group-hover:-translate-y-0.5" />
+            Today Report
+          </Link>
         </div>
       </div>
 

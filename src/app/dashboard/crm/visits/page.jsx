@@ -7,23 +7,13 @@ import {
   ChevronLeft, ChevronRight, X, Check, Eye, Trash2, Edit2,
   Image as ImageIcon, MoreVertical, Loader2, AlertCircle,
   ArrowRight, CheckCircle2, MessageSquare, Phone, Building2,
-  TrendingUp, Activity, ClipboardList, Info
+  TrendingUp, Activity, ClipboardList, Info, Settings
 } from "lucide-react";
 import { FiRotateCcw } from "react-icons/fi";
 import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
-
-const VISIT_STATUS_OPTIONS = [
-  "Follow-up Needed", "Interested", "Not Interested", "Proposal Sent", "Converted"
-];
-
-const STATUS_COLORS = {
-  "Follow-up Needed": "bg-blue-100 text-blue-700 border-blue-200",
-  "Interested": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Not Interested": "bg-red-100 text-red-700 border-red-200",
-  "Proposal Sent": "bg-amber-100 text-amber-700 border-amber-200",
-  "Converted": "bg-indigo-100 text-indigo-700 border-indigo-200",
-};
+import VisitStatusMasterPage from "../master/visit-status/page";
+import VisitProductsMasterPage from "../master/visit-products/page";
 
 function VisitsContent() {
   const { user } = useAuthStore();
@@ -32,19 +22,28 @@ function VisitsContent() {
   const [executives, setExecutives] = useState([]);
   const [industrials, setIndustrials] = useState([]);
   const [filterCategories, setFilterCategories] = useState([]);
+  const [statusOptions, setStatusOptions] = useState([]);
+  const [statusColorsMap, setStatusColorsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(15);
+  const [limit] = useState(10000);
   const [leadFilter, setLeadFilter] = useState("");
   const [execFilter, setExecFilter] = useState("");
   const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [productOptions, setProductOptions] = useState([]);
+  const [productColorsMap, setProductColorsMap] = useState({});
+  const [productFilter, setProductFilter] = useState(() => searchParams.get("product") || "");
 
   useEffect(() => {
     const status = searchParams.get("status");
     if (status) {
       setStatusFilter(status);
+    }
+    const product = searchParams.get("product");
+    if (product) {
+      setProductFilter(product);
     }
   }, [searchParams]);
   const [industrialFilter, setIndustrialFilter] = useState("");
@@ -61,6 +60,8 @@ function VisitsContent() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState(null);
+  const [isManageStatusModalOpen, setIsManageStatusModalOpen] = useState(false);
+  const [isManageProductModalOpen, setIsManageProductModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewMode, setViewMode] = useState("table"); // table or timeline
 
@@ -100,6 +101,7 @@ function VisitsContent() {
     CM_Trial_Version_Given: "No",
     CM_Next_Followup_Date: "",
     CM_Visit_Status: "Follow-up Needed",
+    CM_Visit_Products: "",
     CM_Remarks: "",
     CM_Images: []
   });
@@ -107,6 +109,8 @@ function VisitsContent() {
   useEffect(() => {
     fetchIndustrials();
     fetchFilterCategories("");
+    fetchStatuses();
+    fetchProducts();
   }, []);
 
   useEffect(() => {
@@ -117,7 +121,7 @@ function VisitsContent() {
     fetchVisits();
     fetchLeads();
     fetchExecutives();
-  }, [page, leadFilter, execFilter, statusFilter, fromDate, toDate, search, industrialFilter, categoryFilter]);
+  }, [page, leadFilter, execFilter, statusFilter, productFilter, fromDate, toDate, search, industrialFilter, categoryFilter]);
 
   const fetchFilterCategories = async (industrialId) => {
     try {
@@ -129,6 +133,40 @@ function VisitsContent() {
       if (res.ok) setFilterCategories(data);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const fetchStatuses = async () => {
+    try {
+      const res = await fetch("/api/master/visit-status?active=true");
+      const data = await res.json();
+      if (data.success) {
+        setStatusOptions(data.data.map(s => s.Status_Name));
+        const colors = {};
+        data.data.forEach(s => {
+          colors[s.Status_Name] = `bg-${s.Color_Code}-100 text-${s.Color_Code}-700 border-${s.Color_Code}-200`;
+        });
+        setStatusColorsMap(colors);
+      }
+    } catch (err) {
+      console.error("Failed to fetch visit statuses", err);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch("/api/master/visit-products?active=true");
+      const data = await res.json();
+      if (data.success) {
+        setProductOptions(data.data.map(p => p.Product_Name));
+        const colors = {};
+        data.data.forEach(p => {
+          colors[p.Product_Name] = `bg-${p.Color_Code}-100 text-${p.Color_Code}-700 border-${p.Color_Code}-200`;
+        });
+        setProductColorsMap(colors);
+      }
+    } catch (err) {
+      console.error("Failed to fetch visit products", err);
     }
   };
 
@@ -151,6 +189,7 @@ function VisitsContent() {
         leadId: leadFilter,
         executiveId: execFilter,
         status: statusFilter,
+        product: productFilter,
         fromDate: fromDate,
         toDate: toDate,
         search: search,
@@ -209,6 +248,7 @@ function VisitsContent() {
       CM_Trial_Version_Given: "No",
       CM_Next_Followup_Date: "",
       CM_Visit_Status: "Follow-up Needed",
+      CM_Visit_Products: "",
       CM_Remarks: "",
       CM_Images: []
     });
@@ -336,7 +376,19 @@ function VisitsContent() {
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
           >
             <option value="">All Statuses</option>
-            {VISIT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[115px]">
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Product</label>
+          <select
+            value={productFilter}
+            onChange={(e) => { setProductFilter(e.target.value); setPage(1); }}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+          >
+            <option value="">All Products</option>
+            {productOptions.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
 
@@ -448,6 +500,7 @@ function VisitsContent() {
           onClick={() => {
             setSearch("");
             setStatusFilter("");
+            setProductFilter("");
             setExecFilter("");
             setIndustrialFilter("");
             setCategoryFilter("");
@@ -478,7 +531,9 @@ function VisitsContent() {
                   {/* <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-64 border-r border-gray-200">Description</th> */}
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36 border-r border-gray-200">Executive</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Followup</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Time</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Product</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-24 text-right">Actions</th>
                 </tr>
               </thead>
@@ -495,6 +550,11 @@ function VisitsContent() {
                         <p className="text-sm font-medium text-gray-700">
                           {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                         </p>
+                        {v.CM_Visit_Time && (
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {new Date(`2000-01-01T${v.CM_Visit_Time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
                         <p className="text-sm font-bold text-gray-900 truncate">{v.CM_Client_Name}</p>
@@ -520,9 +580,23 @@ function VisitsContent() {
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${STATUS_COLORS[v.CM_Visit_Status]}`}>
+                        {v.CM_Next_Followup_Time ? (
+                          <p className="text-xs font-bold text-gray-600 flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {v.CM_Next_Followup_Time}
+                          </p>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-2.5 border-r border-gray-100">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${statusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
                           {v.CM_Visit_Status}
                         </span>
+                      </td>
+                      <td className="px-4 py-2.5 border-r border-gray-100">
+                        {v.CM_Visit_Products && (
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${productColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
+                            {v.CM_Visit_Products}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex justify-end gap-1">
@@ -558,9 +632,16 @@ function VisitsContent() {
                       {v.Executive_Name}
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${STATUS_COLORS[v.CM_Visit_Status]}`}>
-                    {v.CM_Visit_Status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {v.CM_Visit_Products && (
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${productColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
+                        {v.CM_Visit_Products}
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${statusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
+                      {v.CM_Visit_Status}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Timeline Item Content Grid */}
@@ -596,9 +677,21 @@ function VisitsContent() {
                           <span className="text-sm font-bold text-indigo-600">₹{Number(v.CM_Proposal_Value || 0).toLocaleString()}</span>
                         </div>
                         {v.CM_Next_Followup_Date && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">Next:</span>
-                            <span className="text-xs font-bold text-amber-600">{new Date(v.CM_Next_Followup_Date).toLocaleDateString()}</span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-500">Next:</span>
+                              <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                <Calendar className="h-3 w-3" /> {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                              </span>
+                            </div>
+                            {v.CM_Next_Followup_Time && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">Time:</span>
+                                <span className="text-xs font-bold text-gray-600 flex items-center gap-1">
+                                  <Clock className="h-3 w-3" /> {v.CM_Next_Followup_Time}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -701,6 +794,16 @@ function VisitsContent() {
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Time</label>
+                <input
+                  type="time"
+                  value={formData.CM_Visit_Time || ""}
+                  onChange={(e) => setFormData({ ...formData, CM_Visit_Time: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                />
+              </div>
+
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Purpose of Visit *</label>
                 <input
@@ -735,6 +838,16 @@ function VisitsContent() {
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Time</label>
+                <input
+                  type="time"
+                  value={formData.CM_Next_Followup_Time || ""}
+                  onChange={(e) => setFormData({ ...formData, CM_Next_Followup_Time: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4 md:col-span-2">
                 <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
                   <span className="text-xs font-bold text-gray-600">Demo Given?</span>
@@ -755,10 +868,30 @@ function VisitsContent() {
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Status</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Status</label>
+                  <button type="button" onClick={() => setIsManageStatusModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
+                    <Settings size={12} /> Manage Options
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {VISIT_STATUS_OPTIONS.map(s => (
-                    <button key={s} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Status: s })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Status === s ? `${STATUS_COLORS[s]} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
+                  {statusOptions.map(s => (
+                    <button key={s} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Status: s })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Status === s ? `${statusColorsMap[s] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 space-y-1 mt-2">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Product</label>
+                  <button type="button" onClick={() => setIsManageProductModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
+                    <Settings size={12} /> Manage Options
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setFormData({ ...formData, CM_Visit_Products: "" })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!formData.CM_Visit_Products ? `bg-gray-100 text-gray-700 border-gray-300 shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>None</button>
+                  {productOptions.map(p => (
+                    <button key={p} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Products: p })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Products === p ? `${productColorsMap[p] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{p}</button>
                   ))}
                 </div>
               </div>
@@ -782,6 +915,28 @@ function VisitsContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Statuses Modal */}
+      {isManageStatusModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[70] overflow-y-auto p-4 md:p-8">
+          <div className="bg-slate-50 min-h-[80vh] rounded-2xl shadow-2xl relative max-w-5xl mx-auto">
+            <div className="pt-2 pb-6">
+              <VisitStatusMasterPage onClose={() => { setIsManageStatusModalOpen(false); fetchStatuses(); }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Products Modal */}
+      {isManageProductModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[70] overflow-y-auto p-4 md:p-8">
+          <div className="bg-slate-50 min-h-[80vh] rounded-2xl shadow-2xl relative max-w-5xl mx-auto">
+            <div className="pt-2 pb-6">
+              <VisitProductsMasterPage onClose={() => { setIsManageProductModalOpen(false); fetchProducts(); }} />
+            </div>
           </div>
         </div>
       )}

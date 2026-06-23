@@ -8,7 +8,9 @@ import ProjectCostReport from "./components/BudgetVsExpenses";
 import PurchaseMaterialReport from "./components/PurchaseMaterialReport";
 import RotatingText from "./components/RotatingText";
 import TaskOverviewModal from "./components/TaskOverviewModal";
+import TaskReports from "./components/TaskReports";
 import { ClipboardList } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const { user, setUser } = useAuthStore();
@@ -16,6 +18,7 @@ export default function DashboardPage() {
   const [hasError, setHasError] = useState(false);
   const [activeTab, setActiveTab] = useState("projects"); // 👈 new state
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const router = useRouter();
 
   const userName = user?.name || user?.CM_Full_Name || "";
 
@@ -60,7 +63,7 @@ export default function DashboardPage() {
               className="
               group flex items-center gap-2
               px-4 py-2.5
-              bg-gray-700 hover:bg-gray-700
+              bg-green-500 hover:bg-green-600
               text-white text-sm font-medium
               rounded-lg
               shadow-sm hover:shadow-md
@@ -73,6 +76,25 @@ export default function DashboardPage() {
               />
               <span className="hidden sm:inline">Today’s Tasks</span>
               <span className="sm:hidden">Tasks</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('task-reports')}
+              className={`
+              group flex items-center gap-2
+              px-4 py-2.5
+              text-white text-sm font-medium
+              rounded-lg
+              shadow-sm hover:shadow-md
+              transition-all duration-200
+              active:scale-[0.98] ${activeTab === 'task-reports' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 hover:bg-blue-500'}`}
+            >
+              <ClipboardList
+                size={18}
+                className="transition-transform group-hover:translate-x-0.5"
+              />
+              <span className="hidden sm:inline">Task Reports</span>
+              <span className="sm:hidden">Task Reports</span>
             </button>
 
             {user?.photo && (
@@ -168,14 +190,15 @@ export default function DashboardPage() {
             </div>
 
           </>
-        ) : (
+        ) : activeTab === "reports" ? (
           <div className="p-3 sm:p-4 rounded-lg shadow-sm">
             <ProjectCostReport />
           </div>
-          // <div className="p-3 sm:p-4 rounded-lg shadow-sm">
-          //   <PurchaseMaterialReport />
-          // </div>
-        )}
+        ) : activeTab === "task-reports" ? (
+          <div >
+            <TaskReports />
+          </div>
+        ) : null}
       </div>
       <TaskOverviewModal
         isOpen={isTaskModalOpen}

@@ -7,12 +7,14 @@ import {
   Edit2, Trash2, Eye, Phone, Mail, MapPin, Building2,
   Calendar, User, ChevronLeft, ChevronRight, X, Check,
   ExternalLink, ArrowRight, Loader2, AlertCircle, Star,
-  CheckCircle2, Clock, MessageSquare, ClipboardList, Receipt
+  CheckCircle2, Clock, MessageSquare, ClipboardList, Receipt, Settings
 } from "lucide-react";
 import { FiRotateCcw } from "react-icons/fi";
 import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import VisitStatusMasterPage from "../master/visit-status/page";
+import VisitProductsMasterPage from "../master/visit-products/page";
 
 const STATUS_OPTIONS = [
   "New Lead", "Follow-up Call", "Visited", "Demo Given", "Proposal Sent",
@@ -66,16 +68,29 @@ export default function LeadsPage() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("details");
+  const [activeTab, setActiveTab] = useState("history");
   const [selectedLead, setSelectedLead] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isManageStatusModalOpen, setIsManageStatusModalOpen] = useState(false);
+  const [isManageProductModalOpen, setIsManageProductModalOpen] = useState(false);
   const [conversionRemarks, setConversionRemarks] = useState("");
+  const [selectedVisit, setSelectedVisit] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [visitFormData, setVisitFormData] = useState({});
+  const [paymentFormData, setPaymentFormData] = useState({});
   const [leadVisits, setLeadVisits] = useState([]);
   const [loadingVisits, setLoadingVisits] = useState(false);
   const [leadPayments, setLeadPayments] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
+
+  const [visitStatusOptions, setVisitStatusOptions] = useState([]);
+  const [visitStatusColorsMap, setVisitStatusColorsMap] = useState({});
+
+  const [visitProductOptions, setVisitProductOptions] = useState([]);
+  const [visitProductColorsMap, setVisitProductColorsMap] = useState({});
 
   const [industrialInput, setIndustrialInput] = useState("");
   const [categoryInput, setCategoryInput] = useState("");
@@ -126,6 +141,8 @@ export default function LeadsPage() {
     fetchExecutives();
     fetchIndustrials();
     fetchFilterCategories("");
+    fetchVisitStatuses();
+    fetchVisitProducts();
   }, []);
 
   useEffect(() => {
@@ -202,6 +219,40 @@ export default function LeadsPage() {
       if (res.ok) setSubcategories(data);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const fetchVisitStatuses = async () => {
+    try {
+      const res = await fetch("/api/master/visit-status?active=true");
+      const data = await res.json();
+      if (data.success) {
+        setVisitStatusOptions(data.data.map(s => s.Status_Name));
+        const colors = {};
+        data.data.forEach(s => {
+          colors[s.Status_Name] = `bg-${s.Color_Code}-100 text-${s.Color_Code}-700 border-${s.Color_Code}-200`;
+        });
+        setVisitStatusColorsMap(colors);
+      }
+    } catch (err) {
+      console.error("Failed to fetch visit statuses", err);
+    }
+  };
+
+  const fetchVisitProducts = async () => {
+    try {
+      const res = await fetch("/api/master/visit-products?active=true");
+      const data = await res.json();
+      if (data.success) {
+        setVisitProductOptions(data.data.map(p => p.Product_Name));
+        const colors = {};
+        data.data.forEach(p => {
+          colors[p.Product_Name] = `bg-${p.Color_Code}-100 text-${p.Color_Code}-700 border-${p.Color_Code}-200`;
+        });
+        setVisitProductColorsMap(colors);
+      }
+    } catch (err) {
+      console.error("Failed to fetch visit products", err);
     }
   };
 
@@ -290,7 +341,7 @@ export default function LeadsPage() {
     setLeadVisits([]);
     setLeadPayments([]);
     setIsDetailOpen(true);
-    setActiveTab("details");
+    setActiveTab("history");
     fetchLeadVisits(lead.CM_Lead_ID);
     fetchLeadPayments(lead.CM_Lead_ID);
   };
@@ -415,6 +466,164 @@ export default function LeadsPage() {
         // window.location.href = `/projects/${data.CM_Project_ID}`;
       } else {
         toast.error(data.error || "Conversion failed");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openAddVisitModal = () => {
+    setVisitFormData({
+      CM_Lead_ID: selectedLead?.CM_Lead_ID || "",
+      CM_Sales_Executive_ID: user?.CM_User_ID || user?.id || "",
+      CM_Visit_Date: new Date().toISOString().split('T')[0],
+      CM_Purpose: "",
+      CM_Product_Discussed: "",
+      CM_Scope_Given: "No",
+      CM_Demo_Given: "No",
+      CM_Proposal_Value: "",
+      CM_GST_Type: "Exclusive",
+      CM_Scope_Alteration: "",
+      CM_Value_Alteration: "",
+      CM_Further_Enhancement: "",
+      CM_Issues_Raised: "",
+      CM_Project_Handed_Over: "No",
+      CM_Trial_Version_Given: "No",
+      CM_Next_Followup_Date: "",
+      CM_Next_Followup_Time: "",
+      CM_Visit_Status: "Follow-up Needed",
+      CM_Remarks: "",
+      CM_Images: []
+    });
+    setSelectedVisit(null);
+    setIsVisitModalOpen(true);
+  };
+
+  const openEditVisitModal = (visit) => {
+    setVisitFormData({
+      ...visit,
+      CM_Visit_Date: visit.CM_Visit_Date ? new Date(visit.CM_Visit_Date).toISOString().split('T')[0] : "",
+      CM_Next_Followup_Date: visit.CM_Next_Followup_Date ? new Date(visit.CM_Next_Followup_Date).toISOString().split('T')[0] : ""
+    });
+    setSelectedVisit(visit);
+    setIsVisitModalOpen(true);
+  };
+
+  const handleDeleteVisit = async (visitId) => {
+    if (!confirm("Are you sure you want to delete this visit?")) return;
+    try {
+      const res = await fetch(`/api/sales-visits?_method=DELETE`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ CM_Visit_ID: visitId, CM_Updated_By: user?.CM_User_ID || user?.id })
+      });
+      if (res.ok) {
+        toast.success("Visit deleted");
+        fetchLeadVisits(selectedLead.CM_Lead_ID);
+      } else {
+        toast.error("Failed to delete visit");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    }
+  };
+
+  const handleVisitSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const url = selectedVisit ? `/api/sales-visits?_method=PUT` : "/api/sales-visits";
+      const payload = {
+        ...visitFormData,
+        CM_Created_By: user?.CM_User_ID || user?.id,
+        CM_Updated_By: user?.CM_User_ID || user?.id
+      };
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        toast.success(selectedVisit ? "Visit updated successfully" : "Visit logged successfully");
+        setIsVisitModalOpen(false);
+        fetchLeadVisits(selectedLead.CM_Lead_ID);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Operation failed");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openAddPaymentModal = () => {
+    setPaymentFormData({
+      CM_Lead_ID: selectedLead?.CM_Lead_ID || "",
+      CM_Payment_Date: new Date().toISOString().split('T')[0],
+      CM_Amount: "",
+      CM_Payment_Type: "Advance",
+      CM_Payment_Mode: "Bank Transfer",
+      CM_Payment_Status: "Paid",
+      CM_Remarks: ""
+    });
+    setSelectedPayment(null);
+    setIsPaymentModalOpen(true);
+  };
+
+  const openEditPaymentModal = (payment) => {
+    setPaymentFormData({
+      ...payment,
+      CM_Payment_Date: payment.CM_Payment_Date ? new Date(payment.CM_Payment_Date).toISOString().split('T')[0] : ""
+    });
+    setSelectedPayment(payment);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleDeletePayment = async (paymentId) => {
+    if (!confirm("Are you sure you want to delete this payment?")) return;
+    try {
+      const res = await fetch(`/api/sales-payments?_method=DELETE`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ CM_Payment_ID: paymentId, CM_Updated_By: user?.CM_User_ID || user?.id })
+      });
+      if (res.ok) {
+        toast.success("Payment deleted");
+        fetchLeadPayments(selectedLead.CM_Lead_ID);
+      } else {
+        toast.error("Failed to delete payment");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    }
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const url = selectedPayment ? `/api/sales-payments?_method=PUT` : "/api/sales-payments";
+      const payload = {
+        ...paymentFormData,
+        CM_Created_By: user?.CM_User_ID || user?.id,
+        CM_Updated_By: user?.CM_User_ID || user?.id
+      };
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        toast.success(selectedPayment ? "Payment updated successfully" : "Payment logged successfully");
+        setIsPaymentModalOpen(false);
+        fetchLeadPayments(selectedLead.CM_Lead_ID);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Operation failed");
       }
     } catch (error) {
       toast.error("An error occurred");
@@ -681,13 +890,13 @@ export default function LeadsPage() {
                         {lead.CM_Phone}
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">
-                        <div className="line-clamp-1 text-center text-blue-700">{lead.CM_Industrial_Name || "—"}</div>
-                        <div className="line-clamp-1 text-center">{lead.CM_Category_Name || "—"}</div>
-                        <div className="line-clamp-1 text-center">{lead.CM_Subcategory_Name || "—"}</div>
+                        <div className="line-clamp-1 text-center text-blue-700">{lead.CM_Industrial_Name || "â€”"}</div>
+                        <div className="line-clamp-1 text-center">{lead.CM_Category_Name || "â€”"}</div>
+                        <div className="line-clamp-1 text-center">{lead.CM_Subcategory_Name || "â€”"}</div>
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
-                        <p className="text-sm text-gray-600">{lead.CM_Product_Required || "—"}</p>
-                        {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
+                        <p className="text-sm text-gray-600">{lead.CM_Product_Required || "â€”"}</p>
+                        {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">â‚¹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">{lead.Executive_Name || "Unassigned"}</td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
@@ -734,7 +943,7 @@ export default function LeadsPage() {
                 <div className="grid grid-cols-2 gap-4 py-3 border-t border-b border-gray-50 mb-3">
                   <div>
                     <p className="text-[10px] text-gray-400 uppercase font-bold">Product</p>
-                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.CM_Product_Required || "—"}</p>
+                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.CM_Product_Required || "â€”"}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 uppercase font-bold">Executive</p>
@@ -1023,7 +1232,7 @@ export default function LeadsPage() {
                     value={formData.CM_Expected_Budget || ""}
                     onChange={(e) => setFormData({ ...formData, CM_Expected_Budget: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    placeholder="Amount in ₹"
+                    placeholder="Amount in â‚¹"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1084,8 +1293,8 @@ export default function LeadsPage() {
       {/* Detail Slide-over / Modal */}
       {isDetailOpen && selectedLead && (
         <div className="fixed inset-0 z-[60] flex items-center justify-end bg-black/40 backdrop-blur-sm">
-          <div className="bg-white h-full w-full max-w-6xl shadow-md flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="px-6 pt-6 border-b border-gray-100 bg-white sticky top-0 z-10">
+          <div className="bg-white h-full w-full max-w-7xl shadow-md flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="px-4 pt-4 border-b border-gray-100 bg-white sticky top-0 z-10">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div>
@@ -1097,12 +1306,6 @@ export default function LeadsPage() {
                 </button>
               </div>
               <div className="flex gap-6">
-                <button
-                  onClick={() => setActiveTab('details')}
-                  className={`text-sm font-bold pb-3 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                  Details
-                </button>
                 <button
                   onClick={() => setActiveTab('history')}
                   className={`text-sm font-bold pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -1116,6 +1319,12 @@ export default function LeadsPage() {
                 >
                   Payments
                   <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadPayments.length}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('details')}
+                  className={`text-sm font-bold pb-3 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Details
                 </button>
               </div>
             </div>
@@ -1190,7 +1399,7 @@ export default function LeadsPage() {
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
-                        <p className="text-sm font-extrabold text-indigo-600">{selectedLead.CM_Expected_Budget ? `₹${Number(selectedLead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
+                        <p className="text-sm font-extrabold text-indigo-600">{selectedLead.CM_Expected_Budget ? `â‚¹${Number(selectedLead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
@@ -1236,6 +1445,14 @@ export default function LeadsPage() {
 
               {activeTab === 'history' && (
                 <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => openAddVisitModal()}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-sm"
+                    >
+                      <Plus className="h-4 w-4" /> Add Visit
+                    </button>
+                  </div>
                   {loadingVisits ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                       <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -1258,8 +1475,10 @@ export default function LeadsPage() {
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Purpose</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Remarks</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Follow-up</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36">Status</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Follow-up & Time</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Product</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-20 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
@@ -1270,6 +1489,11 @@ export default function LeadsPage() {
                                   <p className="text-xs font-bold text-gray-700">
                                     {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                                   </p>
+                                  {v.CM_Visit_Time && (
+                                    <p className="text-[10px] text-gray-500 mt-0.5">
+                                      {new Date(`2000-01-01T${v.CM_Visit_Time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                    </p>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3 border-r border-gray-100">
 
@@ -1282,21 +1506,35 @@ export default function LeadsPage() {
                                 </td>
                                 <td className="px-4 py-3 border-r border-gray-100">
                                   {v.CM_Next_Followup_Date ? (
-                                    <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                                      {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                                    </p>
+                                    <div className="flex flex-col gap-0.5">
+                                      <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                        {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                      </p>
+                                      {v.CM_Next_Followup_Time && (
+                                        <p className="text-[10px] text-gray-500 font-medium">
+                                          {new Date(`2000-01-01T${v.CM_Next_Followup_Time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                        </p>
+                                      )}
+                                    </div>
                                   ) : <span className="text-gray-300">—</span>}
                                 </td>
-                                <td className="px-4 py-3">
-                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${v.CM_Visit_Status === "Follow-up Needed" ? "bg-blue-100 text-blue-700 border-blue-200" :
-                                    v.CM_Visit_Status === "Interested" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                                      v.CM_Visit_Status === "Not Interested" ? "bg-red-100 text-red-700 border-red-200" :
-                                        v.CM_Visit_Status === "Proposal Sent" ? "bg-amber-100 text-amber-700 border-amber-200" :
-                                          v.CM_Visit_Status === "Converted" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
-                                            "bg-gray-100 text-gray-600 border-gray-200"
-                                    }`}>
+                                <td className="px-4 py-3 border-r border-gray-100">
+                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitStatusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
                                     {v.CM_Visit_Status}
                                   </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {v.CM_Visit_Products && (
+                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitProductColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                      {v.CM_Visit_Products}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <button onClick={() => openEditVisitModal(v)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
+                                    <button onClick={() => handleDeleteVisit(v.CM_Visit_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -1310,6 +1548,14 @@ export default function LeadsPage() {
 
               {activeTab === 'payments' && (
                 <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => openAddPaymentModal()}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-sm"
+                    >
+                      <Plus className="h-4 w-4" /> Add Payment
+                    </button>
+                  </div>
                   {loadingPayments ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                       <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -1332,7 +1578,8 @@ export default function LeadsPage() {
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Amount</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Type</th>
                               <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Mode</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32">Status</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>
+                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-20 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
@@ -1345,7 +1592,7 @@ export default function LeadsPage() {
                                   </p>
                                 </td>
                                 <td className="px-4 py-3 border-r border-gray-100">
-                                  <p className="text-sm font-extrabold text-gray-900">₹{Number(p.CM_Amount).toLocaleString()}</p>
+                                  <p className="text-sm font-extrabold text-gray-900">â‚¹{Number(p.CM_Amount).toLocaleString()}</p>
                                 </td>
                                 <td className="px-4 py-3 border-r border-gray-100">
                                   <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
@@ -1368,6 +1615,12 @@ export default function LeadsPage() {
                                     {p.CM_Payment_Status}
                                   </span>
                                 </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <button onClick={() => openEditPaymentModal(p)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
+                                    <button onClick={() => handleDeletePayment(p.CM_Payment_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                  </div>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -1389,6 +1642,239 @@ export default function LeadsPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visit Add/Edit Modal */}
+      {isVisitModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-gray-800">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-500 text-white">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                {selectedVisit ? "Edit Client Visit" : "Log New Client Visit"}
+              </h2>
+              <button onClick={() => setIsVisitModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+
+            <form onSubmit={handleVisitSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Lead Name</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={selectedLead?.CM_Client_Name || ""}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none text-gray-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Date *</label>
+                <input
+                  required
+                  type="date"
+                  value={visitFormData.CM_Visit_Date || ""}
+                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Visit_Date: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Purpose of Visit *</label>
+                <input
+                  required
+                  type="text"
+                  value={visitFormData.CM_Purpose || ""}
+                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Purpose: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  placeholder="e.g. Site Survey, Product Demo..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Date</label>
+                <input
+                  type="date"
+                  value={visitFormData.CM_Next_Followup_Date || ""}
+                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Next_Followup_Date: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Time</label>
+                <input
+                  type="time"
+                  value={visitFormData.CM_Next_Followup_Time || ""}
+                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Next_Followup_Time: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+              
+              <div className="md:col-span-2 space-y-1">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Status</label>
+                  <button type="button" onClick={() => setIsManageStatusModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
+                    <Settings size={12} /> Manage Options
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {visitStatusOptions.map(s => (
+                    <button key={s} type="button" onClick={() => setVisitFormData({ ...visitFormData, CM_Visit_Status: s })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${visitFormData.CM_Visit_Status === s ? `${visitStatusColorsMap[s] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 space-y-1 mt-2">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Product</label>
+                  <button type="button" onClick={() => setIsManageProductModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
+                    <Settings size={12} /> Manage Options
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setVisitFormData({ ...visitFormData, CM_Visit_Products: "" })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!visitFormData.CM_Visit_Products ? `bg-gray-100 text-gray-700 border-gray-300 shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>None</button>
+                  {visitProductOptions.map(p => (
+                    <button key={p} type="button" onClick={() => setVisitFormData({ ...visitFormData, CM_Visit_Products: p })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${visitFormData.CM_Visit_Products === p ? `${visitProductColorsMap[p] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{p}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Remarks</label>
+                <textarea
+                  rows="3"
+                  value={visitFormData.CM_Remarks || ""}
+                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Remarks: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none resize-none"
+                  placeholder="Details of discussion..."
+                />
+              </div>
+
+              <div className="md:col-span-2 flex gap-3 mt-4">
+                <button type="button" onClick={() => setIsVisitModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-bold transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50">
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  {selectedVisit ? "Update Visit" : "Save Visit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Add/Edit Modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-gray-800">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-500 text-white">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Receipt className="h-5 w-5" />
+                {selectedPayment ? "Edit Payment" : "Record New Payment"}
+              </h2>
+              <button onClick={() => setIsPaymentModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+
+            <form onSubmit={handlePaymentSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Lead Name</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={selectedLead?.CM_Client_Name || ""}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none text-gray-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Date *</label>
+                <input
+                  required
+                  type="date"
+                  value={paymentFormData.CM_Payment_Date || ""}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Date: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Amount *</label>
+                <input
+                  required
+                  type="number"
+                  value={paymentFormData.CM_Amount || ""}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Amount: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  placeholder="e.g. 50000"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Type</label>
+                <select
+                  value={paymentFormData.CM_Payment_Type || ""}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Type: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                >
+                  <option value="Advance">Advance</option>
+                  <option value="Partial Payment">Partial Payment</option>
+                  <option value="Final Payment">Final Payment</option>
+                  <option value="Domain Payment">Domain Payment</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Mode</label>
+                <select
+                  value={paymentFormData.CM_Payment_Mode || ""}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Mode: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                >
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Credit Card">Credit Card</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Status</label>
+                <select
+                  value={paymentFormData.CM_Payment_Status || ""}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Status: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                >
+                  <option value="Paid">Paid</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Failed">Failed</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Remarks</label>
+                <textarea
+                  rows="2"
+                  value={paymentFormData.CM_Remarks || ""}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Remarks: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none resize-none"
+                  placeholder="Transaction ID or notes..."
+                />
+              </div>
+
+              <div className="md:col-span-2 flex gap-3 mt-4">
+                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-bold transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50">
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  {selectedPayment ? "Update Payment" : "Save Payment"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1437,6 +1923,27 @@ export default function LeadsPage() {
         </div>
       )}
 
+      {/* Manage Statuses Modal */}
+      {isManageStatusModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] overflow-y-auto p-4 md:p-8">
+          <div className="bg-slate-50 min-h-[80vh] rounded-2xl shadow-2xl relative max-w-5xl mx-auto">
+            <div className="pt-2 pb-6">
+              <VisitStatusMasterPage onClose={() => { setIsManageStatusModalOpen(false); fetchVisitStatuses(); }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Products Modal */}
+      {isManageProductModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] overflow-y-auto p-4 md:p-8">
+          <div className="bg-slate-50 min-h-[80vh] rounded-2xl shadow-2xl relative max-w-5xl mx-auto">
+            <div className="pt-2 pb-6">
+              <VisitProductsMasterPage onClose={() => { setIsManageProductModalOpen(false); fetchVisitProducts(); }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

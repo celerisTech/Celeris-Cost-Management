@@ -82,7 +82,8 @@ function AttendanceForm({ laborType }) {
         ]);
 
         const projData = await projRes.json();
-        const laborData = await laborRes.json();
+        const rawLaborData = await laborRes.json();
+        const laborData = rawLaborData.filter(emp => emp.CM_Status === 'Active');
 
         setProjects(projData);
         setEmployees(laborData);

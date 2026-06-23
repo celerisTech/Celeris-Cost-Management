@@ -1218,11 +1218,12 @@ export default function EngineerUpdatePage() {
                 </div>
 
                 <div>
-                  <label htmlFor="remarks" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Remarks (optional)</label>
+                  <label htmlFor="remarks" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Updates*</label>
                   <textarea
                     id="remarks"
                     name="remarks"
                     rows="2"
+                    required
                     value={updateData.remarks}
                     onChange={(e) => setUpdateData({ ...updateData, remarks: formatSentenceCase(e.target.value) })}
                     className="w-full px-3 sm:px-4 py-2 text-black text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
@@ -1401,11 +1402,12 @@ export default function EngineerUpdatePage() {
                 </div>
 
                 <div>
-                  <label htmlFor="editRemarks" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Remarks (optional)</label>
+                  <label htmlFor="editRemarks" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Updates*</label>
                   <textarea
                     id="editRemarks"
                     name="editRemarks"
                     rows="2"
+                    required
                     value={editData.remarks}
                     onChange={(e) => setEditData({ ...editData, remarks: formatSentenceCase(e.target.value) })}
                     className="w-full px-3 sm:px-4 py-2 text-black text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition"

@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
     const industrialId = sanitize(q.get('industrialId'));
     const categoryId   = sanitize(q.get('categoryId'));
     const status       = sanitize(q.get('status'));
+    const product      = sanitize(q.get('product'));
     const search       = sanitize(q.get('search'));
     const fromDate     = toMysqlDate(q.get('fromDate'));
     const toDate       = toMysqlDate(q.get('toDate'));
@@ -147,6 +148,7 @@ export async function GET(request: NextRequest) {
     if (fromDate)     { conditions.push('sv.CM_Visit_Date >= ?');         params.push(fromDate); }
     if (toDate)       { conditions.push('sv.CM_Visit_Date <= ?');         params.push(toDate); }
     if (status)       { conditions.push('sv.CM_Visit_Status = ?');        params.push(status); }
+    if (product)      { conditions.push('sv.CM_Visit_Products = ?');      params.push(product); }
     if (search) {
       conditions.push(`(
         sv.CM_Purpose           LIKE ? OR
@@ -218,17 +220,18 @@ export async function POST(request: NextRequest) {
 
     await db.execute(
       `INSERT INTO ccms_sales_visit
-         (CM_Visit_ID, CM_Lead_ID, CM_Sales_Executive_ID, CM_Visit_Date,
+         (CM_Visit_ID, CM_Lead_ID, CM_Sales_Executive_ID, CM_Visit_Date, CM_Visit_Time,
           CM_Purpose, CM_Product_Discussed, CM_Scope_Given, CM_Demo_Given,
           CM_Proposal_Value, CM_GST_Type, CM_Scope_Alteration, CM_Value_Alteration,
           CM_Further_Enhancement, CM_Issues_Raised, CM_Project_Handed_Over,
-          CM_Trial_Version_Given, CM_Next_Followup_Date, CM_Visit_Status,
+          CM_Trial_Version_Given, CM_Next_Followup_Date, CM_Next_Followup_Time, CM_Visit_Status, CM_Visit_Products,
           CM_Remarks, CM_Images, CM_Created_By, CM_Created_At)
-       VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+       VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
       [
         body.CM_Lead_ID,
         sanitize(body.CM_Sales_Executive_ID),
         toMysqlDate(body.CM_Visit_Date),
+        sanitize(body.CM_Visit_Time),
         sanitize(body.CM_Purpose),
         sanitize(body.CM_Product_Discussed),
         sanitize(body.CM_Scope_Given),
@@ -242,7 +245,9 @@ export async function POST(request: NextRequest) {
         sanitize(body.CM_Project_Handed_Over) ?? 'No',
         sanitize(body.CM_Trial_Version_Given) ?? 'No',
         toMysqlDate(body.CM_Next_Followup_Date),
+        sanitize(body.CM_Next_Followup_Time),
         sanitize(body.CM_Visit_Status) ?? 'Follow-up Needed',
+        sanitize(body.CM_Visit_Products),
         sanitize(body.CM_Remarks),
         images,
         sanitize(body.CM_Created_By),
@@ -294,18 +299,19 @@ async function updateVisit(request: NextRequest) {
 
     await db.execute(
       `UPDATE ccms_sales_visit SET
-         CM_Sales_Executive_ID = ?, CM_Visit_Date = ?, CM_Purpose = ?,
+         CM_Sales_Executive_ID = ?, CM_Visit_Date = ?, CM_Visit_Time = ?, CM_Purpose = ?,
          CM_Product_Discussed = ?, CM_Scope_Given = ?, CM_Demo_Given = ?,
          CM_Proposal_Value = ?, CM_GST_Type = ?, CM_Scope_Alteration = ?,
          CM_Value_Alteration = ?, CM_Further_Enhancement = ?, CM_Issues_Raised = ?,
          CM_Project_Handed_Over = ?, CM_Trial_Version_Given = ?,
-         CM_Next_Followup_Date = ?, CM_Visit_Status = ?, CM_Remarks = ?,
+         CM_Next_Followup_Date = ?, CM_Next_Followup_Time = ?, CM_Visit_Status = ?, CM_Visit_Products = ?, CM_Remarks = ?,
          CM_Images = COALESCE(?, CM_Images),
          CM_Updated_By = ?, CM_Updated_At = NOW()
        WHERE CM_Visit_ID = ?`,
       [
         sanitize(body.CM_Sales_Executive_ID),
         toMysqlDate(body.CM_Visit_Date),
+        sanitize(body.CM_Visit_Time),
         sanitize(body.CM_Purpose),
         sanitize(body.CM_Product_Discussed),
         sanitize(body.CM_Scope_Given),
@@ -319,7 +325,9 @@ async function updateVisit(request: NextRequest) {
         sanitize(body.CM_Project_Handed_Over) ?? 'No',
         sanitize(body.CM_Trial_Version_Given) ?? 'No',
         toMysqlDate(body.CM_Next_Followup_Date),
+        sanitize(body.CM_Next_Followup_Time),
         sanitize(body.CM_Visit_Status) ?? 'Follow-up Needed',
+        sanitize(body.CM_Visit_Products),
         sanitize(body.CM_Remarks),
         images,
         sanitize(body.CM_Updated_By),
