@@ -245,7 +245,7 @@ export default function VisitProductsMasterPage({ onClose }) {
                   required
                   value={formData.Product_Name}
                   onChange={(e) => setFormData({ ...formData, Product_Name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
+                  className="w-full px-4 py-2.5 border border-slate-200 text-gray-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
                   placeholder="e.g. ERP System"
                 />
               </div>
