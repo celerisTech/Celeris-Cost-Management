@@ -793,17 +793,7 @@ function VisitsContent() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 />
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Time</label>
-                <input
-                  type="time"
-                  value={formData.CM_Visit_Time || ""}
-                  onChange={(e) => setFormData({ ...formData, CM_Visit_Time: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                />
-              </div>
-
+              
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Purpose of Visit *</label>
                 <input

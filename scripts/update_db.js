@@ -44,6 +44,17 @@ async function run() {
         }
     }
 
+    try {
+        await conn.execute("ALTER TABLE ccms_sales_visit ADD COLUMN CM_Visit_Time TIME DEFAULT NULL AFTER CM_Visit_Date");
+        console.log("Added CM_Visit_Time to ccms_sales_visit");
+    } catch (e) {
+        if (e.code === 'ER_DUP_FIELDNAME') {
+            console.log("CM_Visit_Time already exists in ccms_sales_visit");
+        } else {
+            throw e;
+        }
+    }
+
     console.log("Creating ccms_visit_products table...");
     await conn.execute(`
         CREATE TABLE IF NOT EXISTS ccms_visit_products (
