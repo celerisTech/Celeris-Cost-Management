@@ -58,14 +58,8 @@ export default function LeadsPage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [filterCategories, setFilterCategories] = useState([]);
   const [dateQuickFilter, setDateQuickFilter] = useState(""); // 'today' | 'yesterday' | ''
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [toDate, setToDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
-  });
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("history");
@@ -837,9 +831,8 @@ export default function LeadsPage() {
             setIndustrialFilter("");
             setCategoryFilter("");
             setDateQuickFilter("");
-            const d = new Date();
-            setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
-            setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
+            setFromDate("");
+            setToDate("");
             setPage(1);
           }}
           className="flex items-center justify-center flex-shrink-0 w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"

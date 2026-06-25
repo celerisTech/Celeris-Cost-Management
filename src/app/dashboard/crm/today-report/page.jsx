@@ -298,15 +298,40 @@ export default function TodayReportPage() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="pt-2 border-t border-slate-100 flex gap-4 text-sm">
-                                                <div className="flex items-center gap-1.5 text-slate-600">
-                                                    <Phone size={14} className="text-slate-400"/>
-                                                    {lead.CM_Phone || "-"}
+                                            <div className="pt-2 border-t border-slate-100 grid grid-cols-4 gap-4 text-sm">
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile Number</div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
+                                                        <Phone size={12} className="text-slate-400"/>
+                                                        {lead.CM_Phone || "-"}
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 text-slate-600">
-                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
-                                                        {lead.CM_Lead_Status || "New"}
-                                                    </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location</div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
+                                                        <MapPin size={12} className="text-slate-400"/>
+                                                        {lead.CM_City || "-"}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Status</div>
+                                                    <div className="flex items-center">
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
+                                                            {lead.CM_Lead_Status || "New"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Product Name</div>
+                                                    <div className="flex items-center">
+                                                        {lead.CM_Product_Required ? (
+                                                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-xs font-medium">
+                                                                {lead.CM_Product_Required}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-400">-</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -358,12 +383,19 @@ export default function TodayReportPage() {
                                                 </div>
                                             </div>
                                             
-                                            <div className="pt-2 border-t border-slate-100 grid grid-cols-3 gap-4 text-sm">
+                                            <div className="pt-2 border-t border-slate-100 grid grid-cols-4 gap-4 text-sm">
                                                 <div className="flex flex-col gap-1">
                                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile Number</div>
                                                     <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
                                                         <Phone size={12} className="text-slate-400"/>
                                                         {visit.CM_Phone || "-"}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location</div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
+                                                        <MapPin size={12} className="text-slate-400"/>
+                                                        {visit.CM_City || "-"}
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-col gap-1">

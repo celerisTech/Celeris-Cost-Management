@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       }
 
       const [rows]: any = await db.query(`
-        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone,
+        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City,
                u.CM_Full_Name AS Executive_Name,
                ind.CM_Industrial_Name, cat.CM_Category_Name
         FROM   ccms_sales_visit sv
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     // ── Single visit ───────────────────────────────────────────────────────
     if (visitId) {
       const [[visit]]: any = await db.execute(`
-        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone,
+        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City,
                u.CM_Full_Name AS Executive_Name,
                ind.CM_Industrial_Name, cat.CM_Category_Name
         FROM   ccms_sales_visit sv
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
     const total = Number(countRow?.total ?? 0);
 
     const [visits]: any = await db.query(`
-      SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone,
+      SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City,
              u.CM_Full_Name AS Executive_Name,
              ind.CM_Industrial_Name, cat.CM_Category_Name
       FROM   ccms_sales_visit sv

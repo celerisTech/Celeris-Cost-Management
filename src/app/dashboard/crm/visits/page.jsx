@@ -50,14 +50,8 @@ function VisitsContent() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateQuickFilter, setDateQuickFilter] = useState(""); // 'today' | 'yesterday' | ''
   const [search, setSearch] = useState("");
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [toDate, setToDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
-  });
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState(null);
   const [isManageStatusModalOpen, setIsManageStatusModalOpen] = useState(false);
@@ -505,9 +499,8 @@ function VisitsContent() {
             setIndustrialFilter("");
             setCategoryFilter("");
             setDateQuickFilter("");
-            const d = new Date();
-            setFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
-            setToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
+            setFromDate("");
+            setToDate("");
             setPage(1);
           }}
           className="flex items-center justify-center flex-shrink-0 w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
@@ -524,14 +517,13 @@ function VisitsContent() {
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Visit Date</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-8 text-center border-r border-gray-200">#</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-48 border-r border-gray-200">Client / Company</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-64 border-r border-gray-200">Purpose & Description</th>
                   {/* <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-64 border-r border-gray-200">Description</th> */}
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36 border-r border-gray-200">Executive</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Followup</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Time</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Product</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-24 text-right">Actions</th>
@@ -539,14 +531,14 @@ function VisitsContent() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan="8" className="px-4 py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
+                  <tr><td colSpan="9" className="px-4 py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
                 ) : visits.length === 0 ? (
-                  <tr><td colSpan="8" className="px-4 py-12 text-center text-gray-500">No visits found for the selected filters</td></tr>
+                  <tr><td colSpan="9" className="px-4 py-12 text-center text-gray-500">No visits found for the selected filters</td></tr>
                 ) : (
                   visits.map((v, idx) => (
                     <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors group">
-                      <td className="px-4 py-2.5 text-sm text-gray-600 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
+                      <td className="px-3 py-2.5 text-sm text-gray-600 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
+                      <td className="px-3 py-2.5 border-r border-gray-100">
                         <p className="text-sm font-medium text-gray-700">
                           {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                         </p>
@@ -574,16 +566,16 @@ function VisitsContent() {
                       <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600 truncate">{v.Executive_Name || "Unassigned"}</td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
                         {v.CM_Next_Followup_Date ? (
-                          <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                          </p>
-                        ) : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        {v.CM_Next_Followup_Time ? (
-                          <p className="text-xs font-bold text-gray-600 flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> {v.CM_Next_Followup_Time}
-                          </p>
+                          <>
+                            <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                            </p>
+                            {v.CM_Next_Followup_Time && (
+                              <p className="text-[10px] text-gray-500 mt-0.5 pl-4">
+                                {v.CM_Next_Followup_Time}
+                              </p>
+                            )}
+                          </>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-2.5 border-r border-gray-100">
