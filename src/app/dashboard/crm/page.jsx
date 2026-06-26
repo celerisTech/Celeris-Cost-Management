@@ -7,8 +7,22 @@ import FollowupsOverviewModal from "../components/FollowupsOverviewModal";
 import {
   Target, MapPin, CreditCard, TrendingUp, Users, Calendar,
   ArrowRight, AlertCircle, CheckCircle2, Clock, IndianRupee,
-  BarChart3, ChevronRight, Phone, Building2, Eye, Star, FileText, Settings
+  BarChart3, ChevronRight, Phone, Building2, Eye, Star, FileText, Settings,
+  Check, SlidersHorizontal, ChevronDown
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Cell
+} from "recharts";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const fmtCurrency = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 });
@@ -30,15 +44,105 @@ export default function CRMDashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFollowupsModalOpen, setIsFollowupsModalOpen] = useState(false);
+  
+  const isAdminOrManager = user?.CM_Role_ID === "ROL000001" || user?.CM_Role_ID === "ROL000002";
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
+  // Filters & Chart Type state
+  const [filterType, setFilterType] = useState("This Year");
+  const [customRange, setCustomRange] = useState({
+    month: new Date().getMonth(),
+    year: new Date().getFullYear(),
+    fromDate: "",
+    toDate: ""
+  });
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [activeChartTab, setActiveChartTab] = useState("bar"); // 'bar' or 'line'
+  const [activeChartViewTab, setActiveChartViewTab] = useState("trends"); // 'trends' or 'product'
 
-  const fetchDashboard = async () => { 
+  const getDateRange = (type, custom = {}) => {
+    const today = new Date();
+    let from = null;
+    let to = today;
+
+    switch (type) {
+      case "Today":
+        from = new Date();
+        from.setHours(0, 0, 0, 0);
+        break;
+      case "Yesterday":
+        from = new Date();
+        from.setDate(today.getDate() - 1);
+        from.setHours(0, 0, 0, 0);
+        to = new Date();
+        to.setDate(today.getDate() - 1);
+        to.setHours(23, 59, 59, 999);
+        break;
+      case "This Week":
+        const dayOfWeek = today.getDay();
+        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        from = new Date(today.setDate(diff));
+        from.setHours(0, 0, 0, 0);
+        to = new Date();
+        break;
+      case "This Month":
+        from = new Date(today.getFullYear(), today.getMonth(), 1);
+        break;
+      case "Last Month":
+        from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        to = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+        break;
+      case "This Year":
+        from = new Date(today.getFullYear(), 0, 1);
+        break;
+      case "Last Year":
+        from = new Date(today.getFullYear() - 1, 0, 1);
+        to = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+        break;
+      case "All Time":
+        from = "";
+        to = "";
+        break;
+      case "Custom Month":
+        if (custom.month !== undefined && custom.year) {
+          from = new Date(custom.year, custom.month, 1);
+          to = new Date(custom.year, parseInt(custom.month) + 1, 0, 23, 59, 59, 999);
+        }
+        break;
+      case "Custom Year":
+        if (custom.year) {
+          from = new Date(custom.year, 0, 1);
+          to = new Date(custom.year, 11, 31, 23, 59, 59, 999);
+        }
+        break;
+      case "Custom Date":
+        if (custom.fromDate) from = new Date(custom.fromDate);
+        if (custom.toDate) to = new Date(custom.toDate);
+        break;
+      default:
+        break;
+    }
+
+    const fmtDate = (d) => {
+      if (!d) return "";
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    return {
+      fromDate: from ? fmtDate(from) : "",
+      toDate: to ? fmtDate(to) : ""
+    };
+  };
+
+  const fetchDashboard = async (from = "", to = "") => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sales-leads?type=dashboard");
+      let url = "/api/sales-leads?type=dashboard";
+      if (from) url += `&fromDate=${from}`;
+      if (to) url += `&toDate=${to}`;
+      const res = await fetch(url);
       if (res.ok) setData(await res.json());
     } catch (e) {
       console.error(e);
@@ -46,6 +150,76 @@ export default function CRMDashboardPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (filterType === "Custom Month" && (customRange.month === undefined || !customRange.year)) return;
+    if (filterType === "Custom Year" && !customRange.year) return;
+    if (filterType === "Custom Date" && (!customRange.fromDate || !customRange.toDate)) return;
+
+    const { fromDate: from, toDate: to } = getDateRange(filterType, customRange);
+    fetchDashboard(from, to);
+  }, [filterType, customRange]);
+
+  const chartData = useMemo(() => {
+    if (!data?.trend) return [];
+
+    if (filterType === "All Time") {
+      const yearlyMap = {};
+      data.trend.forEach(item => {
+        if (!item.date) return;
+        const d = new Date(item.date);
+        const yr = d.getFullYear();
+        if (isNaN(yr)) return;
+        if (!yearlyMap[yr]) {
+          yearlyMap[yr] = {
+            name: String(yr),
+            "Total Leads": 0,
+            "Proposals Sent": 0,
+            "Converted": 0
+          };
+        }
+        yearlyMap[yr]["Total Leads"] += Number(item.total_leads || 0);
+        yearlyMap[yr]["Proposals Sent"] += Number(item.proposal_sent || 0);
+        yearlyMap[yr]["Converted"] += Number(item.converted_leads || 0);
+      });
+      return Object.values(yearlyMap).sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const isYearly = ["This Year", "Last Year", "Custom Year"].includes(filterType);
+
+    if (isYearly) {
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const monthlyData = months.map((m, idx) => ({
+        name: m,
+        "Total Leads": 0,
+        "Proposals Sent": 0,
+        "Converted": 0,
+        monthIdx: idx
+      }));
+
+      data.trend.forEach(item => {
+        const d = new Date(item.date);
+        const mIdx = d.getMonth();
+        if (mIdx >= 0 && mIdx < 12) {
+          monthlyData[mIdx]["Total Leads"] += Number(item.total_leads || 0);
+          monthlyData[mIdx]["Proposals Sent"] += Number(item.proposal_sent || 0);
+          monthlyData[mIdx]["Converted"] += Number(item.converted_leads || 0);
+        }
+      });
+      return monthlyData;
+    }
+
+    return data.trend.map(item => {
+      const d = new Date(item.date);
+      const label = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+      return {
+        name: label,
+        "Total Leads": Number(item.total_leads || 0),
+        "Proposals Sent": Number(item.proposal_sent || 0),
+        "Converted": Number(item.converted_leads || 0)
+      };
+    });
+  }, [data?.trend, filterType]);
 
   const stats = data?.stats || {};
   const followups = data?.pendingFollowups || [];
@@ -178,45 +352,63 @@ export default function CRMDashboardPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">Sales pipeline overview & performance metrics</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link 
-            href="/dashboard/crm/today-report" 
-            className="group flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
-          >
-            <FileText size={18} className="transition-transform group-hover:-translate-y-0.5" />
-            Today Report
-          </Link>
-        </div>
+        {isAdminOrManager && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              href="/dashboard/crm/compare"
+              className="group flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+            >
+              <Target size={18} className="transition-transform group-hover:-translate-y-0.5" />
+              Compare
+            </Link>
+            
+            <Link
+              href="/dashboard/crm/today-report"
+              className="group flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+            >
+              <FileText size={18} className="transition-transform group-hover:-translate-y-0.5" />
+              Today Report
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Urgent Alerts Section */}
       {(data?.pendingFollowups?.length > 0 || stats.pending_followups > 0) && (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 animate-pulse">
-              <AlertCircle className="h-6 w-6" />
+        <div className="relative overflow-hidden bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
+          {/* Animated background accent */}
+          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-red-500 to-orange-500"></div>
+
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between relative">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-red-100 rounded-full flex items-center justify-center text-red-600 animate-pulse shadow-inner">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-red-900 flex items-center gap-2">
+                  Urgent Actions Required
+                  <span className="px-2 py-0.5 bg-red-200 text-red-800 text-[10px] font-bold rounded-full animate-pulse">
+                    {stats.pending_followups} Pending
+                  </span>
+                </h3>
+                <p className="text-xs text-red-700">
+                  You have <span className="font-bold text-red-900">{stats.pending_followups}</span> overdue follow-ups and
+                  <span className="font-bold text-red-900"> {fmtCurrency(data?.pendingPayments)}</span> pending in collections.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-red-900">Urgent Actions Required</h3>
-              <p className="text-xs text-red-700">
-                You have <span className="font-bold">{stats.pending_followups}</span> overdue follow-ups and
-                <span className="font-bold"> {fmtCurrency(data?.pendingPayments)}</span> pending in collections.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 w-full md:w-auto">
-            <button
-              onClick={() => setIsFollowupsModalOpen(true)}
-              className="w-full text-center px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Clock className="h-3.5 w-3.5" /> Follow-ups
-            </button>
-            <div className="flex gap-2 w-full md:w-auto">
-              <Link href="/dashboard/crm/visits" className="flex-1 md:flex-none text-center px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all shadow-sm">
-                View Follow-ups
-              </Link>
-              <Link href="/dashboard/crm/payments" className="flex-1 md:flex-none text-center px-4 py-2 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition-all">
-                Check Payments
+
+            <div className="flex flex-row gap-2 w-full md:w-auto">
+              <button
+                onClick={() => setIsFollowupsModalOpen(true)}
+                className="flex-1 md:flex-none px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 hover:scale-105 transition-all duration-200 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Clock className="h-3.5 w-3.5" /> Follow-ups
+              </button>
+              <Link href="/dashboard/crm/visits" className="flex-1 md:flex-none">
+                <button className="w-full px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 hover:scale-105 transition-all duration-200 shadow-md flex items-center justify-center gap-1.5">
+                  View All
+                </button>
               </Link>
             </div>
           </div>
@@ -260,6 +452,303 @@ export default function CRMDashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* Charts Section */}
+      {isAdminOrManager && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">        {/* Main Chart Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200 mb-6 pb-2 gap-4">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveChartViewTab("trends")}
+              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${activeChartViewTab === "trends"
+                ? "border-indigo-600 text-indigo-600 font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Trends Overview
+            </button>
+            <button
+              onClick={() => setActiveChartViewTab("product")}
+              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${activeChartViewTab === "product"
+                ? "border-indigo-600 text-indigo-600 font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Product Wise Distribution
+            </button>
+            <button
+              onClick={() => setActiveChartViewTab("financials")}
+              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${activeChartViewTab === "financials"
+                ? "border-indigo-600 text-indigo-600 font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Client Financials
+            </button>
+          </div>
+
+          {/* FILTER label and main dropdown aligned to the right */}
+          <div className="flex items-center gap-3 flex-wrap sm:ml-auto">
+            {/* FILTER label and main dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-teal-600 font-bold text-sm tracking-wider uppercase flex items-center gap-1.5 mr-1">
+                <SlidersHorizontal size={14} className="stroke-[2.5]" />
+                FILTER
+              </span>
+
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className={`flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-800 text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-[0.98] border ${filterType.startsWith("Custom")
+                    ? "border-[#1e3a8a] ring-2 ring-[#1e3a8a]/20 text-[#1e3a8a]"
+                    : "border-gray-200"
+                    }`}
+                >
+                  {filterType === "Custom Month" ? "Custom..." : filterType}
+                  <ChevronDown size={14} className="text-gray-500" />
+                </button>
+
+                {showFilterDropdown && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-2 max-h-[350px] overflow-y-auto">
+                    {[
+                      "Today",
+                      "Yesterday",
+                      "This Week",
+                      "This Month",
+                      "Last Month",
+                      "This Year",
+                      "Last Year",
+                      "All Time",
+                      "Custom Month",
+                      "Custom Year",
+                      "Custom Date"
+                    ].map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => {
+                          setFilterType(option);
+                          setShowFilterDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between transition-colors ${filterType === option
+                          ? "bg-blue-50/75 text-blue-700 font-semibold"
+                          : "text-gray-700 hover:bg-gray-50"
+                          }`}
+                      >
+                        {option}
+                        {filterType === option && <Check size={16} className="text-blue-600" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Conditional inputs side-by-side based on Custom selection */}
+            {filterType === "Custom Date" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customRange.fromDate || ""}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, fromDate: e.target.value }))}
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-800 text-sm font-semibold shadow-sm focus:outline-none focus:border-[#1e3a8a] focus:ring-1 focus:ring-[#1e3a8a]"
+                />
+                <span className="text-xs font-bold text-gray-400 px-1">TO</span>
+                <input
+                  type="date"
+                  value={customRange.toDate || ""}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, toDate: e.target.value }))}
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-800 text-sm font-semibold shadow-sm focus:outline-none focus:border-[#1e3a8a] focus:ring-1 focus:ring-[#1e3a8a]"
+                />
+              </div>
+            )}
+
+            {filterType === "Custom Month" && (
+              <div className="flex items-center gap-2">
+                <select
+                  value={customRange.year}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-800 text-sm font-semibold shadow-sm focus:outline-none focus:border-[#1e3a8a] appearance-none pr-8 relative"
+                  style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2224%22 height%3D%2224%22 viewBox%3D%220%200%2024%2024%22 fill%3D%22none%22 stroke%3D%22%236b7280%22 stroke-width%3D%222%22 stroke-linecap%3D%22round%22 stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')", backgroundPosition: "right 8px center", backgroundSize: "16px", backgroundRepeat: "no-repeat" }}
+                >
+                  {[2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <select
+                  value={customRange.month}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, month: parseInt(e.target.value) }))}
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-800 text-sm font-semibold shadow-sm focus:outline-none focus:border-[#1e3a8a] appearance-none pr-8 relative"
+                  style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2224%22 height%3D%2224%22 viewBox%3D%220%200%2024%2024%22 fill%3D%22none%22 stroke%3D%22%236b7280%22 stroke-width%3D%222%22 stroke-linecap%3D%22round%22 stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')", backgroundPosition: "right 8px center", backgroundSize: "16px", backgroundRepeat: "no-repeat" }}
+                >
+                  {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m, idx) => (
+                    <option key={idx} value={idx}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {filterType === "Custom Year" && (
+              <div className="flex items-center gap-2">
+                <select
+                  value={customRange.year}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-800 text-sm font-semibold shadow-sm focus:outline-none focus:border-[#1e3a8a] appearance-none pr-8 relative"
+                  style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2224%22 height%3D%2224%22 viewBox%3D%220%200%2024%2024%22 fill%3D%22none%22 stroke%3D%22%236b7280%22 stroke-width%3D%222%22 stroke-linecap%3D%22round%22 stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')", backgroundPosition: "right 8px center", backgroundSize: "16px", backgroundRepeat: "no-repeat" }}
+                >
+                  {[2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {activeChartViewTab === "trends" ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-indigo-600" />
+                  Lead & Conversion Trends ({filterType})
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">Overview of total leads vs proposals sent vs converted</p>
+              </div>
+              <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 self-start sm:self-auto">
+                <button
+                  onClick={() => setActiveChartTab("bar")}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${activeChartTab === "bar" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                    }`}
+                >
+                  Bar Chart
+                </button>
+                <button
+                  onClick={() => setActiveChartTab("line")}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${activeChartTab === "line" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                    }`}
+                >
+                  Line Graph
+                </button>
+              </div>
+            </div>
+
+            <div className="h-80 w-full">
+              {chartData.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                  <BarChart3 size={40} className="stroke-[1.5] mb-2 opacity-55" />
+                  <p className="text-sm">No data available for this range</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  {activeChartTab === "bar" ? (
+                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E5E7EB", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}
+                        labelStyle={{ fontWeight: "bold", color: "#1F2937" }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                      <Bar dataKey="Total Leads" fill="#4F46E5" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                      <Bar dataKey="Proposals Sent" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                      <Bar dataKey="Converted" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                    </BarChart>
+                  ) : (
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E5E7EB", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}
+                        labelStyle={{ fontWeight: "bold", color: "#1F2937" }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                      <Line type="monotone" dataKey="Total Leads" stroke="#4F46E5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="Proposals Sent" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="Converted" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  )}
+                </ResponsiveContainer>
+              )}
+            </div>
+          </>
+        ) : activeChartViewTab === "product" ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-indigo-600" />
+                  Product Wise Lead Distribution ({filterType})
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">Lead counts broken down by product requirements</p>
+              </div>
+            </div>
+
+            <div className="h-80 w-full">
+              {!data?.productWise || data.productWise.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                  <BarChart3 size={40} className="stroke-[1.5] mb-2 opacity-55" />
+                  <p className="text-sm">No product data available for this range</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.productWise} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <XAxis dataKey="product" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E5E7EB", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}
+                      labelStyle={{ fontWeight: "bold", color: "#1F2937" }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                    <Bar dataKey="count" name="Leads Count" fill="#8B5CF6" radius={[4, 4, 0, 0]} maxBarSize={55} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-indigo-600" />
+                  Client Financials ({filterType})
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">Project Cost vs Paid vs Payable grouped by Client</p>
+              </div>
+            </div>
+
+            <div className="h-80 w-full">
+              {!data?.clientFinancials || data.clientFinancials.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                  <BarChart3 size={40} className="stroke-[1.5] mb-2 opacity-55" />
+                  <p className="text-sm">No financial data available for this range</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.clientFinancials} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={(value) => `₹${value.toLocaleString("en-IN")}`} tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      formatter={(value) => `₹${Number(value).toLocaleString("en-IN")}`}
+                      contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E5E7EB", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}
+                      labelStyle={{ fontWeight: "bold", color: "#1F2937" }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                    <Bar dataKey="projectCost" name="Project Cost" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                    <Bar dataKey="paidAmount" name="Paid Amount" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                    <Bar dataKey="payable" name="Payable" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      )}
 
       {/* Bottom Grid */}
       <div className="grid grid-cols-1 gap-6">

@@ -267,8 +267,8 @@ function VisitsContent() {
       const url = selectedVisit ? `/api/sales-visits?_method=PUT` : "/api/sales-visits";
       const payload = {
         ...formData,
-        CM_Created_By: user?.id,
-        CM_Updated_By: user?.id
+        CM_Created_By: user?.CM_User_ID || user?.name || user?.CM_User_ID || user?.id,
+        CM_Updated_By: user?.CM_User_ID || user?.name || user?.CM_User_ID || user?.id
       };
 
       const res = await fetch(url, {
@@ -517,11 +517,10 @@ function VisitsContent() {
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-8 text-center border-r border-gray-200">#</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-10 text-center border-r border-gray-200">#</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-48 border-r border-gray-200">Client / Company</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-64 border-r border-gray-200">Purpose & Description</th>
-                  {/* <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-64 border-r border-gray-200">Description</th> */}
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36 border-r border-gray-200">Executive</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Followup</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>

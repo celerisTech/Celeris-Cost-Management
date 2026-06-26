@@ -514,13 +514,14 @@ export default function TaskDetails({
                 {/* Task Name */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Task Name
+                    Task Name *
                   </label>
                   <textarea
                     name="CM_Task_Name"
                     value={newTask.CM_Task_Name}
                     rows={2}
                     onChange={handleLocalTaskChange}
+                    required
                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black outline-none resize-none"
                     placeholder="Enter task name"
                   />
@@ -529,12 +530,13 @@ export default function TaskDetails({
                 {/* Milestone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Milestone
+                    Milestone *
                   </label>
                   <select
                     name="CM_Milestone_ID"
                     value={newTask.CM_Milestone_ID || ""}
                     onChange={handleTaskChange}
+                    required
                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black outline-none"
                   >
                     <option value="">No Milestone</option>
@@ -553,13 +555,14 @@ export default function TaskDetails({
                 {/* Engineer */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Engineer
+                    Engineer *
                   </label>
 
                   <select
                     name="CM_Engineer_ID"
                     value={newTask.CM_Engineer_ID}
                     onChange={handleTaskChange}
+                    required
                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black outline-none"
                   >
                     <option value="">Select engineer</option>
@@ -578,7 +581,7 @@ export default function TaskDetails({
                 {/* Assign Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Assign Date
+                    Assign Date *
                   </label>
 
                   <input
@@ -586,6 +589,7 @@ export default function TaskDetails({
                     name="CM_Assign_Date"
                     value={newTask.CM_Assign_Date}
                     onChange={handleTaskChange}
+                    required
                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black outline-none"
                   />
                 </div>
@@ -593,7 +597,7 @@ export default function TaskDetails({
                 {/* Due Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Due Date
+                    Due Date *
                   </label>
 
                   <input
@@ -601,6 +605,7 @@ export default function TaskDetails({
                     name="CM_Due_Date"
                     value={newTask.CM_Due_Date}
                     onChange={handleTaskChange}
+                    required
                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black outline-none"
                   />
                 </div>
@@ -1077,22 +1082,24 @@ export default function TaskDetails({
 
               {/* Editable Fields */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
                 <input
                   type="text"
                   name="CM_Task_Name"
                   value={editTask.CM_Task_Name}
                   onChange={handleLocalEditTaskChange}
+                  required
                   className="w-full p-2 border rounded text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Milestone</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Milestone *</label>
                 <select
                   name="CM_Milestone_ID"
                   value={editTask.CM_Milestone_ID || ''}
                   onChange={handleEditTaskChange}
+                  required
                   className="w-full p-2 border rounded text-sm"
                 >
                   <option value="">No Milestone</option>
@@ -1105,11 +1112,12 @@ export default function TaskDetails({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Engineer</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Engineer *</label>
                 <select
                   name="CM_Engineer_ID"
                   value={editTask.CM_Engineer_ID || ''}
                   onChange={handleEditTaskChange}
+                  required
                   className="w-full p-2 border rounded text-sm"
                 >
                   <option value="">Select Engineer</option>
@@ -1123,22 +1131,24 @@ export default function TaskDetails({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assign Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assign Date *</label>
                   <input
                     type="date"
                     name="CM_Assign_Date"
                     value={editTask.CM_Assign_Date}
                     onChange={handleEditTaskChange}
+                    required
                     className="w-full p-2 border rounded text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
                   <input
                     type="date"
                     name="CM_Due_Date"
                     value={editTask.CM_Due_Date}
                     onChange={handleEditTaskChange}
+                    required
                     className="w-full p-2 border rounded text-sm"
                   />
                 </div>

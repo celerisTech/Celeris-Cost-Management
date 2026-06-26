@@ -93,7 +93,7 @@ const iconMap = {
   // Misc
   "Privileges": Database,
   "Assigned Projects": Briefcase,
-  "Engineering Project Expenses": DollarSign,
+  "Project Expenses": DollarSign,
 
   // CRM / Sales
   "Sales Dashboard": TrendingUp,

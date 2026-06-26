@@ -24,6 +24,7 @@ const Sidebar = ({
   notifications = [],
 }) => {
   const { navLinks, refreshNavLinks } = useAuthStore();
+  const { user } = useAuthStore();
   const [hoveredLink, setHoveredLink] = useState(null);
   const [mounted, setMounted] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
@@ -80,6 +81,31 @@ const Sidebar = ({
       return best;
     }, { href: null, score: 0 });
   }, [navLinks, pathname]);
+
+  const orderedNavLinks = React.useMemo(() => {
+    if (!navLinks) return null;
+    if (user?.CM_Role_ID !== "ROL000003") return navLinks;
+
+    let assignedSectionName = null;
+    const reordered = JSON.parse(JSON.stringify(navLinks)); // deep clone
+    
+    for (const section in reordered) {
+      const idx = reordered[section].findIndex(l => l.label === "Assigned Projects");
+      if (idx !== -1) {
+        assignedSectionName = section;
+        const link = reordered[section].splice(idx, 1)[0];
+        reordered[section].unshift(link); // Put it at the top of its section
+      }
+    }
+    
+    if (assignedSectionName) {
+      const topSection = { [assignedSectionName]: reordered[assignedSectionName] };
+      delete reordered[assignedSectionName];
+      return { ...topSection, ...reordered };
+    }
+    
+    return reordered;
+  }, [navLinks, user]);
 
   
   useEffect(() => {
@@ -192,8 +218,8 @@ const Sidebar = ({
 
           {/* Dynamic Nav Sections */}
           <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-8 relative z-10">
-            {navLinks && Object.keys(navLinks).length > 0 ? (
-              Object.entries(navLinks).map(([section, links]) => (
+            {orderedNavLinks && Object.keys(orderedNavLinks).length > 0 ? (
+              Object.entries(orderedNavLinks).map(([section, links]) => (
                 <div key={section} className="relative">
                   {isSidebarOpen && (
                     <button

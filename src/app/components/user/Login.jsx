@@ -108,8 +108,22 @@ const Login = () => {
           setNavLinks(navData.data);
 
           // Redirect to first allowed page or dashboard
-          const firstSection = Object.keys(navData.data)[0];
-          const firstLink = navData.data[firstSection]?.[0]?.href || '/dashboard';
+          let firstLink = '/dashboard';
+          if (data.user.CM_Role_ID === "ROL000003") {
+            // Find the 'Assigned Projects' link
+            let assignedLink = null;
+            for (const section in navData.data) {
+              const link = navData.data[section].find(l => l.label === "Assigned Projects");
+              if (link) {
+                assignedLink = link.href;
+                break;
+              }
+            }
+            firstLink = assignedLink || navData.data[Object.keys(navData.data)[0]]?.[0]?.href || '/dashboard';
+          } else {
+            const firstSection = Object.keys(navData.data)[0];
+            firstLink = navData.data[firstSection]?.[0]?.href || '/dashboard';
+          }
 
           // Success notification
           toast('Login successful', {

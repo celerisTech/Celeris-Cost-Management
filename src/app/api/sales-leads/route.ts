@@ -18,14 +18,61 @@ const formatDbDate = (d: any) => {
 };
 
 // Helper to log activity
-async function logActivity(db: any, leadId: string | null, action: string, description: string, userId: string | null) {
+async function logActivity(db: any, leadId: unknown, action: string, desc: string, userId: unknown) {
   try {
     await db.query(
-      `INSERT INTO ccms_sales_activity_log (CM_Log_ID, CM_Lead_ID, CM_Action, CM_Description, CM_Performed_By) VALUES (NULL, ?, ?, ?, ?)`,
-      [leadId, action, description, userId]
+      `INSERT INTO ccms_sales_activity_log (CM_Log_ID, CM_Lead_ID, CM_Action, CM_Description, CM_Performed_By)
+       VALUES (NULL,?,?,?,?)`,
+      [leadId || null, action, desc, userId || null]
     );
-  } catch (e) { console.error('Activity log error:', e); }
+  } catch (e) {
+    console.error('logActivity error:', e);
+  }
 }
+
+async function markUserAttendance(db: any, userId: any, description: string) {
+  if (!userId) return;
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 1. Get user info
+    const [userRows]: any = await db.query(
+      `SELECT CM_Company_ID, CM_Labor_Type_ID FROM ccms_users WHERE CM_User_ID = ?`,
+      [userId]
+    );
+    if (!userRows || userRows.length === 0) return;
+    
+    const { CM_Company_ID, CM_Labor_Type_ID } = userRows[0];
+    if (!CM_Company_ID || !CM_Labor_Type_ID) return; // User is not linked to labor/company
+    
+    // 2. Check if attendance already exists today
+    const [existingAttendanceRows]: any = await db.query(
+      `SELECT CM_Attendance_ID FROM ccms_attendance 
+       WHERE CM_Labor_ID = ? AND CM_Attendance_Date = ?`,
+      [CM_Labor_Type_ID, today]
+    );
+    
+    // 3. If no attendance exists, mark as present
+    if (!existingAttendanceRows || existingAttendanceRows.length === 0) {
+      await db.query(
+        `INSERT INTO ccms_attendance 
+          (CM_Company_ID, CM_Project_ID, CM_Labor_ID, CM_Attendance_Date, CM_Status, CM_Total_Working_Hours, CM_Remarks, CM_Created_At, CM_Created_By)
+         VALUES (?, 0, ?, ?, 'Present', 8, ?, NOW(), ?)`,
+        [
+          CM_Company_ID,
+          CM_Labor_Type_ID,
+          today,
+          `Automatically marked Present via ${description}`,
+          userId
+        ]
+      );
+      console.log(`Automated attendance for ${CM_Labor_Type_ID}`);
+    }
+  } catch (error) {
+    console.error('Failed to mark user attendance automatically:', error);
+  }
+}
+
 
 // Helper for safe JSON response handling BigInts
 function safeJsonResponse(data: any, status = 200) {
@@ -69,32 +116,60 @@ export async function GET(request: NextRequest) {
 
     // Dashboard stats
     if (type === 'dashboard') {
+      const fDate = fromDate ? formatDbDate(fromDate) : null;
+      const tDate = toDate ? formatDbDate(toDate) : null;
+
+      // Build params in the exact order the SQL placeholders appear:
+      // Each subquery has >= fDate then <= tDate, so we interleave them
+      const statsParams: any[] = [];
+      for (let i = 0; i < 6; i++) {
+        if (fDate) statsParams.push(fDate);
+        if (tDate) statsParams.push(tDate);
+      }
+
       const [statsRows]: any = await db.query(`
     SELECT 
       (SELECT COUNT(*) 
        FROM ccms_sales_lead 
-       WHERE CM_Is_Deleted = 0) AS total_leads,
+       WHERE CM_Is_Deleted = 0
+         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS total_leads,
 
       (SELECT COUNT(*) 
        FROM ccms_sales_lead 
        WHERE CM_Lead_Status = 'New Lead' 
-         AND CM_Is_Deleted = 0) AS new_leads,
+         AND CM_Is_Deleted = 0
+         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS new_leads,
 
       (SELECT COUNT(*) 
        FROM ccms_sales_lead 
        WHERE CM_Lead_Status = 'Converted' 
-         AND CM_Is_Deleted = 0) AS converted_leads,
+         AND CM_Is_Deleted = 0
+         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS converted_leads,
 
       (SELECT COUNT(*) 
-       FROM ccms_sales_visit 
-       WHERE CM_Visit_Status IN ('Rejected', 'Not Interested') 
-         AND CM_Is_Deleted = 0) AS rejected_leads,
+       FROM ccms_sales_lead 
+       WHERE CM_Lead_Status IN ('Rejected', 'Not Interested') 
+         AND CM_Is_Deleted = 0
+         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS rejected_leads,
 
       (SELECT COUNT(*) 
        FROM ccms_sales_lead 
        WHERE CM_Lead_Status = 'On Hold' 
-         AND CM_Is_Deleted = 0) AS on_hold_leads
-  `);
+         AND CM_Is_Deleted = 0
+         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS on_hold_leads,
+
+      (SELECT COUNT(*) 
+       FROM ccms_sales_lead 
+       WHERE CM_Lead_Status = 'Proposal Sent' 
+         AND CM_Is_Deleted = 0
+         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS proposal_sent
+      `, statsParams);
 
       const stats =
         statsRows[0] || {
@@ -103,6 +178,7 @@ export async function GET(request: NextRequest) {
           converted_leads: 0,
           rejected_leads: 0,
           on_hold_leads: 0,
+          proposal_sent: 0,
         };
 
       Object.keys(stats).forEach((key) => {
@@ -139,8 +215,8 @@ export async function GET(request: NextRequest) {
 
     WHERE v.CM_Is_Deleted = 0
       AND v.CM_Next_Followup_Date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
-      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested')
-      AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested')
+      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+      AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
 
     ORDER BY v.CM_Next_Followup_Date ASC
   `);
@@ -166,8 +242,8 @@ export async function GET(request: NextRequest) {
 
     WHERE v.CM_Is_Deleted = 0
       AND v.CM_Next_Followup_Date < CURDATE()
-      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested')
-      AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested')
+      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+      AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
   `);
 
       stats.pending_followups = Number(
@@ -175,6 +251,10 @@ export async function GET(request: NextRequest) {
       );
 
       // Finance Stats
+      const financeParams: any[] = [];
+      if (fDate) financeParams.push(fDate);
+      if (tDate) financeParams.push(tDate);
+
       const [financesRows]: any = await db.query(`
     SELECT 
       SUM(
@@ -195,7 +275,9 @@ export async function GET(request: NextRequest) {
 
     FROM ccms_sales_payment
     WHERE CM_Is_Deleted = 0
-  `);
+      ${fDate ? "AND DATE(CM_Payment_Date) >= ?" : ""}
+      ${tDate ? "AND DATE(CM_Payment_Date) <= ?" : ""}
+  `, financeParams);
 
       const finances = financesRows[0] || {
         total_collection: 0,
@@ -203,6 +285,10 @@ export async function GET(request: NextRequest) {
       };
 
       // Top Executives
+      const execParams: any[] = [];
+      if (fDate) execParams.push(fDate);
+      if (tDate) execParams.push(tDate);
+
       const [topExecs]: any = await db.query(`
     SELECT
       u.CM_User_ID,
@@ -222,13 +308,15 @@ export async function GET(request: NextRequest) {
          sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci
 
     WHERE sl.CM_Is_Deleted = 0
+      ${fDate ? "AND DATE(sl.CM_Created_At) >= ?" : ""}
+      ${tDate ? "AND DATE(sl.CM_Created_At) <= ?" : ""}
 
     GROUP BY
       u.CM_User_ID,
       u.CM_Full_Name
 
     ORDER BY converted DESC, lead_count DESC
-  `);
+  `, execParams);
 
       // Today's Visits
       const [todayVisitsRow]: any = await db.query(`
@@ -238,6 +326,93 @@ export async function GET(request: NextRequest) {
       AND CM_Is_Deleted = 0
   `);
 
+      // Trend data query - join with visits to get proposal and converted counts
+      const trendParams: any[] = [];
+      if (fDate) trendParams.push(fDate);
+      if (tDate) trendParams.push(tDate);
+
+      const [trendRows]: any = await db.query(`
+        SELECT 
+          DATE(sl.CM_Created_At) as date,
+          COUNT(*) as total_leads,
+          SUM(CASE WHEN cv.converted_count > 0 THEN 1 ELSE 0 END) as converted_leads,
+          SUM(COALESCE(pv.proposal_count, 0)) as proposal_sent
+        FROM ccms_sales_lead sl
+        LEFT JOIN (
+          SELECT 
+            CM_Lead_ID,
+            COUNT(*) as proposal_count
+          FROM ccms_sales_visit
+          WHERE CM_Visit_Status = 'Proposal Sent'
+            AND CM_Is_Deleted = 0
+          GROUP BY CM_Lead_ID
+        ) pv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = pv.CM_Lead_ID COLLATE utf8mb4_general_ci
+        LEFT JOIN (
+          SELECT 
+            CM_Lead_ID,
+            COUNT(*) as converted_count
+          FROM ccms_sales_visit
+          WHERE CM_Visit_Status = 'Converted'
+            AND CM_Is_Deleted = 0
+          GROUP BY CM_Lead_ID
+        ) cv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = cv.CM_Lead_ID COLLATE utf8mb4_general_ci
+        WHERE sl.CM_Is_Deleted = 0
+          ${fDate ? "AND DATE(sl.CM_Created_At) >= ?" : ""}
+          ${tDate ? "AND DATE(sl.CM_Created_At) <= ?" : ""}
+        GROUP BY DATE(sl.CM_Created_At)
+        ORDER BY date ASC
+      `, trendParams);
+
+      // Product wise counts query
+      const productParams: any[] = [];
+      if (fDate) productParams.push(fDate);
+      if (tDate) productParams.push(tDate);
+
+      const [productRows]: any = await db.query(`
+        SELECT 
+          COALESCE(NULLIF(TRIM(CM_Product_Required), ''), 'Not Specified') as product,
+          COUNT(*) as count
+        FROM ccms_sales_lead
+        WHERE CM_Is_Deleted = 0
+          ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
+          ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}
+        GROUP BY COALESCE(NULLIF(TRIM(CM_Product_Required), ''), 'Not Specified')
+        ORDER BY count DESC
+        LIMIT 10
+      `, productParams);
+
+      // Client Financials
+      const clientFinParams: any[] = [];
+      if (fDate) clientFinParams.push(fDate);
+      if (tDate) clientFinParams.push(tDate);
+
+      const [clientFinRows]: any = await db.query(`
+        SELECT 
+          COALESCE(NULLIF(TRIM(l.CM_Company_Name), ''), l.CM_Client_Name) AS clientName,
+          COALESCE(l.CM_Expected_Budget, 0) AS projectCost,
+          COALESCE((
+            SELECT SUM(p.CM_Amount) 
+            FROM ccms_sales_payment p 
+            WHERE p.CM_Lead_ID = l.CM_Lead_ID 
+              AND p.CM_Is_Deleted = 0 
+              AND p.CM_Payment_Status = 'Paid'
+          ), 0) AS paidAmount
+        FROM ccms_sales_lead l
+        WHERE l.CM_Is_Deleted = 0 AND l.CM_Lead_Status = 'Converted'
+          ${fDate ? "AND DATE(l.CM_Created_At) >= ?" : ""}
+          ${tDate ? "AND DATE(l.CM_Created_At) <= ?" : ""}
+        HAVING projectCost > 0 OR paidAmount > 0
+        ORDER BY projectCost DESC
+        LIMIT 15
+      `, clientFinParams);
+
+      const clientFinancials = (clientFinRows || []).map((r: any) => ({
+        name: r.clientName || 'Unknown',
+        projectCost: Number(r.projectCost),
+        paidAmount: Number(r.paidAmount),
+        payable: Math.max(0, Number(r.projectCost) - Number(r.paidAmount))
+      }));
+
       return safeJsonResponse({
         stats,
         pendingFollowups: followups || [],
@@ -245,6 +420,9 @@ export async function GET(request: NextRequest) {
         pendingPayments: Number(finances.pending_payments || 0),
         topExecutives: topExecs || [],
         todayVisits: Number(todayVisitsRow?.[0]?.count || 0),
+        trend: trendRows || [],
+        productWise: productRows || [],
+        clientFinancials
       });
     }
     // Sales executives list
@@ -426,6 +604,9 @@ export async function POST(request: NextRequest) {
 
     const newLeadId = rows[0]?.CM_Lead_ID;
     await logActivity(db, newLeadId, 'Lead Created', `New lead created for ${body.CM_Client_Name}`, body.CM_Created_By);
+
+    // Automatically mark attendance
+    await markUserAttendance(db, body.CM_Created_By, 'CRM Lead Creation');
 
     return NextResponse.json({ success: true, CM_Lead_ID: newLeadId }, { status: 201 });
   } catch (error: any) {

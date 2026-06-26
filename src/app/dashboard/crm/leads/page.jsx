@@ -50,7 +50,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(50);
+  const [limit] = useState(10000);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [execFilter, setExecFilter] = useState("");
@@ -1703,7 +1703,7 @@ export default function LeadsPage() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
                 />
               </div>
-              
+
               <div className="md:col-span-2 space-y-1">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Status</label>

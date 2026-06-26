@@ -94,9 +94,8 @@ export async function POST(
           `SELECT CM_Attendance_ID 
            FROM ccms_attendance 
            WHERE CM_Labor_ID = ? 
-           AND CM_Attendance_Date = ? 
-           AND CM_Project_ID = ?`,
-          [laborTypeId, updateDate, projectId]
+           AND CM_Attendance_Date = ?`,
+          [laborTypeId, updateDate]
         );
 
         // 4. If no attendance record exists, create one
@@ -113,46 +112,21 @@ export async function POST(
             `INSERT INTO ccms_attendance 
               ( CM_Company_ID, CM_Project_ID, CM_Labor_ID, CM_Attendance_Date, CM_Status, CM_Total_Working_Hours, CM_Remarks, CM_Created_At, CM_Created_By)
              VALUES ( ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
-            [ // Generate a unique ID for the attendance record
+            [ 
               companyId,
               projectId,
               laborTypeId,
               updateDate,
-              attendanceStatus,
-              workHours,
-              `Automatically created from task update: ${remarks || 'No remarks'}`,
+              'Present',
+              8, // Standard 8 hours for automated attendance
+              `Automatically marked present via task update: ${remarks || 'No remarks'}`,
               uploadedBy || 'System'
             ]
           );
         }
-        // 5. If attendance record exists, update it
-        else {
-          const existingRecord = existingAttendanceRows[0] as { CM_Attendance_ID: string };
-
-          // Determine attendance status based on work hours
-          let attendanceStatus = 'Present';
-          if (workHours <= 0) {
-            attendanceStatus = 'Absent';
-          } else if (workHours < 4) {
-            attendanceStatus = 'Half-Day';
-          }
-
-          await connection.execute(
-            `UPDATE ccms_attendance 
-             SET CM_Status = ?, 
-                 CM_Total_Working_Hours = ?,
-                 CM_Remarks = CONCAT(IFNULL(CM_Remarks, ''), ' | Updated via task: ', ?),
-                 CM_Created_By = ?
-             WHERE CM_Attendance_ID = ?`,
-            [
-              attendanceStatus,
-              workHours,
-              remarks || 'No remarks',
-              uploadedBy || 'System',
-              existingRecord.CM_Attendance_ID
-            ]
-          );
-        }
+        // If attendance already exists for this day, we do nothing. 
+        // This prevents multiple attendance records (and thus multiple salary payments) 
+        // if an engineer updates multiple tasks on the same day.
       }
 
       // Commit transaction

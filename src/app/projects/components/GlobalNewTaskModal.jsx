@@ -233,7 +233,7 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
             {newTask.CM_Project_ID && (
               <div className="col-span-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Milestone (Optional)
+                  Milestone *
                   {loadingMilestones && <span className="ml-2 text-blue-500 text-xs">Loading...</span>}
                 </label>
                 <select
@@ -242,6 +242,7 @@ export default function GlobalNewTaskModal({ isOpen, onClose, projects, onTaskCr
                   onChange={handleChange}
                   className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   disabled={loadingMilestones}
+                  required
                 >
                   <option value="">-- No Milestone --</option>
                   {milestones.map(m => (

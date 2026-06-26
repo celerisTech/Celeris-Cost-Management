@@ -56,6 +56,50 @@ async function logActivity(db: any, leadId: unknown, action: string, desc: strin
   } catch (e) { console.error('logActivity error:', e); }
 }
 
+async function markUserAttendance(db: any, userId: any, description: string) {
+  if (!userId) return;
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 1. Get user info
+    const [userRows]: any = await db.execute(
+      `SELECT CM_Company_ID, CM_Labor_Type_ID FROM ccms_users WHERE CM_User_ID = ?`,
+      [userId]
+    );
+    if (!userRows || userRows.length === 0) return;
+    
+    const { CM_Company_ID, CM_Labor_Type_ID } = userRows[0];
+    if (!CM_Company_ID || !CM_Labor_Type_ID) return; // User is not linked to labor/company
+    
+    // 2. Check if attendance already exists today
+    const [existingAttendanceRows]: any = await db.execute(
+      `SELECT CM_Attendance_ID FROM ccms_attendance 
+       WHERE CM_Labor_ID = ? AND CM_Attendance_Date = ?`,
+      [CM_Labor_Type_ID, today]
+    );
+    
+    // 3. If no attendance exists, mark as present
+    if (!existingAttendanceRows || existingAttendanceRows.length === 0) {
+      await db.execute(
+        `INSERT INTO ccms_attendance 
+          (CM_Company_ID, CM_Project_ID, CM_Labor_ID, CM_Attendance_Date, CM_Status, CM_Total_Working_Hours, CM_Remarks, CM_Created_At, CM_Created_By)
+         VALUES (?, 0, ?, ?, 'Present', 8, ?, NOW(), ?)`,
+        [
+          CM_Company_ID,
+          CM_Labor_Type_ID,
+          today,
+          `Automatically marked Present via ${description}`,
+          userId
+        ]
+      );
+      console.log(`Automated attendance for ${CM_Labor_Type_ID}`);
+    }
+  } catch (error) {
+    console.error('Failed to mark user attendance automatically:', error);
+  }
+}
+
+
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -111,6 +155,8 @@ export async function GET(request: NextRequest) {
                )
           AND  sv.CM_Next_Followup_Date IS NOT NULL
           AND  sv.CM_Is_Deleted = 0
+          AND  sv.CM_Visit_Status NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+          AND  COALESCE(sl.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
           ${extraCondition}
         ORDER BY sv.CM_Next_Followup_Date ASC
       `, params);
@@ -279,6 +325,10 @@ export async function POST(request: NextRequest) {
     }
 
     await logActivity(db, body.CM_Lead_ID, 'Visit Logged', `Visit #${newId} recorded`, body.CM_Created_By);
+    
+    // Automatically mark attendance
+    await markUserAttendance(db, body.CM_Created_By, 'CRM Visit Log');
+
     return NextResponse.json({ success: true, CM_Visit_ID: newId }, { status: 201 });
 
   } catch (error: any) {
