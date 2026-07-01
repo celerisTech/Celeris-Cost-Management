@@ -37,6 +37,25 @@ const STATUS_COLORS = {
   "On Hold": "bg-gray-100 text-gray-600 border-gray-200",
 };
 
+const formatFollowUpDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+};
+
+const formatFollowUpTime = (value) => {
+  if (!value) return "—";
+  if (typeof value !== "string") return value;
+  const parts = value.split(":");
+  const hours = Number(parts[0]);
+  if (Number.isNaN(hours)) return value;
+  const mins = parts[1] || "00";
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const twelveHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelveHour}:${mins} ${suffix}`;
+};
+
 export default function LeadsPage() {
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get("status") || "";
@@ -113,6 +132,8 @@ export default function LeadsPage() {
     CM_Sales_Executive_ID: "",
     CM_Lead_Status: "New Lead",
     CM_Remarks: "",
+    CM_Next_Follow_Up_Date: "",
+    CM_Next_Follow_Up_Time: "",
     CM_Industrial_ID: "",
     CM_Category_ID: "",
     CM_Subcategory_ID: ""
@@ -271,6 +292,8 @@ export default function LeadsPage() {
       CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) && executives.some(e => e.CM_User_ID == (user?.CM_User_ID || user?.id)) ? (user?.CM_User_ID || user?.id) : "",
       CM_Lead_Status: "New Lead",
       CM_Remarks: "",
+      CM_Next_Follow_Up_Date: "",
+      CM_Next_Follow_Up_Time: "",
       CM_Industrial_ID: "",
       CM_Category_ID: "",
       CM_Subcategory_ID: ""
@@ -282,7 +305,11 @@ export default function LeadsPage() {
   };
 
   const openEditModal = async (lead) => {
-    setFormData({ ...lead });
+    setFormData({
+      ...lead,
+      CM_Next_Follow_Up_Date: lead.CM_Next_Follow_Up_Date || "",
+      CM_Next_Follow_Up_Time: lead.CM_Next_Follow_Up_Time || ""
+    });
     setSelectedLead(lead);
     setIsModalOpen(true);
     // Pre-load cascading dropdowns for existing values
@@ -850,20 +877,21 @@ export default function LeadsPage() {
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="bg-gray-200 text-gray-700">
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-12 text-center border border-gray-300">#</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-40 border border-gray-300">Client / Company</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-26 border border-gray-300">Contact No</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-28 border border-gray-300">Industrial </th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-10 text-center border border-gray-300">#</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-30 border border-gray-300">Client / Company</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-20 border border-gray-300">Contact No</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-32 border border-gray-300">Industrial </th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-30 border border-gray-300">Requirement</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-18 border border-gray-300">Next Follow-up</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="7" className="px-6 py-12 text-center border border-gray-300"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
+                  <tr><td colSpan="8" className="px-6 py-12 text-center border border-gray-300"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
                 ) : leads.length === 0 ? (
-                  <tr><td colSpan="7" className="px-6 py-2 text-center text-gray-500 border border-gray-300">No leads found</td></tr>
+                  <tr><td colSpan="8" className="px-6 py-2 text-center text-gray-500 border border-gray-300">No leads found</td></tr>
                 ) : (
                   Object.entries(
                     leads.reduce((acc, lead) => {
@@ -875,7 +903,7 @@ export default function LeadsPage() {
                   ).map(([execName, execLeads]) => (
                     <React.Fragment key={execName}>
                       <tr className="bg-gray-100">
-                        <td colSpan="7" className="px-2 py-1.5 font-bold text-gray-800 border border-gray-300">
+                        <td colSpan="8" className="px-2 py-1.5 font-bold text-gray-800 border border-gray-300">
                           <div className="flex items-center gap-1.5">
                             <User className="h-3.5 w-3.5" />
                             <span className="text-sm text-blue-600">{execName}</span> <span className="text-[10px] font-normal text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded-sm border border-gray-300">{execLeads.length} Leads</span>
@@ -909,6 +937,16 @@ export default function LeadsPage() {
                           <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
                             <p className="line-clamp-2">{lead.CM_Product_Required || "—"}</p>
                             {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-[11px] text-gray-600">
+                            <div className="flex items-center gap-1 text-blue-600 font-semibold">
+                              <Calendar className="h-3 w-3" />
+                              <span>{formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-600 mt-0.5">
+                              <Clock className="h-3 w-3" />
+                              <span>{formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}</span>
+                            </div>
                           </td>
                           <td className="px-2 py-1 border border-gray-300 text-center">
                             <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
@@ -961,6 +999,16 @@ export default function LeadsPage() {
                   <div>
                     <p className="text-[10px] text-gray-400 uppercase font-bold">Executive</p>
                     <p className="text-xs font-semibold text-gray-700 truncate">{lead.Executive_Name || "Unassigned"}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1 mb-3">
+                  <p className="text-[10px] text-gray-400 uppercase font-bold">Next Follow-up</p>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                    <Calendar className="h-3 w-3 text-blue-500" /> {formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                    <Clock className="h-3 w-3 text-amber-600" /> {formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}
                   </div>
                 </div>
 
@@ -1269,6 +1317,24 @@ export default function LeadsPage() {
                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Next Follow-up Date</label>
+                  <input
+                    type="date"
+                    value={formData.CM_Next_Follow_Up_Date || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Next_Follow_Up_Date: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Next Follow-up Time</label>
+                  <input
+                    type="time"
+                    value={formData.CM_Next_Follow_Up_Time || ""}
+                    onChange={(e) => setFormData({ ...formData, CM_Next_Follow_Up_Time: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
                 <div className="md:col-span-2 space-y-1">
                   <label className="text-xs font-bold text-gray-500 uppercase">Remarks</label>
                   <textarea
@@ -1443,6 +1509,24 @@ export default function LeadsPage() {
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subcategory</p>
                         <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Subcategory_Name || "Not specified"}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <h3 className="text-sm font-bold text-gray-900 border-l-4 border-amber-600 pl-3">Follow-up Schedule</h3>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Date</p>
+                        <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-blue-500" /> {formatFollowUpDate(selectedLead.CM_Next_Follow_Up_Date)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Time</p>
+                        <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-amber-600" /> {formatFollowUpTime(selectedLead.CM_Next_Follow_Up_Time)}
+                        </p>
                       </div>
                     </div>
                   </div>

@@ -573,9 +573,9 @@ export async function POST(request: NextRequest) {
         CM_Lead_ID, CM_Client_Name, CM_Company_Name, CM_Phone, CM_Alt_Phone,
         CM_Email, CM_Address, CM_City, CM_Lead_Source, CM_Product_Required,
         CM_Project_Type, CM_Expected_Budget, CM_Sales_Executive_ID, CM_Lead_Status,
-        CM_Remarks, CM_Industrial_ID, CM_Category_ID, CM_Subcategory_ID,
+        CM_Remarks, CM_Next_Follow_Up_Date, CM_Next_Follow_Up_Time, CM_Industrial_ID, CM_Category_ID, CM_Subcategory_ID,
         CM_Created_By, CM_Created_At
-      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         body.CM_Client_Name.trim(),
         sanitize(body.CM_Company_Name),
@@ -591,6 +591,8 @@ export async function POST(request: NextRequest) {
         sanitize(body.CM_Sales_Executive_ID),
         sanitize(body.CM_Lead_Status) || 'New Lead',
         sanitize(body.CM_Remarks),
+        body.CM_Next_Follow_Up_Date ? formatDbDate(body.CM_Next_Follow_Up_Date) : null,
+        body.CM_Next_Follow_Up_Time || null,
         parseNum(body.CM_Industrial_ID),
         parseNum(body.CM_Category_ID),
         parseNum(body.CM_Subcategory_ID),
@@ -635,6 +637,7 @@ async function updateLead(request: NextRequest) {
         CM_Email = ?, CM_Address = ?, CM_City = ?, CM_Lead_Source = ?,
         CM_Product_Required = ?, CM_Project_Type = ?, CM_Expected_Budget = ?,
         CM_Sales_Executive_ID = ?, CM_Lead_Status = ?, CM_Remarks = ?,
+        CM_Next_Follow_Up_Date = ?, CM_Next_Follow_Up_Time = ?,
         CM_Industrial_ID = ?, CM_Category_ID = ?, CM_Subcategory_ID = ?,
         CM_Updated_By = ?, CM_Updated_At = NOW()
       WHERE CM_Lead_ID = ?`,
@@ -653,6 +656,8 @@ async function updateLead(request: NextRequest) {
         sanitize(body.CM_Sales_Executive_ID),
         sanitize(body.CM_Lead_Status) || 'New Lead',
         sanitize(body.CM_Remarks),
+        body.CM_Next_Follow_Up_Date ? formatDbDate(body.CM_Next_Follow_Up_Date) : null,
+        body.CM_Next_Follow_Up_Time || null,
         parseNum(body.CM_Industrial_ID),
         parseNum(body.CM_Category_ID),
         parseNum(body.CM_Subcategory_ID),
