@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Target, Plus, Search, Filter, Download, MoreVertical,
@@ -692,8 +692,8 @@ export default function LeadsPage() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white flex flex-wrap xl:flex-nowrap gap-2.5 items-end text-gray-800 w-full overflow-x-hidden pb-1">
-        <form onSubmit={handleSearch} className="flex-1 min-w-[140px] w-full">
+      <div className="bg-white grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2">
+        <form onSubmit={handleSearch} className="col-span-2 md:col-span-3 xl:col-span-1 w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -707,7 +707,7 @@ export default function LeadsPage() {
           </div>
         </form>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px]">
+        <div className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
           <select
             value={statusFilter}
@@ -719,7 +719,7 @@ export default function LeadsPage() {
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[140px]">
+        <div className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Sales Executive</label>
           <select
             value={execFilter}
@@ -731,7 +731,7 @@ export default function LeadsPage() {
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[140px]">
+        <div className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Industrial</label>
           <select
             value={industrialFilter}
@@ -747,7 +747,7 @@ export default function LeadsPage() {
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[140px]">
+        <div className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Category</label>
           <select
             value={categoryFilter}
@@ -762,9 +762,9 @@ export default function LeadsPage() {
         </div>
 
         {/* Today / Yesterday Quick Filters */}
-        <div className="flex-shrink-0 flex flex-col gap-1 w-full sm:w-auto">
+        <div className="flex flex-col gap-1 w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-2 gap-2 w-full">
             <button
               type="button"
               onClick={() => {
@@ -803,7 +803,7 @@ export default function LeadsPage() {
           </div>
         </div>
 
-        <div className="flex-shrink-0 w-[48%] sm:w-[120px]">
+        <div className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From Date</label>
           <input
             type="date"
@@ -813,7 +813,7 @@ export default function LeadsPage() {
           />
         </div>
 
-        <div className="flex-shrink-0 w-[48%] sm:w-[120px]">
+        <div className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">To Date</label>
           <input
             type="date"
@@ -835,7 +835,7 @@ export default function LeadsPage() {
             setToDate("");
             setPage(1);
           }}
-          className="flex items-center justify-center flex-shrink-0 w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
+          className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
           title="Reset Filters"
         >
           <FiRotateCcw size={18} />
@@ -849,62 +849,82 @@ export default function LeadsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
-                <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Client / Company</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Contact No</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Industrial </th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36 border-r border-gray-200">Requirement</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Status</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 text-right">Actions</th>
+                <tr className="bg-gray-200 text-gray-700">
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-12 text-center border border-gray-300">#</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-40 border border-gray-300">Client / Company</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-26 border border-gray-300">Contact No</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-28 border border-gray-300">Industrial </th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-30 border border-gray-300">Requirement</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {loading ? (
-                  <tr><td colSpan="10" className="px-6 py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
+                  <tr><td colSpan="7" className="px-6 py-12 text-center border border-gray-300"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
                 ) : leads.length === 0 ? (
-                  <tr><td colSpan="10" className="px-6 py-12 text-center text-gray-500">No leads found</td></tr>
+                  <tr><td colSpan="7" className="px-6 py-2 text-center text-gray-500 border border-gray-300">No leads found</td></tr>
                 ) : (
-                  leads.map((lead, idx) => (
-                    <tr
-                      key={lead.CM_Lead_ID}
-                      onClick={() => openDetail(lead)}
-                      className="hover:bg-blue-50/30 transition-colors group cursor-pointer"
-                    >
-                      <td className="px-4 py-2.5 text-sm text-gray-400 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        <div>
-                          <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600">{lead.CM_Client_Name}</p>
-                          <p className="text-[11px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm font-medium text-gray-700" onClick={(e) => e.stopPropagation()}>
-                        {lead.CM_Phone}
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">
-                        <div className="line-clamp-1 text-center text-blue-700">{lead.CM_Industrial_Name || "â€”"}</div>
-                        <div className="line-clamp-1 text-center">{lead.CM_Category_Name || "â€”"}</div>
-                        <div className="line-clamp-1 text-center">{lead.CM_Subcategory_Name || "â€”"}</div>
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        <p className="text-sm text-gray-600">{lead.CM_Product_Required || "â€”"}</p>
-                        {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">â‚¹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600">{lead.Executive_Name || "Unassigned"}</td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                          {lead.CM_Lead_Status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => openEditModal(lead)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
-                          <button onClick={() => openDetail(lead)} className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"><Eye className="h-4 w-4" /></button>
-                          <button onClick={() => handleDelete(lead.CM_Lead_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
+                  Object.entries(
+                    leads.reduce((acc, lead) => {
+                      const execName = lead.Executive_Name || "Unassigned";
+                      if (!acc[execName]) acc[execName] = [];
+                      acc[execName].push(lead);
+                      return acc;
+                    }, {})
+                  ).map(([execName, execLeads]) => (
+                    <React.Fragment key={execName}>
+                      <tr className="bg-gray-100">
+                        <td colSpan="7" className="px-2 py-1.5 font-bold text-gray-800 border border-gray-300">
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5" />
+                            <span className="text-sm text-blue-600">{execName}</span> <span className="text-[10px] font-normal text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded-sm border border-gray-300">{execLeads.length} Leads</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {execLeads.map((lead) => (
+                        <tr
+                          key={lead.CM_Lead_ID}
+                          onClick={() => openDetail(lead)}
+                          className="hover:bg-blue-50/20 transition-colors cursor-pointer bg-white"
+                        >
+                          <td className="px-2 py-1 text-[11px] text-gray-500 text-center border border-gray-300">{(page - 1) * limit + leads.indexOf(lead) + 1}</td>
+                          <td className="px-2 py-1 border border-gray-300">
+                            <div>
+                              <p className="text-sm font-bold text-gray-900">{lead.CM_Client_Name}</p>
+                              <p className="text-[11px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
+                              <p className="flex items-center gap-1 text-[12px] text-gray-500">
+                                <MapPin className="h-3 w-3" />
+                                <span className="text-sm font-medium text-blue-500">{lead.CM_City || ""}</span>
+                              </p>                            </div>
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-sm font-medium text-gray-700" onClick={(e) => e.stopPropagation()}>
+                            {lead.CM_Phone}
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
+                            <div className="line-clamp-1 text-blue-700">{lead.CM_Industrial_Name || "—"}</div>
+                            <div className="line-clamp-1">{lead.CM_Category_Name || "—"}</div>
+                            <div className="line-clamp-1">{lead.CM_Subcategory_Name || "—"}</div>
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
+                            <p className="line-clamp-2">{lead.CM_Product_Required || "—"}</p>
+                            {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-center">
+                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
+                              {lead.CM_Lead_Status}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center gap-1.5">
+                              <button onClick={() => openEditModal(lead)} className="text-gray-500 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => openDetail(lead)} className="text-gray-500 hover:text-indigo-600 transition-colors"><Eye className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => handleDelete(lead.CM_Lead_ID)} className="text-gray-500 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>

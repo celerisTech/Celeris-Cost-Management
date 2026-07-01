@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   MapPin, Plus, Search, Filter, Calendar, User, Clock,
@@ -347,8 +347,8 @@ function VisitsContent() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white flex flex-wrap xl:flex-nowrap gap-1.5 xl:gap-2 items-end text-gray-800 w-full overflow-x-hidden pb-1">
-        <div className="flex-1 min-w-[120px] xl:w-[120px] w-full">
+      <div className="bg-white grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 items-end text-gray-800 w-full overflow-visible pb-3 pt-2 sticky top-0 z-20 shadow-sm border-b px-2">
+        <div className="col-span-2 md:col-span-3 xl:col-span-1 w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -362,7 +362,7 @@ function VisitsContent() {
           </div>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[115px]">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Status</label>
           <select
             value={statusFilter}
@@ -374,7 +374,7 @@ function VisitsContent() {
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[115px]">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Product</label>
           <select
             value={productFilter}
@@ -386,7 +386,7 @@ function VisitsContent() {
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[130px]">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Executive</label>
           <select
             value={execFilter}
@@ -398,7 +398,7 @@ function VisitsContent() {
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[125px]">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Industrial</label>
           <select
             value={industrialFilter}
@@ -414,7 +414,7 @@ function VisitsContent() {
           </select>
         </div>
 
-        <div className="flex-shrink-0 w-full sm:w-[125px] xl:w-[130px]">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Category</label>
           <select
             value={categoryFilter}
@@ -429,9 +429,9 @@ function VisitsContent() {
         </div>
 
         {/* Today / Yesterday Quick Filters */}
-        <div className="flex-shrink-0 flex flex-col gap-1 w-full sm:w-auto xl:w-[124px]">
+        <div className="flex flex-col gap-1 w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
-          <div className="flex gap-1.5 w-full sm:w-auto">
+          <div className="grid grid-cols-2 gap-2 w-full">
             <button
               type="button"
               onClick={() => {
@@ -442,7 +442,7 @@ function VisitsContent() {
                 setDateQuickFilter('today');
                 setPage(1);
               }}
-              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[50px] ${dateQuickFilter === 'today'
+              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'today'
                 ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
                 : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
                 }`}
@@ -460,7 +460,7 @@ function VisitsContent() {
                 setDateQuickFilter('yesterday');
                 setPage(1);
               }}
-              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] flex-1 sm:flex-none w-[68px] ${dateQuickFilter === 'yesterday'
+              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'yesterday'
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
                 : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
                 }`}
@@ -470,7 +470,7 @@ function VisitsContent() {
           </div>
         </div>
 
-        <div className="flex-shrink-0 w-[48%] sm:w-[110px] xl:w-[100px]">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">From Date</label>
           <input
             type="date"
@@ -480,7 +480,7 @@ function VisitsContent() {
           />
         </div>
 
-        <div className="flex-shrink-0 w-[48%] sm:w-[110px] xl:w-[100px]">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">To Date</label>
           <input
             type="date"
@@ -503,7 +503,7 @@ function VisitsContent() {
             setToDate("");
             setPage(1);
           }}
-          className="flex items-center justify-center flex-shrink-0 w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
+          className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
           title="Reset Filters"
         >
           <FiRotateCcw size={18} />
@@ -516,86 +516,103 @@ function VisitsContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
-                <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-10 text-center border-r border-gray-200">#</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-48 border-r border-gray-200">Client / Company</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-64 border-r border-gray-200">Purpose & Description</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-36 border-r border-gray-200">Executive</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Followup</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Product</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-24 text-right">Actions</th>
+                <tr className="bg-gray-200 text-gray-700">
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-10 text-center border border-gray-300">#</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-25 border border-gray-300">Visit Date</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-48 border border-gray-300">Client / Company</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-64 border border-gray-300">Purpose & Description</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-25 border border-gray-300">Next Followup</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-28 border border-gray-300">Status</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-28 border border-gray-300">Product</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {loading ? (
-                  <tr><td colSpan="9" className="px-4 py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
+                  <tr><td colSpan="8" className="px-6 py-12 text-center border border-gray-300"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
                 ) : visits.length === 0 ? (
-                  <tr><td colSpan="9" className="px-4 py-12 text-center text-gray-500">No visits found for the selected filters</td></tr>
+                  <tr><td colSpan="8" className="px-6 py-2 text-center text-gray-500 border border-gray-300">No visits found</td></tr>
                 ) : (
-                  visits.map((v, idx) => (
-                    <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors group">
-                      <td className="px-3 py-2.5 text-sm text-gray-600 text-center border-r border-gray-100">{(page - 1) * limit + idx + 1}</td>
-                      <td className="px-3 py-2.5 border-r border-gray-100">
-                        <p className="text-sm font-medium text-gray-700">
-                          {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                        </p>
-                        {v.CM_Visit_Time && (
-                          <p className="text-[10px] text-gray-500 mt-0.5">
-                            {new Date(`2000-01-01T${v.CM_Visit_Time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        <p className="text-sm font-bold text-gray-900 truncate">{v.CM_Client_Name}</p>
-                        <p className="text-[11px] text-gray-500 truncate">{v.CM_Company_Name || "Individual"}</p>
-                        {(v.CM_Industrial_Name || v.CM_Category_Name) && (
-                          <p className="text-[10px] text-indigo-600 font-semibold truncate mt-0.5">
-                            {v.CM_Industrial_Name}{v.CM_Category_Name ? ` - ${v.CM_Category_Name}` : ""}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        <p className="text-sm font-bold text-blue-700 truncate flex items-center gap-1">
-                          <Activity className="h-3 w-3" /> {v.CM_Purpose}
-                        </p>
-                        <p className="text-[12px] text-gray-600 line-clamp-2">{v.CM_Remarks || "No additional remarks"}</p>
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100 text-sm text-gray-600 truncate">{v.Executive_Name || "Unassigned"}</td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        {v.CM_Next_Followup_Date ? (
-                          <>
-                            <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                              <Clock className="h-3 w-3" /> {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                  Object.entries(
+                    visits.reduce((acc, v) => {
+                      const execName = v.Executive_Name || "Unassigned";
+                      if (!acc[execName]) acc[execName] = [];
+                      acc[execName].push(v);
+                      return acc;
+                    }, {})
+                  ).map(([execName, execVisits]) => (
+                    <React.Fragment key={execName}>
+                      <tr className="bg-gray-100">
+                        <td colSpan="8" className="px-2 py-1.5 font-bold text-gray-800 border border-gray-300">
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5" />
+                            <span className="text-sm text-blue-600">{execName}</span> <span className="text-[10px] font-normal text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded-sm border border-gray-300">{execVisits.length} Visits</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {execVisits.map((v, idx) => (
+                        <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/20 transition-colors cursor-pointer bg-white">
+                          <td className="px-2 py-1 text-[11px] text-gray-500 text-center border border-gray-300">{(page - 1) * limit + idx + 1}</td>
+                          <td className="px-2 py-1 border border-gray-300">
+                            <p className="text-sm font-medium text-gray-700">
+                              {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                             </p>
-                            {v.CM_Next_Followup_Time && (
-                              <p className="text-[10px] text-gray-500 mt-0.5 pl-4">
-                                {v.CM_Next_Followup_Time}
+                            {v.CM_Visit_Time && (
+                              <p className="text-[10px] text-gray-500 mt-0.5">
+                                {new Date(`2000-01-01T${v.CM_Visit_Time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                               </p>
                             )}
-                          </>
-                        ) : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${statusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-                          {v.CM_Visit_Status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 border-r border-gray-100">
-                        {v.CM_Visit_Products && (
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${productColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-                            {v.CM_Visit_Products}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => openEditModal(v)} className="p-1 text-gray-600 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
-                          <button onClick={() => handleDelete(v.CM_Visit_ID)} className="p-1 text-gray-600 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300">
+                            <p className="text-sm font-bold text-gray-900 truncate">{v.CM_Client_Name}</p>
+                            <p className="text-[11px] text-gray-500 truncate">{v.CM_Company_Name || "Individual"}</p>
+                            {(v.CM_Industrial_Name || v.CM_Category_Name) && (
+                              <p className="text-[10px] text-indigo-600 font-semibold truncate mt-0.5">
+                                {v.CM_Industrial_Name}{v.CM_Category_Name ? ` - ${v.CM_Category_Name}` : ""}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300">
+                            <p className="text-sm font-bold text-blue-700 truncate flex items-center gap-1">
+                              <Activity className="h-3 w-3" /> {v.CM_Purpose}
+                            </p>
+                            <p className="text-[12px] text-gray-600 line-clamp-2">{v.CM_Remarks || "No additional remarks"}</p>
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300">
+                            {v.CM_Next_Followup_Date ? (
+                              <>
+                                <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                  <Clock className="h-3 w-3" /> {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                </p>
+                                {v.CM_Next_Followup_Time && (
+                                  <p className="text-[10px] text-gray-500 mt-0.5 pl-4">
+                                    {v.CM_Next_Followup_Time}
+                                  </p>
+                                )}
+                              </>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-center">
+                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${statusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
+                              {v.CM_Visit_Status}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-center">
+                            {v.CM_Visit_Products && (
+                              <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${productColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
+                                {v.CM_Visit_Products}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-center">
+                            <div className="flex justify-center gap-1.5">
+                              <button onClick={() => openEditModal(v)} className="text-gray-500 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => handleDelete(v.CM_Visit_ID)} className="text-gray-500 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
@@ -784,7 +801,7 @@ function VisitsContent() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 />
               </div>
-              
+
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Purpose of Visit *</label>
                 <input
