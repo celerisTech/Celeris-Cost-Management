@@ -181,9 +181,9 @@ const Sidebar = ({
       />
 
       <aside
-        className={`${isSidebarOpen ? "md:w-60 lg:w-68" : "md:w-20"
+        className={`${isSidebarOpen ? "md:w-60 lg:w-65" : "md:w-20"
           } fixed md:static inset-y-0 left-0 z-40 transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-          } w-68 md:w-auto bg-white/90 backdrop-blur-lg shadow-xl transition-all duration-500 ease-out`}
+          } w-60 md:w-auto bg-white/90 backdrop-blur-lg shadow-xl transition-all duration-500 ease-out`}
         style={{
           background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
         }}
@@ -196,7 +196,7 @@ const Sidebar = ({
           </div>
 
           {/* Logo + Toggle */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200/50 relative z-10">
+          <div className="flex items-center justify-between p-2 border-b border-gray-200/50 relative z-10">
             <Logo
               companyName={companyName}
               companyLogo={companyLogo}
