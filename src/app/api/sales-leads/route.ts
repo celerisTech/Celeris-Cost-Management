@@ -575,7 +575,7 @@ export async function POST(request: NextRequest) {
         CM_Project_Type, CM_Expected_Budget, CM_Sales_Executive_ID, CM_Lead_Status,
         CM_Remarks, CM_Next_Follow_Up_Date, CM_Next_Follow_Up_Time, CM_Industrial_ID, CM_Category_ID, CM_Subcategory_ID,
         CM_Created_By, CM_Created_At
-      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         body.CM_Client_Name.trim(),
         sanitize(body.CM_Company_Name),
