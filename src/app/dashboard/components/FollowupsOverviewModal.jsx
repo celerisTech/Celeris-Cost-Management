@@ -61,7 +61,7 @@ const FollowupCard = ({ item, index }) => {
                 </h3>
                 <StatusBadge status={item.CM_Visit_Status} />
             </div>
-            
+
             {item.CM_Company_Name && (
                 <div className="text-xs text-slate-500 mb-3 flex items-center gap-1.5">
                     <Building2 size={14} className="text-slate-400" />
@@ -217,38 +217,38 @@ export default function FollowupsOverviewModal({ isOpen, onClose }) {
                             </div>
 
                             <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar sm:flex-wrap sm:justify-end w-full sm:w-auto">
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <DatePicker
-                                            selected={startDate}
-                                            onChange={(date) => setStartDate(date)}
-                                            selectsStart
-                                            startDate={startDate}
-                                            endDate={endDate}
-                                            popperClassName="!z-[9999]"
-                                            customInput={
-                                                <button className="flex items-center gap-1.5 px-2 py-2 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 shadow-sm hover:border-blue-400 transition-colors whitespace-nowrap">
-                                                    <CalendarIcon size={14} className="text-blue-500 sm:w-4 sm:h-4" />
-                                                    <span>{format(startDate, "MMM d")}</span>
-                                                </button>
-                                            }
-                                        />
-                                        <span className="text-slate-400 text-xs font-medium">to</span>
-                                        <DatePicker
-                                            selected={endDate}
-                                            onChange={(date) => setEndDate(date)}
-                                            selectsEnd
-                                            startDate={startDate}
-                                            endDate={endDate}
-                                            minDate={startDate}
-                                            popperClassName="!z-[9999]"
-                                            customInput={
-                                                <button className="flex items-center gap-1.5 px-2 py-2 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 shadow-sm hover:border-blue-400 transition-colors whitespace-nowrap">
-                                                    <CalendarIcon size={14} className="text-blue-500 sm:w-4 sm:h-4" />
-                                                    <span>{format(endDate, "MMM d")}</span>
-                                                </button>
-                                            }
-                                        />
-                                    </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <DatePicker
+                                        selected={startDate}
+                                        onChange={(date) => setStartDate(date)}
+                                        selectsStart
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        popperClassName="!z-[9999]"
+                                        customInput={
+                                            <button className="flex items-center gap-1.5 px-2 py-2 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 shadow-sm hover:border-blue-400 transition-colors whitespace-nowrap">
+                                                <CalendarIcon size={14} className="text-blue-500 sm:w-4 sm:h-4" />
+                                                <span>{format(startDate, "MMM d")}</span>
+                                            </button>
+                                        }
+                                    />
+                                    <span className="text-slate-400 text-xs font-medium">to</span>
+                                    <DatePicker
+                                        selected={endDate}
+                                        onChange={(date) => setEndDate(date)}
+                                        selectsEnd
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        minDate={startDate}
+                                        popperClassName="!z-[9999]"
+                                        customInput={
+                                            <button className="flex items-center gap-1.5 px-2 py-2 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 shadow-sm hover:border-blue-400 transition-colors whitespace-nowrap">
+                                                <CalendarIcon size={14} className="text-blue-500 sm:w-4 sm:h-4" />
+                                                <span>{format(endDate, "MMM d")}</span>
+                                            </button>
+                                        }
+                                    />
+                                </div>
 
                                 {/* Pending/History Toggle */}
                                 <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex-shrink-0">
@@ -446,6 +446,8 @@ export default function FollowupsOverviewModal({ isOpen, onClose }) {
                                                                     <Phone size={10} /> {item.CM_Phone}
                                                                 </p>
                                                             )}
+                                                            <p className="text-[11px] text-slate-500">{item.CM_City || "Individual"}</p>
+
                                                         </td>
                                                         <td className="px-4 py-3 border-r border-slate-200">
                                                             <div className="font-bold text-indigo-700 text-xs mb-0.5">

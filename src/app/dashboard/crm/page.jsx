@@ -361,6 +361,14 @@ export default function CRMDashboardPage() {
               <Target size={18} className="transition-transform group-hover:-translate-y-0.5" />
               Compare
             </Link>
+
+            <Link
+              href="/dashboard/crm/executive-performance"
+              className="group flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+            >
+              <Target size={18} className="transition-transform group-hover:-translate-y-0.5" />
+              Executive Performance
+            </Link>
             
             <Link
               href="/dashboard/crm/today-report"

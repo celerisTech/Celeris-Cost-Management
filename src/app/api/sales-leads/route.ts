@@ -425,6 +425,181 @@ export async function GET(request: NextRequest) {
         clientFinancials
       });
     }
+
+    if (type === 'executive-performance') {
+      const leadParams: any[] = [];
+      const visitParams: any[] = [];
+      let leadWhere = `WHERE sl.CM_Is_Deleted = 0`;
+      let visitWhere = `WHERE sv.CM_Is_Deleted = 0`;
+
+      if (fromDate) {
+        const from = formatDbDate(fromDate);
+        leadWhere += ` AND DATE(sl.CM_Created_At) >= ?`;
+        visitWhere += ` AND DATE(sv.CM_Visit_Date) >= ?`;
+        leadParams.push(from);
+        visitParams.push(from);
+      }
+      if (toDate) {
+        const to = formatDbDate(toDate);
+        leadWhere += ` AND DATE(sl.CM_Created_At) <= ?`;
+        visitWhere += ` AND DATE(sv.CM_Visit_Date) <= ?`;
+        leadParams.push(to);
+        visitParams.push(to);
+      }
+
+      const [leadRows]: any = await db.query(`
+        SELECT sl.CM_Lead_ID, sl.CM_Sales_Executive_ID, sl.CM_Lead_Status
+        FROM ccms_sales_lead sl
+        ${leadWhere}
+      `, leadParams);
+
+      const [visitRows]: any = await db.query(`
+        SELECT
+          sv.CM_Lead_ID,
+          sv.CM_Sales_Executive_ID,
+          sv.CM_Visit_ID,
+          sv.CM_Visit_Date,
+          sv.CM_Visit_Status,
+          sv.CM_Next_Followup_Date,
+          sv.CM_Proposal_Value,
+          sv.CM_Trial_Version_Given
+        FROM ccms_sales_visit sv
+        ${visitWhere}
+        ORDER BY sv.CM_Lead_ID, sv.CM_Visit_Date DESC, sv.CM_Visit_ID DESC
+      `, visitParams);
+
+      const [users]: any = await db.query(`
+        SELECT CM_User_ID, CM_Full_Name FROM ccms_users ORDER BY CM_Full_Name ASC
+      `);
+
+      const executiveMap = new Map();
+      users.forEach((user: any) => {
+        executiveMap.set(String(user.CM_User_ID), {
+          executive_id: user.CM_User_ID,
+          executive_name: user.CM_Full_Name || 'Unassigned',
+          total_leads: 0,
+          demo_count: 0,
+          proposal_sent_count: 0,
+          converted_count: 0,
+          not_interested_count: 0,
+          visit_count: 0,
+          followup_count: 0
+        });
+      });
+
+      const latestVisitMap = new Map();
+      const proposalVisitMap = new Map();
+      const demoVisitMap = new Map();
+
+      (visitRows || []).forEach((visit: any) => {
+        const leadKey = String(visit.CM_Lead_ID || '');
+        const current = latestVisitMap.get(leadKey);
+        if (!current) {
+          latestVisitMap.set(leadKey, visit);
+        } else {
+          const currentDate = current.CM_Visit_Date ? new Date(current.CM_Visit_Date) : new Date(0);
+          const visitDate = visit.CM_Visit_Date ? new Date(visit.CM_Visit_Date) : new Date(0);
+          if (visitDate > currentDate) {
+            latestVisitMap.set(leadKey, visit);
+          }
+        }
+
+        const hasProposal = visit.CM_Visit_Status === 'Proposal Sent' || Number(visit.CM_Proposal_Value || 0) > 0;
+        if (hasProposal) {
+          proposalVisitMap.set(leadKey, true);
+        }
+
+        const hasDemo = visit.CM_Visit_Status === 'Demo Given' || String(visit.CM_Trial_Version_Given || '').toLowerCase() === 'yes';
+        if (hasDemo) {
+          demoVisitMap.set(leadKey, true);
+        }
+      });
+
+      (visitRows || []).forEach((visit: any) => {
+        const execKey = String(visit.CM_Sales_Executive_ID || 'UNASSIGNED');
+        if (!executiveMap.has(execKey)) {
+          executiveMap.set(execKey, {
+            executive_id: visit.CM_Sales_Executive_ID || null,
+            executive_name: visit.CM_Sales_Executive_ID ? 'Unknown Executive' : 'Unassigned',
+            total_leads: 0,
+            demo_count: 0,
+            proposal_sent_count: 0,
+            converted_count: 0,
+            not_interested_count: 0,
+            visit_count: 0,
+            followup_count: 0
+          });
+        }
+        const entry = executiveMap.get(execKey);
+        entry.visit_count = Number(entry.visit_count || 0) + 1;
+      });
+
+      (leadRows || []).forEach((lead: any) => {
+        const execKey = String(lead.CM_Sales_Executive_ID || 'UNASSIGNED');
+        if (!executiveMap.has(execKey)) {
+          executiveMap.set(execKey, {
+            executive_id: lead.CM_Sales_Executive_ID || null,
+            executive_name: lead.CM_Sales_Executive_ID ? 'Unknown Executive' : 'Unassigned',
+            total_leads: 0,
+            demo_count: 0,
+            proposal_sent_count: 0,
+            converted_count: 0,
+            not_interested_count: 0,
+            visit_count: 0,
+            followup_count: 0
+          });
+        }
+
+        const entry = executiveMap.get(execKey);
+        entry.total_leads = Number(entry.total_leads || 0) + 1;
+
+        const leadKey = String(lead.CM_Lead_ID || '');
+        const latestVisit = latestVisitMap.get(leadKey);
+        const effectiveStatus = latestVisit?.CM_Visit_Status || lead.CM_Lead_Status;
+        const trialGiven = String(latestVisit?.CM_Trial_Version_Given || '').toLowerCase() === 'yes';
+        const hasProposalValue = Number(latestVisit?.CM_Proposal_Value || 0) > 0;
+        const hasProposalHistory = proposalVisitMap.has(leadKey);
+        const hasDemoHistory = demoVisitMap.has(leadKey);
+
+        if (effectiveStatus === 'Converted') {
+          entry.converted_count = Number(entry.converted_count || 0) + 1;
+        } else if (effectiveStatus === 'Rejected' || effectiveStatus === 'Not Interested') {
+          entry.not_interested_count = Number(entry.not_interested_count || 0) + 1;
+        } else if (effectiveStatus === 'Proposal Sent' || hasProposalHistory || hasProposalValue) {
+          entry.proposal_sent_count = Number(entry.proposal_sent_count || 0) + 1;
+        } else if (effectiveStatus === 'Demo Given' || trialGiven || hasDemoHistory) {
+          entry.demo_count = Number(entry.demo_count || 0) + 1;
+        }
+
+        if (latestVisit?.CM_Next_Followup_Date) {
+          entry.followup_count = Number(entry.followup_count || 0) + 1;
+        }
+      });
+
+      const executives = Array.from(executiveMap.values())
+        .map((entry: any) => ({
+          executive_id: entry.executive_id,
+          executive_name: entry.executive_name || 'Unassigned',
+          total_leads: Number(entry.total_leads || 0),
+          demo_count: Number(entry.demo_count || 0),
+          proposal_sent_count: Number(entry.proposal_sent_count || 0),
+          converted_count: Number(entry.converted_count || 0),
+          not_interested_count: Number(entry.not_interested_count || 0),
+          visit_count: Number(entry.visit_count || 0),
+          followup_count: Number(entry.followup_count || 0)
+        }))
+        .sort((a: any, b: any) => {
+          if (b.total_leads !== a.total_leads) return b.total_leads - a.total_leads;
+          return (a.executive_name || '').localeCompare(b.executive_name || '');
+        });
+
+      return safeJsonResponse({
+        executives,
+        fromDate: formatDbDate(fromDate),
+        toDate: formatDbDate(toDate)
+      });
+    }
+
     // Sales executives list
     if (type === 'executives') {
       const [executives] = await db.query(
@@ -575,7 +750,7 @@ export async function POST(request: NextRequest) {
         CM_Project_Type, CM_Expected_Budget, CM_Sales_Executive_ID, CM_Lead_Status,
         CM_Remarks, CM_Next_Follow_Up_Date, CM_Next_Follow_Up_Time, CM_Industrial_ID, CM_Category_ID, CM_Subcategory_ID,
         CM_Created_By, CM_Created_At
-      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         body.CM_Client_Name.trim(),
         sanitize(body.CM_Company_Name),
