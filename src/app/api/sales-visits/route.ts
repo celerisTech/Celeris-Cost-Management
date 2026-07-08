@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
     const search       = sanitize(q.get('search'));
     const fromDate     = toMysqlDate(q.get('fromDate'));
     const toDate       = toMysqlDate(q.get('toDate'));
+    const pending      = sanitize(q.get('pending')) === 'true';
     const page         = parsePositiveInt(q.get('page'), 1);
     const limit        = parsePositiveInt(q.get('limit'), 50);
     const offset       = (page - 1) * limit;
@@ -153,9 +154,9 @@ export async function GET(request: NextRequest) {
                  WHERE  sv2.CM_Is_Deleted = 0
                  GROUP BY sv2.CM_Lead_ID
                )
-          AND  sv.CM_Next_Followup_Date IS NOT NULL
           AND  sv.CM_Is_Deleted = 0
-          AND  sv.CM_Visit_Status NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+          AND  sv.CM_Next_Followup_Date >= CURDATE()
+          AND  sv.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
           AND  COALESCE(sl.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
           ${extraCondition}
         ORDER BY sv.CM_Next_Followup_Date ASC
@@ -187,23 +188,56 @@ export async function GET(request: NextRequest) {
     const conditions: string[] = ['sv.CM_Is_Deleted = 0'];
     const params: unknown[]    = [];
 
+    if (pending) {
+      conditions.push(`sv.CM_Visit_ID IN (
+        SELECT MAX(sv2.CM_Visit_ID)
+        FROM   ccms_sales_visit sv2
+        WHERE  sv2.CM_Is_Deleted = 0
+        GROUP BY sv2.CM_Lead_ID
+      )`);
+      conditions.push('sv.CM_Next_Followup_Date >= CURDATE()');
+      conditions.push("sv.CM_Visit_Status IN ('Interested', 'Follow-up Needed')");
+      conditions.push("COALESCE(sl.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')");
+    }
+
     if (leadId)       { conditions.push('sv.CM_Lead_ID = ?');            params.push(leadId); }
     if (executiveId)  { conditions.push('sv.CM_Sales_Executive_ID = ?'); params.push(executiveId); }
     if (industrialId) { conditions.push('sl.CM_Industrial_ID = ?');      params.push(industrialId); }
     if (categoryId)   { conditions.push('sl.CM_Category_ID = ?');        params.push(categoryId); }
-    if (fromDate)     { conditions.push('sv.CM_Visit_Date >= ?');         params.push(fromDate); }
-    if (toDate)       { conditions.push('sv.CM_Visit_Date <= ?');         params.push(toDate); }
+    
+    if (fromDate) {
+      if (pending) {
+        conditions.push('sv.CM_Next_Followup_Date >= ?');
+      } else {
+        conditions.push('sv.CM_Visit_Date >= ?');
+      }
+      params.push(fromDate);
+    }
+    if (toDate) {
+      if (pending) {
+        conditions.push('sv.CM_Next_Followup_Date <= ?');
+      } else {
+        conditions.push('sv.CM_Visit_Date <= ?');
+      }
+      params.push(toDate);
+    }
+
     if (status)       { conditions.push('sv.CM_Visit_Status = ?');        params.push(status); }
     if (product)      { conditions.push('sv.CM_Visit_Products = ?');      params.push(product); }
-    if (search) {
+    const cleanSearch = search ? String(search).trim() : '';
+    if (cleanSearch) {
       conditions.push(`(
         sv.CM_Purpose           LIKE ? OR
         sv.CM_Product_Discussed LIKE ? OR
         sv.CM_Remarks           LIKE ? OR
-        sl.CM_Client_Name       LIKE ?
+        sl.CM_Client_Name       LIKE ? OR
+        sl.CM_Company_Name      LIKE ? OR
+        sl.CM_Phone             LIKE ? OR
+        sv.CM_Lead_ID           LIKE ? OR
+        sv.CM_Visit_ID          LIKE ?
       )`);
-      const like = `%${search}%`;
-      params.push(like, like, like, like);
+      const like = `%${cleanSearch}%`;
+      params.push(like, like, like, like, like, like, like, like);
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;

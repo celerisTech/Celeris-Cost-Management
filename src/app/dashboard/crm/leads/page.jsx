@@ -71,6 +71,14 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10000);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [execFilter, setExecFilter] = useState("");
   const [industrialFilter, setIndustrialFilter] = useState("");
@@ -160,9 +168,19 @@ export default function LeadsPage() {
     fetchVisitProducts();
   }, []);
 
+  // Reset page to 1 on filter changes
+  useEffect(() => {
+    if (page !== 1) {
+      setPage(1);
+    } else {
+      fetchLeads();
+    }
+  }, [statusFilter, execFilter, industrialFilter, categoryFilter, fromDate, toDate, debouncedSearch]);
+
+  // Fetch leads when page changes
   useEffect(() => {
     fetchLeads();
-  }, [page, statusFilter, execFilter, industrialFilter, categoryFilter, fromDate, toDate, search]);
+  }, [page]);
 
   useEffect(() => {
     fetchFilterCategories(industrialFilter);
@@ -174,7 +192,7 @@ export default function LeadsPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
-        search,
+        search: debouncedSearch,
         status: statusFilter,
         executiveId: execFilter,
         industrialId: industrialFilter,

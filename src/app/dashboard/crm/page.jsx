@@ -272,7 +272,7 @@ export default function CRMDashboardPage() {
       textColor: "text-amber-900",
       iconBg: "bg-amber-50",
       iconColor: "text-amber-600",
-      link: "/dashboard/crm/visits"
+      link: "/dashboard/crm/visits?pending=true"
     },
     {
       label: "Converted",

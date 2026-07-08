@@ -35,6 +35,7 @@ function VisitsContent() {
   const [productOptions, setProductOptions] = useState([]);
   const [productColorsMap, setProductColorsMap] = useState({});
   const [productFilter, setProductFilter] = useState(() => searchParams.get("product") || "");
+  const [pendingOnly, setPendingOnly] = useState(() => searchParams.get("pending") === "true");
 
   useEffect(() => {
     const status = searchParams.get("status");
@@ -45,11 +46,25 @@ function VisitsContent() {
     if (product) {
       setProductFilter(product);
     }
+    const pending = searchParams.get("pending");
+    if (pending === "true") {
+      setPendingOnly(true);
+    } else if (pending === "false") {
+      setPendingOnly(false);
+    }
   }, [searchParams]);
   const [industrialFilter, setIndustrialFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateQuickFilter, setDateQuickFilter] = useState(""); // 'today' | 'yesterday' | ''
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -105,17 +120,27 @@ function VisitsContent() {
     fetchFilterCategories("");
     fetchStatuses();
     fetchProducts();
+    fetchLeads();
+    fetchExecutives();
   }, []);
 
   useEffect(() => {
     fetchFilterCategories(industrialFilter);
   }, [industrialFilter]);
 
+  // Reset page to 1 on filter changes
+  useEffect(() => {
+    if (page !== 1) {
+      setPage(1);
+    } else {
+      fetchVisits();
+    }
+  }, [leadFilter, execFilter, statusFilter, productFilter, fromDate, toDate, debouncedSearch, industrialFilter, categoryFilter, pendingOnly]);
+
+  // Fetch visits when page changes
   useEffect(() => {
     fetchVisits();
-    fetchLeads();
-    fetchExecutives();
-  }, [page, leadFilter, execFilter, statusFilter, productFilter, fromDate, toDate, search, industrialFilter, categoryFilter]);
+  }, [page]);
 
   const fetchFilterCategories = async (industrialId) => {
     try {
@@ -186,9 +211,10 @@ function VisitsContent() {
         product: productFilter,
         fromDate: fromDate,
         toDate: toDate,
-        search: search,
+        search: debouncedSearch,
         industrialId: industrialFilter,
-        categoryId: categoryFilter
+        categoryId: categoryFilter,
+        pending: pendingOnly ? "true" : "false"
       });
       const res = await fetch(`/api/sales-visits?${params}`);
       const data = await res.json();
@@ -317,12 +343,33 @@ function VisitsContent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <MapPin className="h-7 w-7 text-indigo-600" />
-            Visit Tracking
+            {pendingOnly ? (
+              <Clock className="h-7 w-7 text-amber-500 animate-pulse" />
+            ) : (
+              <MapPin className="h-7 w-7 text-indigo-600" />
+            )}
+            {pendingOnly ? "Pending Follow-ups" : "Visit Tracking"}
           </h1>
-          <p className="text-sm text-gray-500">Record and track customer visits and demos</p>
+          <p className="text-sm text-gray-500">
+            {pendingOnly ? "View and manage pending customer follow-ups (Interested / Follow-up Needed)" : "Record and track customer visits and demos"}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex p-1 bg-gray-200 rounded-lg shadow-inner">
+            <button
+              onClick={() => { setPendingOnly(false); setPage(1); }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${!pendingOnly ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500"}`}
+            >
+              All Visits
+            </button>
+            <button
+              onClick={() => { setPendingOnly(true); setPage(1); }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${pendingOnly ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500"}`}
+            >
+              Pending Follow-ups
+            </button>
+          </div>
+
           <div className="flex p-1 bg-gray-200 rounded-lg shadow-inner">
             <button
               onClick={() => setViewMode("table")}
@@ -471,7 +518,9 @@ function VisitsContent() {
         </div>
 
         <div className="w-full">
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">From Date</label>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">
+            {pendingOnly ? "Followup From" : "From Date"}
+          </label>
           <input
             type="date"
             value={fromDate}
@@ -481,7 +530,9 @@ function VisitsContent() {
         </div>
 
         <div className="w-full">
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">To Date</label>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">
+            {pendingOnly ? "Followup To" : "To Date"}
+          </label>
           <input
             type="date"
             value={toDate}

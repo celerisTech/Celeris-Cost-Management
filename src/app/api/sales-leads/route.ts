@@ -214,8 +214,8 @@ export async function GET(request: NextRequest) {
          u.CM_User_ID COLLATE utf8mb4_general_ci
 
     WHERE v.CM_Is_Deleted = 0
-      AND v.CM_Next_Followup_Date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
-      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+      AND v.CM_Next_Followup_Date >= CURDATE()
+      AND v.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
       AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
 
     ORDER BY v.CM_Next_Followup_Date ASC
@@ -241,8 +241,8 @@ export async function GET(request: NextRequest) {
          l.CM_Lead_ID COLLATE utf8mb4_general_ci
 
     WHERE v.CM_Is_Deleted = 0
-      AND v.CM_Next_Followup_Date < CURDATE()
-      AND v.CM_Visit_Status NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+      AND v.CM_Next_Followup_Date >= CURDATE()
+      AND v.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
       AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
   `);
 
@@ -671,9 +671,10 @@ export async function GET(request: NextRequest) {
     if (categoryId) { whereClause += ' AND sl.CM_Category_ID = ?'; params.push(categoryId); }
     if (fromDate) { whereClause += ' AND DATE(sl.CM_Created_At) >= ?'; params.push(formatDbDate(fromDate)); }
     if (toDate) { whereClause += ' AND DATE(sl.CM_Created_At) <= ?'; params.push(formatDbDate(toDate)); }
-    if (search) {
+    const cleanSearch = search ? String(search).trim() : '';
+    if (cleanSearch) {
       whereClause += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ?)';
-      const s = `%${search}%`;
+      const s = `%${cleanSearch}%`;
       params.push(s, s, s, s, s);
     }
 
