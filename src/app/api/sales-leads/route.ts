@@ -149,12 +149,13 @@ export async function GET(request: NextRequest) {
          ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
          ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS converted_leads,
 
-      (SELECT COUNT(*) 
-       FROM ccms_sales_lead 
-       WHERE CM_Lead_Status IN ('Rejected', 'Not Interested') 
-         AND CM_Is_Deleted = 0
-         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
-         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS rejected_leads,
+      (SELECT COUNT(DISTINCT sl.CM_Lead_ID) 
+       FROM ccms_sales_lead sl
+       LEFT JOIN ccms_sales_visit sv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = sv.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0
+       WHERE sl.CM_Is_Deleted = 0
+         AND (sl.CM_Lead_Status IN ('Rejected', 'Not Interested') OR sv.CM_Visit_Status IN ('Rejected', 'Not Interested'))
+         ${fDate ? "AND DATE(sl.CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(sl.CM_Created_At) <= ?" : ""}) AS rejected_leads,
 
       (SELECT COUNT(*) 
        FROM ccms_sales_lead 
@@ -163,12 +164,13 @@ export async function GET(request: NextRequest) {
          ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
          ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS on_hold_leads,
 
-      (SELECT COUNT(*) 
-       FROM ccms_sales_lead 
-       WHERE CM_Lead_Status = 'Proposal Sent' 
-         AND CM_Is_Deleted = 0
-         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
-         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS proposal_sent
+      (SELECT COUNT(DISTINCT sl.CM_Lead_ID) 
+       FROM ccms_sales_lead sl
+       LEFT JOIN ccms_sales_visit sv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = sv.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0
+       WHERE sl.CM_Is_Deleted = 0
+         AND (sl.CM_Lead_Status = 'Proposal Sent' OR sv.CM_Visit_Status = 'Proposal Sent')
+         ${fDate ? "AND DATE(sl.CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(sl.CM_Created_At) <= ?" : ""}) AS proposal_sent
       `, statsParams);
 
       const stats =
@@ -432,23 +434,44 @@ export async function GET(request: NextRequest) {
       let leadWhere = `WHERE sl.CM_Is_Deleted = 0`;
       let visitWhere = `WHERE sv.CM_Is_Deleted = 0`;
 
-      if (fromDate) {
+      if (fromDate && toDate) {
         const from = formatDbDate(fromDate);
-        leadWhere += ` AND DATE(sl.CM_Created_At) >= ?`;
-        visitWhere += ` AND DATE(sv.CM_Visit_Date) >= ?`;
-        leadParams.push(from);
-        visitParams.push(from);
-      }
-      if (toDate) {
         const to = formatDbDate(toDate);
-        leadWhere += ` AND DATE(sl.CM_Created_At) <= ?`;
+        leadWhere += ` AND (
+          (DATE(sl.CM_Created_At) >= ? AND DATE(sl.CM_Created_At) <= ?)
+          OR sl.CM_Lead_ID IN (
+            SELECT CM_Lead_ID FROM ccms_sales_visit WHERE CM_Is_Deleted = 0 AND DATE(CM_Visit_Date) >= ? AND DATE(CM_Visit_Date) <= ?
+          )
+        )`;
+        visitWhere += ` AND DATE(sv.CM_Visit_Date) >= ? AND DATE(sv.CM_Visit_Date) <= ?`;
+        leadParams.push(from, to, from, to);
+        visitParams.push(from, to);
+      } else if (fromDate) {
+        const from = formatDbDate(fromDate);
+        leadWhere += ` AND (
+          DATE(sl.CM_Created_At) >= ?
+          OR sl.CM_Lead_ID IN (
+            SELECT CM_Lead_ID FROM ccms_sales_visit WHERE CM_Is_Deleted = 0 AND DATE(CM_Visit_Date) >= ?
+          )
+        )`;
+        visitWhere += ` AND DATE(sv.CM_Visit_Date) >= ?`;
+        leadParams.push(from, from);
+        visitParams.push(from);
+      } else if (toDate) {
+        const to = formatDbDate(toDate);
+        leadWhere += ` AND (
+          DATE(sl.CM_Created_At) <= ?
+          OR sl.CM_Lead_ID IN (
+            SELECT CM_Lead_ID FROM ccms_sales_visit WHERE CM_Is_Deleted = 0 AND DATE(CM_Visit_Date) <= ?
+          )
+        )`;
         visitWhere += ` AND DATE(sv.CM_Visit_Date) <= ?`;
-        leadParams.push(to);
+        leadParams.push(to, to);
         visitParams.push(to);
       }
 
       const [leadRows]: any = await db.query(`
-        SELECT sl.CM_Lead_ID, sl.CM_Sales_Executive_ID, sl.CM_Lead_Status
+        SELECT sl.CM_Lead_ID, sl.CM_Sales_Executive_ID, sl.CM_Lead_Status, sl.CM_Created_At
         FROM ccms_sales_lead sl
         ${leadWhere}
       `, leadParams);
@@ -462,7 +485,8 @@ export async function GET(request: NextRequest) {
           sv.CM_Visit_Status,
           sv.CM_Next_Followup_Date,
           sv.CM_Proposal_Value,
-          sv.CM_Trial_Version_Given
+          sv.CM_Trial_Version_Given,
+          sv.CM_Purpose
         FROM ccms_sales_visit sv
         ${visitWhere}
         ORDER BY sv.CM_Lead_ID, sv.CM_Visit_Date DESC, sv.CM_Visit_ID DESC
@@ -483,6 +507,7 @@ export async function GET(request: NextRequest) {
           converted_count: 0,
           not_interested_count: 0,
           visit_count: 0,
+          call_count: 0,
           followup_count: 0
         });
       });
@@ -527,11 +552,18 @@ export async function GET(request: NextRequest) {
             converted_count: 0,
             not_interested_count: 0,
             visit_count: 0,
+            call_count: 0,
             followup_count: 0
           });
         }
         const entry = executiveMap.get(execKey);
-        entry.visit_count = Number(entry.visit_count || 0) + 1;
+        
+        const isCall = String(visit.CM_Purpose || '').toLowerCase().includes('call');
+        if (isCall) {
+          entry.call_count = Number(entry.call_count || 0) + 1;
+        } else {
+          entry.visit_count = Number(entry.visit_count || 0) + 1;
+        }
       });
 
       (leadRows || []).forEach((lead: any) => {
@@ -546,6 +578,7 @@ export async function GET(request: NextRequest) {
             converted_count: 0,
             not_interested_count: 0,
             visit_count: 0,
+            call_count: 0,
             followup_count: 0
           });
         }
@@ -556,18 +589,13 @@ export async function GET(request: NextRequest) {
         const leadKey = String(lead.CM_Lead_ID || '');
         const latestVisit = latestVisitMap.get(leadKey);
         const effectiveStatus = latestVisit?.CM_Visit_Status || lead.CM_Lead_Status;
-        const trialGiven = String(latestVisit?.CM_Trial_Version_Given || '').toLowerCase() === 'yes';
-        const hasProposalValue = Number(latestVisit?.CM_Proposal_Value || 0) > 0;
-        const hasProposalHistory = proposalVisitMap.has(leadKey);
-        const hasDemoHistory = demoVisitMap.has(leadKey);
-
         if (effectiveStatus === 'Converted') {
           entry.converted_count = Number(entry.converted_count || 0) + 1;
         } else if (effectiveStatus === 'Rejected' || effectiveStatus === 'Not Interested') {
           entry.not_interested_count = Number(entry.not_interested_count || 0) + 1;
-        } else if (effectiveStatus === 'Proposal Sent' || hasProposalHistory || hasProposalValue) {
+        } else if (effectiveStatus === 'Proposal Sent') {
           entry.proposal_sent_count = Number(entry.proposal_sent_count || 0) + 1;
-        } else if (effectiveStatus === 'Demo Given' || trialGiven || hasDemoHistory) {
+        } else if (effectiveStatus === 'Demo Given') {
           entry.demo_count = Number(entry.demo_count || 0) + 1;
         }
 
@@ -586,6 +614,7 @@ export async function GET(request: NextRequest) {
           converted_count: Number(entry.converted_count || 0),
           not_interested_count: Number(entry.not_interested_count || 0),
           visit_count: Number(entry.visit_count || 0),
+          call_count: Number(entry.call_count || 0),
           followup_count: Number(entry.followup_count || 0)
         }))
         .sort((a: any, b: any) => {
@@ -659,10 +688,11 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (status) {
+      const effectiveStatusExpr = "COALESCE((SELECT CM_Visit_Status FROM ccms_sales_visit WHERE CM_Lead_ID = sl.CM_Lead_ID AND CM_Is_Deleted = 0 ORDER BY CM_Visit_ID DESC LIMIT 1), sl.CM_Lead_Status)";
       if (status === 'Rejected' || status === 'Not Interested') {
-        whereClause += " AND sl.CM_Lead_Status IN ('Rejected', 'Not Interested')";
+        whereClause += ` AND ${effectiveStatusExpr} IN ('Rejected', 'Not Interested')`;
       } else {
-        whereClause += ' AND sl.CM_Lead_Status = ?';
+        whereClause += ` AND ${effectiveStatusExpr} = ?`;
         params.push(status);
       }
     }
@@ -689,7 +719,9 @@ export async function GET(request: NextRequest) {
       SELECT sl.*, u.CM_Full_Name AS Executive_Name,
         ind.CM_Industrial_Name, cat.CM_Category_Name, sub.CM_Subcategory_Name,
         COALESCE(v.v_count, 0) AS visit_count,
-        COALESCE(p.p_sum, 0) AS total_paid
+        COALESCE(p.p_sum, 0) AS total_paid,
+        lv.Last_Visit_Status
+
       FROM ccms_sales_lead sl
       LEFT JOIN ccms_users u ON sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
       LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
@@ -701,6 +733,16 @@ export async function GET(request: NextRequest) {
         WHERE CM_Is_Deleted = 0 
         GROUP BY CM_Lead_ID
       ) v ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = v.CM_Lead_ID
+      LEFT JOIN (
+        SELECT v1.CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, v1.CM_Visit_Status AS Last_Visit_Status
+        FROM ccms_sales_visit v1
+        INNER JOIN (
+          SELECT CM_Lead_ID, MAX(CM_Visit_ID) AS max_id
+          FROM ccms_sales_visit
+          WHERE CM_Is_Deleted = 0
+          GROUP BY CM_Lead_ID
+        ) v2 ON v1.CM_Lead_ID = v2.CM_Lead_ID AND v1.CM_Visit_ID = v2.max_id
+      ) lv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = lv.CM_Lead_ID
       LEFT JOIN (
         SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, SUM(CM_Amount) AS p_sum 
         FROM ccms_sales_payment 

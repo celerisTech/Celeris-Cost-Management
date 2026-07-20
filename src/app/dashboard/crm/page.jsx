@@ -8,7 +8,8 @@ import {
   Target, MapPin, CreditCard, TrendingUp, Users, Calendar,
   ArrowRight, AlertCircle, CheckCircle2, Clock, IndianRupee,
   BarChart3, ChevronRight, Phone, Building2, Eye, Star, FileText, Settings,
-  Check, SlidersHorizontal, ChevronDown
+  Check, SlidersHorizontal, ChevronDown,
+  User
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -311,16 +312,16 @@ export default function CRMDashboardPage() {
       link: "/dashboard/crm/payments"
     },
     {
-      label: "Pending Payments",
-      value: fmtCurrency(data?.pendingPayments),
-      icon: CreditCard,
+      label: "Proposal Sent",
+      value: fmt(stats.proposal_sent),
+      icon: FileText,
       gradient: "from-orange-50 to-white",
       border: "border-orange-100",
       accent: "border-orange-500",
       textColor: "text-orange-900",
       iconBg: "bg-orange-50",
       iconColor: "text-orange-600",
-      link: "/dashboard/crm/payments?status=Pending"
+      link: "/dashboard/crm/visits?status=Proposal+Sent"
     },
   ];
 
@@ -364,9 +365,9 @@ export default function CRMDashboardPage() {
 
             <Link
               href="/dashboard/crm/executive-performance"
-              className="group flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+              className="group flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
             >
-              <Target size={18} className="transition-transform group-hover:-translate-y-0.5" />
+              <Users size={18} className="transition-transform group-hover:-translate-y-0.5" />
               Executive Performance
             </Link>
             

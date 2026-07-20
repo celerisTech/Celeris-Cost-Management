@@ -101,6 +101,7 @@ export default function ExecutivePerformancePage() {
   const totalConversions = filteredExecutives.reduce((sum, item) => sum + (item.converted_count || 0), 0);
   const totalRejected = filteredExecutives.reduce((sum, item) => sum + (item.not_interested_count || 0), 0);
   const totalVisits = filteredExecutives.reduce((sum, item) => sum + (item.visit_count || 0), 0);
+  const totalCallVisits = filteredExecutives.reduce((sum, item) => sum + (item.call_count || 0), 0);
   const totalFollowUps = filteredExecutives.reduce((sum, item) => sum + (item.followup_count || 0), 0);
 
   const chartData = useMemo(() => {
@@ -116,6 +117,7 @@ export default function ExecutivePerformancePage() {
         Converted: Number(item.converted_count || 0),
         Rejected: Number(item.not_interested_count || 0),
         Visits: Number(item.visit_count || 0),
+        Calls: Number(item.call_count || 0),
         Followups: Number(item.followup_count || 0),
       }));
   }, [filteredExecutives]);
@@ -225,6 +227,15 @@ export default function ExecutivePerformancePage() {
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Calls</p>
+                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalCallVisits)}</p>
+              </div>
+              <div className="rounded-lg bg-pink-50 p-2 text-pink-600"><FileText size={18} /></div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Follow-ups</p>
                 <p className="text-2xl font-bold text-slate-800">{formatNumber(totalFollowUps)}</p>
               </div>
@@ -267,6 +278,7 @@ export default function ExecutivePerformancePage() {
                     <Bar dataKey="Converted" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Rejected" fill="#ef4444" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Visits" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Calls" fill="#ec4899" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -286,6 +298,7 @@ export default function ExecutivePerformancePage() {
                     <Line type="monotone" dataKey="Proposals" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="Converted" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="Visits" stroke="#06b6d4" strokeWidth={2.5} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="Calls" stroke="#ec4899" strokeWidth={2.5} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="Followups" stroke="#f97316" strokeWidth={2.5} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -335,6 +348,7 @@ export default function ExecutivePerformancePage() {
                     <th className="px-4 py-3 text-center">Convert</th>
                     <th className="px-4 py-3 text-center">Rejected</th>
                     <th className="px-4 py-3 text-center">Visits</th>
+                    <th className="px-4 py-3 text-center">Calls</th>
                     <th className="px-4 py-3 text-center">Follow-up</th>
                   </tr>
                 </thead>
@@ -348,6 +362,7 @@ export default function ExecutivePerformancePage() {
                       <td className="px-4 py-3 text-center text-slate-700">{formatNumber(item.converted_count)}</td>
                       <td className="px-4 py-3 text-center text-slate-700">{formatNumber(item.not_interested_count)}</td>
                       <td className="px-4 py-3 text-center text-slate-700">{formatNumber(item.visit_count)}</td>
+                      <td className="px-4 py-3 text-center text-slate-700">{formatNumber(item.call_count)}</td>
                       <td className="px-4 py-3 text-center text-slate-700">{formatNumber(item.followup_count)}</td>
                     </tr>
                   ))}

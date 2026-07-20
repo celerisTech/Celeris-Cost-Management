@@ -573,7 +573,8 @@ function VisitsContent() {
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-48 border border-gray-300">Client / Company</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-64 border border-gray-300">Purpose & Description</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-25 border border-gray-300">Next Followup</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-28 border border-gray-300">Status</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-20 border border-gray-300">Type</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-28 border border-gray-300">Product</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
                 </tr>
@@ -644,8 +645,13 @@ function VisitsContent() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-2 py-1 border border-gray-300 text-center">
-                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${statusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
-                              {v.CM_Visit_Status}
+                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${String(v.CM_Purpose || '').toLowerCase().includes('call') ? 'bg-pink-50 text-pink-700 border-pink-200' : 'bg-cyan-50 text-cyan-700 border-cyan-200'}`}>
+                              {String(v.CM_Purpose || '').toLowerCase().includes('call') ? "Call" : "Visit"}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 border border-gray-300 text-center">
+                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${statusColorsMap[v.Last_Visit_Status || v.CM_Lead_Status] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
+                              {v.Last_Visit_Status || v.CM_Lead_Status || "Unknown"}
                             </span>
                           </td>
                           <td className="px-2 py-1 border border-gray-300 text-center">

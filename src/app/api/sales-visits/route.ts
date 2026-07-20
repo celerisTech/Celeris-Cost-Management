@@ -137,9 +137,10 @@ export async function GET(request: NextRequest) {
       }
 
       const [rows]: any = await db.query(`
-        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City,
+        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City, sl.CM_Lead_Status,
                u.CM_Full_Name AS Executive_Name,
-               ind.CM_Industrial_Name, cat.CM_Category_Name
+               ind.CM_Industrial_Name, cat.CM_Category_Name,
+               (SELECT CM_Visit_Status FROM ccms_sales_visit WHERE CM_Lead_ID = sv.CM_Lead_ID AND CM_Is_Deleted = 0 ORDER BY CM_Visit_ID DESC LIMIT 1) AS Last_Visit_Status
         FROM   ccms_sales_visit sv
         JOIN   ccms_sales_lead  sl
                ON sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci
@@ -167,9 +168,10 @@ export async function GET(request: NextRequest) {
     // ── Single visit ───────────────────────────────────────────────────────
     if (visitId) {
       const [[visit]]: any = await db.execute(`
-        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City,
+        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City, sl.CM_Lead_Status,
                u.CM_Full_Name AS Executive_Name,
-               ind.CM_Industrial_Name, cat.CM_Category_Name
+               ind.CM_Industrial_Name, cat.CM_Category_Name,
+               (SELECT CM_Visit_Status FROM ccms_sales_visit WHERE CM_Lead_ID = sv.CM_Lead_ID AND CM_Is_Deleted = 0 ORDER BY CM_Visit_ID DESC LIMIT 1) AS Last_Visit_Status
         FROM   ccms_sales_visit sv
         JOIN   ccms_sales_lead  sl
                ON sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci
@@ -222,7 +224,15 @@ export async function GET(request: NextRequest) {
       params.push(toDate);
     }
 
-    if (status)       { conditions.push('sv.CM_Visit_Status = ?');        params.push(status); }
+    if (status) { 
+      const effectiveStatusExpr = "COALESCE((SELECT CM_Visit_Status FROM ccms_sales_visit WHERE CM_Lead_ID = sv.CM_Lead_ID AND CM_Is_Deleted = 0 ORDER BY CM_Visit_ID DESC LIMIT 1), sl.CM_Lead_Status)";
+      if (status === 'Rejected' || status === 'Not Interested') {
+        conditions.push(`(${effectiveStatusExpr}) IN ('Rejected', 'Not Interested')`);
+      } else {
+        conditions.push(`(${effectiveStatusExpr}) = ?`);
+        params.push(status); 
+      }
+    }
     if (product)      { conditions.push('sv.CM_Visit_Products = ?');      params.push(product); }
     const cleanSearch = search ? String(search).trim() : '';
     if (cleanSearch) {
@@ -253,9 +263,10 @@ export async function GET(request: NextRequest) {
     const total = Number(countRow?.total ?? 0);
 
     const [visits]: any = await db.query(`
-      SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City,
+      SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City, sl.CM_Lead_Status,
              u.CM_Full_Name AS Executive_Name,
-             ind.CM_Industrial_Name, cat.CM_Category_Name
+             ind.CM_Industrial_Name, cat.CM_Category_Name,
+             (SELECT CM_Visit_Status FROM ccms_sales_visit WHERE CM_Lead_ID = sv.CM_Lead_ID AND CM_Is_Deleted = 0 ORDER BY CM_Visit_ID DESC LIMIT 1) AS Last_Visit_Status
       FROM   ccms_sales_visit sv
       JOIN   ccms_sales_lead  sl
              ON sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci

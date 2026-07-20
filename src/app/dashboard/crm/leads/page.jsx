@@ -721,10 +721,10 @@ export default function LeadsPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Total Leads", value: total, icon: Target, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" },
-          { label: "New Leads", value: leads.filter(l => l.CM_Lead_Status === "New Lead").length, icon: Star, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" },
-          { label: "Converted", value: leads.filter(l => l.CM_Lead_Status === "Converted").length, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" },
-          { label: "Pending", value: leads.filter(l => ["Visited", "Demo Given", "Proposal Sent", "Negotiation"].includes(l.CM_Lead_Status)).length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" },
-          { label: "Rejected", value: leads.filter(l => l.CM_Lead_Status === "Rejected").length, icon: AlertCircle, color: "text-red-600", bg: "bg-red-50", border: "border-red-500" },
+          { label: "New Leads", value: leads.filter(l => (l.Last_Visit_Status || l.CM_Lead_Status) === "New Lead").length, icon: Star, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" },
+          { label: "Converted", value: leads.filter(l => (l.Last_Visit_Status || l.CM_Lead_Status) === "Converted").length, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" },
+          { label: "Pending", value: leads.filter(l => ["Visited", "Demo Given", "Proposal Sent", "Negotiation"].includes((l.Last_Visit_Status || l.CM_Lead_Status))).length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" },
+          { label: "Rejected", value: leads.filter(l => ["Rejected", "Not Interested"].includes(l.Last_Visit_Status || l.CM_Lead_Status)).length, icon: AlertCircle, color: "text-red-600", bg: "bg-red-50", border: "border-red-500" },
         ].map((s, i) => (
           <div key={i} className={`p-2 rounded-xl text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02]`}>
             <p className="text-[11px] font-bold text-gray-700 uppercase tracking-widest mb-1">{s.label}</p>
@@ -737,7 +737,7 @@ export default function LeadsPage() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2">
+      <div className="bg-white grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 p-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2">
         <form onSubmit={handleSearch} className="col-span-2 md:col-span-3 xl:col-span-1 w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
@@ -858,33 +858,45 @@ export default function LeadsPage() {
           />
         </div>
 
-        <div className="w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">To Date</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => { setToDate(e.target.value); setDateQuickFilter(""); }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
-          />
+        <div className="flex items-end gap-2 w-full">
+
+          {/* To Date */}
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+              To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setDateQuickFilter("");
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+            />
+          </div>
+
+          {/* Reset Button */}
+          <button
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("");
+              setExecFilter("");
+              setIndustrialFilter("");
+              setCategoryFilter("");
+              setDateQuickFilter("");
+              setFromDate("");
+              setToDate("");
+              setPage(1);
+            }}
+            className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
+            title="Reset Filters"
+          >
+            <FiRotateCcw size={18} />
+          </button>
+
         </div>
 
-        <button
-          onClick={() => {
-            setSearch("");
-            setStatusFilter("");
-            setExecFilter("");
-            setIndustrialFilter("");
-            setCategoryFilter("");
-            setDateQuickFilter("");
-            setFromDate("");
-            setToDate("");
-            setPage(1);
-          }}
-          className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
-          title="Reset Filters"
-        >
-          <FiRotateCcw size={18} />
-        </button>
       </div>
 
       {/* Content Section: Table (Desktop) & Grid (Mobile) */}
@@ -967,8 +979,8 @@ export default function LeadsPage() {
                             </div>
                           </td>
                           <td className="px-2 py-1 border border-gray-300 text-center">
-                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
-                              {lead.CM_Lead_Status}
+                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.Last_Visit_Status || lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
+                              {lead.Last_Visit_Status || lead.CM_Lead_Status}
                             </span>
                           </td>
                           <td className="px-2 py-1 border border-gray-300 text-center" onClick={(e) => e.stopPropagation()}>
@@ -1004,8 +1016,8 @@ export default function LeadsPage() {
                       <p className="text-[11px] text-gray-500 mt-1">{lead.CM_Company_Name || "Individual"}</p>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                    {lead.CM_Lead_Status}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[lead.Last_Visit_Status || lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                    {lead.Last_Visit_Status || lead.CM_Lead_Status}
                   </span>
                 </div>
 
