@@ -205,6 +205,12 @@ export default function LeadsPage() {
       if (res.ok) {
         setLeads(data.leads);
         setTotal(data.total);
+        if (selectedLead) {
+          const updated = data.leads.find(l => l.CM_Lead_ID == selectedLead.CM_Lead_ID);
+          if (updated) {
+            setSelectedLead(updated);
+          }
+        }
       }
     } catch (error) {
       toast.error("Failed to fetch leads");
@@ -561,6 +567,7 @@ export default function LeadsPage() {
       if (res.ok) {
         toast.success("Visit deleted");
         fetchLeadVisits(selectedLead.CM_Lead_ID);
+        fetchLeads();
       } else {
         toast.error("Failed to delete visit");
       }
@@ -588,6 +595,7 @@ export default function LeadsPage() {
         toast.success(selectedVisit ? "Visit updated successfully" : "Visit logged successfully");
         setIsVisitModalOpen(false);
         fetchLeadVisits(selectedLead.CM_Lead_ID);
+        fetchLeads();
       } else {
         const data = await res.json();
         toast.error(data.error || "Operation failed");

@@ -650,8 +650,8 @@ function VisitsContent() {
                             </span>
                           </td>
                           <td className="px-2 py-1 border border-gray-300 text-center">
-                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${statusColorsMap[v.Last_Visit_Status || v.CM_Lead_Status] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
-                              {v.Last_Visit_Status || v.CM_Lead_Status || "Unknown"}
+                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${statusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
+                              {v.CM_Visit_Status || "Unknown"}
                             </span>
                           </td>
                           <td className="px-2 py-1 border border-gray-300 text-center">
