@@ -15,10 +15,12 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import VisitStatusMasterPage from "../master/visit-status/page";
 import VisitProductsMasterPage from "../master/visit-products/page";
+import VisitFormModal from "../components/VisitFormModal";
+import LeadFormModal from "../components/LeadFormModal";
 
 const STATUS_OPTIONS = [
   "New Lead", "Follow-up Call", "Visited", "Demo Given", "Proposal Sent",
-  "Negotiation", "Converted", "Rejected", "On Hold"
+  "Negotiation", "Converted", "Rejected", "On Hold", "Follow Up"
 ];
 
 const SOURCE_OPTIONS = [
@@ -28,6 +30,7 @@ const SOURCE_OPTIONS = [
 const STATUS_COLORS = {
   "New Lead": "bg-blue-100 text-blue-700 border-blue-200",
   "Follow-up Call": "bg-teal-100 text-teal-700 border-teal-200",
+  "Follow Up": "bg-teal-100 text-teal-700 border-teal-200",
   "Visited": "bg-indigo-100 text-indigo-700 border-indigo-200",
   "Demo Given": "bg-purple-100 text-purple-700 border-purple-200",
   "Proposal Sent": "bg-amber-100 text-amber-700 border-amber-200",
@@ -79,11 +82,13 @@ export default function LeadsPage() {
     }, 300);
     return () => clearTimeout(handler);
   }, [search]);
-  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [summaryStats, setSummaryStats] = useState({ total: 0, newLead: 0, converted: 0, proposalSent: 0, notInterested: 0 });
   const [execFilter, setExecFilter] = useState("");
   const [industrialFilter, setIndustrialFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [filterCategories, setFilterCategories] = useState([]);
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
   const [dateQuickFilter, setDateQuickFilter] = useState(""); // 'today' | 'yesterday' | ''
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -106,6 +111,33 @@ export default function LeadsPage() {
   const [loadingVisits, setLoadingVisits] = useState(false);
   const [leadPayments, setLeadPayments] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
+
+  // Custom Confirmation Modal State
+  const [confirmConfig, setConfirmConfig] = useState({
+    show: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'danger',
+    onConfirm: null
+  });
+
+  const showConfirm = ({ title, message, confirmText = 'Yes, Delete', cancelText = 'Cancel', type = 'danger', onConfirm }) => {
+    setConfirmConfig({
+      show: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      type,
+      onConfirm
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, show: false }));
+  };
 
   const [visitStatusOptions, setVisitStatusOptions] = useState([]);
   const [visitStatusColorsMap, setVisitStatusColorsMap] = useState({});
@@ -139,6 +171,7 @@ export default function LeadsPage() {
     CM_Expected_Budget: "",
     CM_Sales_Executive_ID: "",
     CM_Lead_Status: "New Lead",
+    CM_Followup_Status: "Follow Up",
     CM_Remarks: "",
     CM_Next_Follow_Up_Date: "",
     CM_Next_Follow_Up_Time: "",
@@ -205,6 +238,9 @@ export default function LeadsPage() {
       if (res.ok) {
         setLeads(data.leads);
         setTotal(data.total);
+        if (data.stats) {
+          setSummaryStats(data.stats);
+        }
         if (selectedLead) {
           const updated = data.leads.find(l => l.CM_Lead_ID == selectedLead.CM_Lead_ID);
           if (updated) {
@@ -315,6 +351,7 @@ export default function LeadsPage() {
       CM_Expected_Budget: "",
       CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) && executives.some(e => e.CM_User_ID == (user?.CM_User_ID || user?.id)) ? (user?.CM_User_ID || user?.id) : "",
       CM_Lead_Status: "New Lead",
+      CM_Followup_Status: "Follow Up",
       CM_Remarks: "",
       CM_Next_Follow_Up_Date: "",
       CM_Next_Follow_Up_Time: "",
@@ -382,13 +419,356 @@ export default function LeadsPage() {
   };
 
   const openDetail = (lead) => {
-    setSelectedLead(lead);
-    setLeadVisits([]);
-    setLeadPayments([]);
-    setIsDetailOpen(true);
-    setActiveTab("history");
-    fetchLeadVisits(lead.CM_Lead_ID);
-    fetchLeadPayments(lead.CM_Lead_ID);
+    if (selectedLead && selectedLead.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen) {
+      setIsDetailOpen(false);
+      setSelectedLead(null);
+    } else {
+      setSelectedLead(lead);
+      setLeadVisits([]);
+      setLeadPayments([]);
+      setIsDetailOpen(true);
+      setActiveTab("history");
+      fetchLeadVisits(lead.CM_Lead_ID);
+      fetchLeadPayments(lead.CM_Lead_ID);
+    }
+  };
+
+  const renderDetailTabs = (lead) => {
+    return (
+      <div className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-left" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-6 border-b border-gray-200 mb-4 bg-white p-2 rounded-t-lg">
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`text-sm font-bold pb-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            History
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadVisits.length}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('payments')}
+            className={`text-sm font-bold pb-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'payments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Payments
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadPayments.length}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`text-sm font-bold pb-2 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Details
+          </button>
+        </div>
+
+        <div className="p-2">
+          {activeTab === 'details' && (
+            <div className="space-y-6">
+              {/* Quick Status Bar */}
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                <div className="flex gap-8">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pipeline Status</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded text-xs font-bold border ${STATUS_COLORS[lead.CM_Lead_Status]}`}>
+                        {lead.CM_Lead_Status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Follow-up Status</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded text-xs font-bold border ${STATUS_COLORS[lead.CM_Followup_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                        {lead.CM_Followup_Status || 'Follow Up'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {lead.CM_Lead_Status !== "Converted" && (
+                  <button
+                    onClick={() => setIsConvertModalOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-md"
+                  >
+                    Convert to Project <ArrowRight className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Information Sections */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Company</p>
+                  <p className="text-sm font-bold text-gray-700">{lead.CM_Company_Name || "Not specified"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sales Executive</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <User className="h-4 w-4 text-indigo-500" /> {lead.Executive_Name || "Unassigned"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-emerald-500" /> {lead.CM_Phone}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alt Phone</p>
+                  <p className="text-sm font-bold text-gray-700">{lead.CM_Alt_Phone || "N/A"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-blue-500" /> {lead.CM_Email || "No email provided"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Address</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" /> {lead.CM_Address || "No address provided"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</p>
+                  <p className="text-sm font-bold text-gray-700">{lead.CM_Product_Required || "Not specified"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
+                  <p className="text-sm font-extrabold text-indigo-600">{lead.CM_Expected_Budget ? `₹${Number(lead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
+                  <p className="text-sm font-bold text-gray-700">{lead.CM_Lead_Source || "Direct"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Industrial</p>
+                  <p className="text-sm font-bold text-gray-700">{lead.CM_Industrial_Name || "Not specified"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
+                  <p className="text-sm font-bold text-gray-700">{lead.CM_Category_Name || "Not specified"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subcategory</p>
+                  <p className="text-sm font-bold text-gray-700">{lead.CM_Subcategory_Name || "Not specified"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Date</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-blue-500" /> {formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Time</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-amber-600" /> {formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remarks</p>
+                <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-600 leading-relaxed italic">
+                  "{lead.CM_Remarks || "No additional remarks recorded."}"
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => openEditModal(lead)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-all shadow-sm text-xs"
+                >
+                  <Edit2 className="h-4 w-4" /> Edit Details
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => openAddVisitModal()}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-xs"
+                >
+                  <Plus className="h-3 w-3" /> Add Visit
+                </button>
+              </div>
+              {loadingVisits ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                  <p className="text-xs text-gray-500 font-medium">Loading visit history...</p>
+                </div>
+              ) : leadVisits.length === 0 ? (
+                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-200">
+                  <MessageSquare className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 font-bold">No visits recorded yet</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse table-fixed">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-10 text-center border-r border-gray-200">#</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-48 border-r border-gray-200">Purpose</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-48 border-r border-gray-200">Remarks</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-24 border-r border-gray-200">Executive</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Next Follow-up</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Status</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-24 border-r border-gray-200">Product</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-16 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {leadVisits.map((v, idx) => (
+                          <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors">
+                            <td className="px-3 py-2 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <p className="text-xs font-bold text-gray-700">
+                                {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p>
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{v.CM_Remarks || "No remarks recorded"}</p>
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
+                              {v.Executive_Name || "Unassigned"}
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              {v.CM_Next_Followup_Date ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <p className="text-xs font-bold text-amber-600">
+                                    {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                  </p>
+                                </div>
+                              ) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitStatusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                {v.CM_Visit_Status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              {v.CM_Visit_Products ? (
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitProductColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                  {v.CM_Visit_Products}
+                                </span>
+                              ) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <div className="flex justify-end gap-1">
+                                <button onClick={() => openEditVisitModal(v)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => handleDeleteVisit(v.CM_Visit_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'payments' && (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => openAddPaymentModal()}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-xs"
+                >
+                  <Plus className="h-3 w-3" /> Add Payment
+                </button>
+              </div>
+              {loadingPayments ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                  <p className="text-xs text-gray-500 font-medium">Loading payment history...</p>
+                </div>
+              ) : leadPayments.length === 0 ? (
+                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-200">
+                  <Receipt className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 font-bold">No payments recorded yet</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse table-fixed">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-10 text-center border-r border-gray-200">#</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Date</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Amount</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Type</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Mode</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-24 border-r border-gray-200">Status</th>
+                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-16 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {leadPayments.map((p, idx) => (
+                          <tr key={p.CM_Payment_ID} className="hover:bg-blue-50/30 transition-colors">
+                            <td className="px-3 py-2 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <p className="text-xs font-bold text-gray-700">
+                                {new Date(p.CM_Payment_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <p className="text-sm font-extrabold text-gray-900">₹{Number(p.CM_Amount).toLocaleString()}</p>
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                p.CM_Payment_Type === "Partial Payment" ? "bg-purple-100 text-purple-700 border-purple-200" :
+                                  p.CM_Payment_Type === "Final Payment" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                                    p.CM_Payment_Type === "Domain Payment" ? "bg-teal-100 text-teal-700 border-teal-200" :
+                                      "bg-gray-100 text-gray-600 border-gray-200"
+                                }`}>
+                                {p.CM_Payment_Type}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100 text-xs font-medium text-gray-700">
+                              {p.CM_Payment_Mode}
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-100">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Status === "Pending" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                p.CM_Payment_Status === "Paid" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                                  "bg-red-100 text-red-700 border-red-200"
+                                }`}>
+                                {p.CM_Payment_Status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <div className="flex justify-end gap-1">
+                                <button onClick={() => openEditPaymentModal(p)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => handleDeletePayment(p.CM_Payment_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const handleManageIndustrial = async (action, id = null) => {
@@ -471,21 +851,28 @@ export default function LeadsPage() {
     }
   };
 
-  const handleDelete = async (leadId) => {
-    if (!confirm("Are you sure you want to delete this lead?")) return;
-    try {
-      const res = await fetch(`/api/sales-leads?_method=DELETE`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ CM_Lead_ID: leadId, CM_Updated_By: user?.CM_User_ID || user?.id })
-      });
-      if (res.ok) {
-        toast.success("Lead deleted");
-        fetchLeads();
+  const handleDelete = (leadId) => {
+    showConfirm({
+      title: "Delete Lead?",
+      message: "Are you sure you want to delete this lead? This action cannot be undone.",
+      confirmText: "Yes, Delete Lead",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/sales-leads?_method=DELETE`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ CM_Lead_ID: leadId, CM_Updated_By: user?.CM_User_ID || user?.id })
+          });
+          if (res.ok) {
+            toast.success("Lead deleted");
+            fetchLeads();
+          }
+        } catch (error) {
+          toast.error("Failed to delete");
+        }
       }
-    } catch (error) {
-      toast.error("Failed to delete");
-    }
+    });
   };
 
   const handleConvert = async () => {
@@ -556,24 +943,31 @@ export default function LeadsPage() {
     setIsVisitModalOpen(true);
   };
 
-  const handleDeleteVisit = async (visitId) => {
-    if (!confirm("Are you sure you want to delete this visit?")) return;
-    try {
-      const res = await fetch(`/api/sales-visits?_method=DELETE`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ CM_Visit_ID: visitId, CM_Updated_By: user?.CM_User_ID || user?.id })
-      });
-      if (res.ok) {
-        toast.success("Visit deleted");
-        fetchLeadVisits(selectedLead.CM_Lead_ID);
-        fetchLeads();
-      } else {
-        toast.error("Failed to delete visit");
+  const handleDeleteVisit = (visitId) => {
+    showConfirm({
+      title: "Delete Visit Record?",
+      message: "Are you sure you want to delete this visit record?",
+      confirmText: "Yes, Delete Visit",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/sales-visits?_method=DELETE`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ CM_Visit_ID: visitId, CM_Updated_By: user?.CM_User_ID || user?.id })
+          });
+          if (res.ok) {
+            toast.success("Visit deleted");
+            fetchLeadVisits(selectedLead.CM_Lead_ID);
+            fetchLeads();
+          } else {
+            toast.error("Failed to delete visit");
+          }
+        } catch (error) {
+          toast.error("An error occurred");
+        }
       }
-    } catch (error) {
-      toast.error("An error occurred");
-    }
+    });
   };
 
   const handleVisitSubmit = async (e) => {
@@ -630,23 +1024,30 @@ export default function LeadsPage() {
     setIsPaymentModalOpen(true);
   };
 
-  const handleDeletePayment = async (paymentId) => {
-    if (!confirm("Are you sure you want to delete this payment?")) return;
-    try {
-      const res = await fetch(`/api/sales-payments?_method=DELETE`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ CM_Payment_ID: paymentId, CM_Updated_By: user?.CM_User_ID || user?.id })
-      });
-      if (res.ok) {
-        toast.success("Payment deleted");
-        fetchLeadPayments(selectedLead.CM_Lead_ID);
-      } else {
-        toast.error("Failed to delete payment");
+  const handleDeletePayment = (paymentId) => {
+    showConfirm({
+      title: "Delete Payment Record?",
+      message: "Are you sure you want to delete this payment record?",
+      confirmText: "Yes, Delete Payment",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/sales-payments?_method=DELETE`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ CM_Payment_ID: paymentId, CM_Updated_By: user?.CM_User_ID || user?.id })
+          });
+          if (res.ok) {
+            toast.success("Payment deleted");
+            fetchLeadPayments(selectedLead.CM_Lead_ID);
+          } else {
+            toast.error("Failed to delete payment");
+          }
+        } catch (error) {
+          toast.error("An error occurred");
+        }
       }
-    } catch (error) {
-      toast.error("An error occurred");
-    }
+    });
   };
 
   const handlePaymentSubmit = async (e) => {
@@ -728,16 +1129,64 @@ export default function LeadsPage() {
       {/* Stats Cards for Leads */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: "Total Leads", value: total, icon: Target, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" },
-          { label: "New Leads", value: leads.filter(l => (l.Last_Visit_Status || l.CM_Lead_Status) === "New Lead").length, icon: Star, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" },
-          { label: "Converted", value: leads.filter(l => (l.Last_Visit_Status || l.CM_Lead_Status) === "Converted").length, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" },
-          { label: "Pending", value: leads.filter(l => ["Visited", "Demo Given", "Proposal Sent", "Negotiation"].includes((l.Last_Visit_Status || l.CM_Lead_Status))).length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" },
-          { label: "Rejected", value: leads.filter(l => ["Rejected", "Not Interested"].includes(l.Last_Visit_Status || l.CM_Lead_Status)).length, icon: AlertCircle, color: "text-red-600", bg: "bg-red-50", border: "border-red-500" },
+          {
+            label: "Total Leads",
+            value: statusFilter ? total : (summaryStats.total || total),
+            icon: Target,
+            color: "text-blue-600",
+            bg: "bg-blue-50",
+            border: "border-blue-500",
+            onClick: () => { setStatusFilter(""); setPage(1); }
+          },
+          {
+            label: "New Leads",
+            value: statusFilter === "New Lead"
+              ? total
+              : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "New Lead").length : (summaryStats.newLead ?? leads.filter(l => l.CM_Lead_Status === "New Lead").length)),
+            icon: Star,
+            color: "text-indigo-600",
+            bg: "bg-indigo-50",
+            border: "border-indigo-500",
+            onClick: () => { setStatusFilter("New Lead"); setPage(1); }
+          },
+          {
+            label: "Converted",
+            value: statusFilter === "Converted"
+              ? total
+              : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "Converted" || l.CM_Followup_Status === "Converted" || l.Last_Visit_Status === "Converted").length : (summaryStats.converted ?? leads.filter(l => l.CM_Lead_Status === "Converted" || l.CM_Followup_Status === "Converted" || l.Last_Visit_Status === "Converted").length)),
+            icon: CheckCircle2,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+            border: "border-emerald-500",
+            onClick: () => { setStatusFilter("Converted"); setPage(1); }
+          },
+          {
+            label: "Proposal Sent",
+            value: statusFilter === "Proposal Sent"
+              ? total
+              : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "Proposal Sent" || l.CM_Followup_Status === "Proposal Sent" || l.Had_Proposal_Sent === 1 || l.Last_Visit_Status === "Proposal Sent").length : (summaryStats.proposalSent ?? leads.filter(l => l.CM_Lead_Status === "Proposal Sent" || l.CM_Followup_Status === "Proposal Sent" || l.Had_Proposal_Sent === 1 || l.Last_Visit_Status === "Proposal Sent").length)),
+            icon: Clock,
+            color: "text-amber-600",
+            bg: "bg-amber-50",
+            border: "border-amber-500",
+            onClick: () => { setStatusFilter("Proposal Sent"); setPage(1); }
+          },
+          {
+            label: "Not Interested",
+            value: ["Rejected", "Not Interested"].includes(statusFilter)
+              ? total
+              : (statusFilter ? leads.filter(l => ["Rejected", "Not Interested"].includes(l.CM_Lead_Status) || ["Rejected", "Not Interested"].includes(l.CM_Followup_Status) || l.Had_Not_Interested === 1 || ["Rejected", "Not Interested"].includes(l.Last_Visit_Status)).length : (summaryStats.notInterested ?? leads.filter(l => ["Rejected", "Not Interested"].includes(l.CM_Lead_Status) || ["Rejected", "Not Interested"].includes(l.CM_Followup_Status) || l.Had_Not_Interested === 1 || ["Rejected", "Not Interested"].includes(l.Last_Visit_Status)).length)),
+            icon: AlertCircle,
+            color: "text-red-600",
+            bg: "bg-red-50",
+            border: "border-red-500",
+            onClick: () => { setStatusFilter("Not Interested"); setPage(1); }
+          },
         ].map((s, i) => (
-          <div key={i} className={`p-2 rounded-xl text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02]`}>
+          <div key={i} onClick={s.onClick} className={`p-2 rounded-xl text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02] cursor-pointer`}>
             <p className="text-[11px] font-bold text-gray-700 uppercase tracking-widest mb-1">{s.label}</p>
             <div className="flex items-center justify-between">
-              <p className={`text-xl font-black ${s.col}`}>{s.value}</p>
+              <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
               <s.icon className={`h-5 w-5 ${s.color} opacity-40`} />
             </div>
           </div>
@@ -745,8 +1194,8 @@ export default function LeadsPage() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 p-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2">
-        <form onSubmit={handleSearch} className="col-span-2 md:col-span-3 xl:col-span-1 w-full">
+      <div className="bg-white grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2">
+        <form onSubmit={handleSearch} className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -768,7 +1217,7 @@ export default function LeadsPage() {
             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
           >
             <option value="">All Statuses</option>
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            {visitStatusOptions.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
@@ -784,37 +1233,7 @@ export default function LeadsPage() {
           </select>
         </div>
 
-        <div className="w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Industrial</label>
-          <select
-            value={industrialFilter}
-            onChange={(e) => {
-              setIndustrialFilter(e.target.value);
-              setCategoryFilter("");
-              setPage(1);
-            }}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
-          >
-            <option value="">All Industrials</option>
-            {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
-          </select>
-        </div>
-
-        <div className="w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Category</label>
-          <select
-            value={categoryFilter}
-            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
-          >
-            <option value="">All Categories</option>
-            {filterCategories.map(c => (
-              <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Today / Yesterday Quick Filters */}
+        {/* Today / Yesterday Quick Filters (Visible by Default next to Sales Executive) */}
         <div className="flex flex-col gap-1 w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
           <div className="grid grid-cols-2 gap-2 w-full">
@@ -828,7 +1247,7 @@ export default function LeadsPage() {
                 setDateQuickFilter('today');
                 setPage(1);
               }}
-              className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
+              className={`px-2 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
                 ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
                 : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
                 }`}
@@ -846,65 +1265,107 @@ export default function LeadsPage() {
                 setDateQuickFilter('yesterday');
                 setPage(1);
               }}
-              className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
+              className={`px-2 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
                 : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
                 }`}
             >
-              Yesterday
+              Y'day
             </button>
           </div>
         </div>
 
+        {/* Compact Toggle Button */}
         <div className="w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From Date</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
-          />
-        </div>
-
-        <div className="flex items-end gap-2 w-full">
-
-          {/* To Date */}
-          <div className="flex-1">
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-              To Date
-            </label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setDateQuickFilter("");
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
-            />
-          </div>
-
-          {/* Reset Button */}
           <button
-            onClick={() => {
-              setSearch("");
-              setStatusFilter("");
-              setExecFilter("");
-              setIndustrialFilter("");
-              setCategoryFilter("");
-              setDateQuickFilter("");
-              setFromDate("");
-              setToDate("");
-              setPage(1);
-            }}
-            className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
-            title="Reset Filters"
+            type="button"
+            onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-all font-semibold h-[42px] text-xs"
           >
-            <FiRotateCcw size={18} />
+            <Filter className="h-3.5 w-3.5" />
+            {isFiltersExpanded ? "Less" : "More"}
           </button>
-
         </div>
 
+        {isFiltersExpanded && (
+          <>
+            <div className="w-full">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Industrial</label>
+              <select
+                value={industrialFilter}
+                onChange={(e) => {
+                  setIndustrialFilter(e.target.value);
+                  setCategoryFilter("");
+                  setPage(1);
+                }}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+              >
+                <option value="">All Industrials</option>
+                {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
+              </select>
+            </div>
+
+            <div className="w-full">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Category</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+              >
+                <option value="">All Categories</option>
+                {filterCategories.map(c => (
+                  <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From Date</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+              />
+            </div>
+
+              {/* To Date */}
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setDateQuickFilter("");
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+                />
+              </div>
+
+              {/* Reset Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("");
+                  setExecFilter("");
+                  setIndustrialFilter("");
+                  setCategoryFilter("");
+                  setDateQuickFilter("");
+                  setFromDate("");
+                  setToDate("");
+                  setPage(1);
+                }}
+                className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
+                title="Reset Filters"
+              >
+                <FiRotateCcw size={18} />
+              </button>
+          </>
+        )}
       </div>
 
       {/* Content Section: Table (Desktop) & Grid (Mobile) */}
@@ -922,14 +1383,15 @@ export default function LeadsPage() {
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-30 border border-gray-300">Requirement</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-18 border border-gray-300">Next Follow-up</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
+                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Follow-up Status</th>
                   <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="8" className="px-6 py-12 text-center border border-gray-300"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
+                  <tr><td colSpan="9" className="px-6 py-12 text-center border border-gray-300"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
                 ) : leads.length === 0 ? (
-                  <tr><td colSpan="8" className="px-6 py-2 text-center text-gray-500 border border-gray-300">No leads found</td></tr>
+                  <tr><td colSpan="9" className="px-6 py-2 text-center text-gray-500 border border-gray-300">No leads found</td></tr>
                 ) : (
                   Object.entries(
                     leads.reduce((acc, lead) => {
@@ -941,7 +1403,7 @@ export default function LeadsPage() {
                   ).map(([execName, execLeads]) => (
                     <React.Fragment key={execName}>
                       <tr className="bg-gray-100">
-                        <td colSpan="8" className="px-2 py-1.5 font-bold text-gray-800 border border-gray-300">
+                        <td colSpan="9" className="px-2 py-1.5 font-bold text-gray-800 border border-gray-300">
                           <div className="flex items-center gap-1.5">
                             <User className="h-3.5 w-3.5" />
                             <span className="text-sm text-blue-600">{execName}</span> <span className="text-[10px] font-normal text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded-sm border border-gray-300">{execLeads.length} Leads</span>
@@ -949,56 +1411,69 @@ export default function LeadsPage() {
                         </td>
                       </tr>
                       {execLeads.map((lead) => (
-                        <tr
-                          key={lead.CM_Lead_ID}
-                          onClick={() => openDetail(lead)}
-                          className="hover:bg-blue-50/20 transition-colors cursor-pointer bg-white"
-                        >
-                          <td className="px-2 py-1 text-[11px] text-gray-500 text-center border border-gray-300">{(page - 1) * limit + leads.indexOf(lead) + 1}</td>
-                          <td className="px-2 py-1 border border-gray-300">
-                            <div>
-                              <p className="text-sm font-bold text-gray-900">{lead.CM_Client_Name}</p>
-                              <p className="text-[11px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
-                              <p className="flex items-center gap-1 text-[12px] text-gray-500">
-                                <MapPin className="h-3 w-3" />
-                                <span className="text-sm font-medium text-blue-500">{lead.CM_City || ""}</span>
-                              </p>                            </div>
-                          </td>
-                          <td className="px-2 py-1 border border-gray-300 text-sm font-medium text-gray-700" onClick={(e) => e.stopPropagation()}>
-                            {lead.CM_Phone}
-                          </td>
-                          <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
-                            <div className="line-clamp-1 text-blue-700">{lead.CM_Industrial_Name || "—"}</div>
-                            <div className="line-clamp-1">{lead.CM_Category_Name || "—"}</div>
-                            <div className="line-clamp-1">{lead.CM_Subcategory_Name || "—"}</div>
-                          </td>
-                          <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
-                            <p className="line-clamp-2">{lead.CM_Product_Required || "—"}</p>
-                            {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
-                          </td>
-                          <td className="px-2 py-1 border border-gray-300 text-[11px] text-gray-600">
-                            <div className="flex items-center gap-1 text-blue-600 font-semibold">
-                              <Calendar className="h-3 w-3" />
-                              <span>{formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-gray-600 mt-0.5">
-                              <Clock className="h-3 w-3" />
-                              <span>{formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}</span>
-                            </div>
-                          </td>
-                          <td className="px-2 py-1 border border-gray-300 text-center">
-                            <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.Last_Visit_Status || lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
-                              {lead.Last_Visit_Status || lead.CM_Lead_Status}
-                            </span>
-                          </td>
-                          <td className="px-2 py-1 border border-gray-300 text-center" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-center gap-1.5">
-                              <button onClick={() => openEditModal(lead)} className="text-gray-500 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
-                              <button onClick={() => openDetail(lead)} className="text-gray-500 hover:text-indigo-600 transition-colors"><Eye className="h-3.5 w-3.5" /></button>
-                              <button onClick={() => handleDelete(lead.CM_Lead_ID)} className="text-gray-500 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-                            </div>
-                          </td>
-                        </tr>
+                        <React.Fragment key={lead.CM_Lead_ID}>
+                          <tr
+                            onClick={() => openDetail(lead)}
+                            className={`hover:bg-blue-50/20 transition-colors cursor-pointer ${selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen ? 'bg-blue-50/40' : 'bg-white'}`}
+                          >
+                            <td className="px-2 py-1 text-[11px] text-gray-500 text-center border border-gray-300">{(page - 1) * limit + leads.indexOf(lead) + 1}</td>
+                            <td className="px-2 py-1 border border-gray-300">
+                              <div>
+                                <p className="text-sm font-bold text-gray-900">{lead.CM_Client_Name}</p>
+                                <p className="text-[11px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
+                                <p className="flex items-center gap-1 text-[12px] text-gray-500">
+                                  <MapPin className="h-3 w-3" />
+                                  <span className="text-sm font-medium text-blue-500">{lead.CM_City || ""}</span>
+                                </p>                            </div>
+                            </td>
+                            <td className="px-2 py-1 border border-gray-300 text-sm font-medium text-gray-700" onClick={(e) => e.stopPropagation()}>
+                              {lead.CM_Phone}
+                            </td>
+                            <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
+                              <div className="line-clamp-1 text-blue-700">{lead.CM_Industrial_Name || "—"}</div>
+                              <div className="line-clamp-1">{lead.CM_Category_Name || "—"}</div>
+                              <div className="line-clamp-1">{lead.CM_Subcategory_Name || "—"}</div>
+                            </td>
+                            <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
+                              <p className="line-clamp-2">{lead.CM_Product_Required || "—"}</p>
+                              {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
+                            </td>
+                            <td className="px-2 py-1 border border-gray-300 text-[11px] text-gray-600">
+                              <div className="flex items-center gap-1 text-blue-600 font-semibold">
+                                <Calendar className="h-3 w-3" />
+                                <span>{formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-gray-600 mt-0.5">
+                                <Clock className="h-3 w-3" />
+                                <span>{formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}</span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-1 border border-gray-300 text-center">
+                              <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
+                                {lead.CM_Lead_Status}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1 border border-gray-300 text-center">
+                              <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Followup_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
+                                {lead.CM_Followup_Status || "Follow Up"}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1 border border-gray-300 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-center gap-1.5">
+                                <button onClick={() => openEditModal(lead)} className="text-gray-500 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => openDetail(lead)} className="text-gray-500 hover:text-indigo-600 transition-colors"><Eye className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => handleDelete(lead.CM_Lead_ID)} className="text-gray-500 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                          {selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen && (
+                            <tr>
+                              <td colSpan="9" className="px-1 py-3 bg-gray-50 border border-gray-300">
+                                {renderDetailTabs(lead)}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </React.Fragment>
                   ))
@@ -1016,7 +1491,7 @@ export default function LeadsPage() {
             <div className="py-12 text-center text-gray-500">No leads found</div>
           ) : (
             leads.map((lead) => (
-              <div key={lead.CM_Lead_ID} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-300 transition-all" onClick={() => openDetail(lead)}>
+              <div key={lead.CM_Lead_ID} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-300 transition-all cursor-pointer" onClick={() => openDetail(lead)}>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">
                     <div>
@@ -1024,15 +1499,15 @@ export default function LeadsPage() {
                       <p className="text-[11px] text-gray-500 mt-1">{lead.CM_Company_Name || "Individual"}</p>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[lead.Last_Visit_Status || lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                    {lead.Last_Visit_Status || lead.CM_Lead_Status}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                    {lead.CM_Lead_Status}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 py-3 border-t border-b border-gray-50 mb-3">
                   <div>
                     <p className="text-[10px] text-gray-400 uppercase font-bold">Product</p>
-                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.CM_Product_Required || "â€”"}</p>
+                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.CM_Product_Required || "—"}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 uppercase font-bold">Executive</p>
@@ -1069,6 +1544,11 @@ export default function LeadsPage() {
                     </button>
                   </div>
                 </div>
+                {selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen && (
+                  <div className="mt-4 pt-4 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+                    {renderDetailTabs(lead)}
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -1112,793 +1592,30 @@ export default function LeadsPage() {
       )}
 
       {/* Add/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col text-gray-800 ">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-500">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                {selectedLead ? <Edit2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                {selectedLead ? "Edit Lead" : "Add New Lead"}
-              </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+      <LeadFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        selectedLead={selectedLead}
+        user={user}
+        onSuccess={() => fetchLeads()}
+      />
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Client Name *</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.CM_Client_Name || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Client_Name: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    placeholder="Enter full name"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Company Name</label>
-                  <input
-                    type="text"
-                    value={formData.CM_Company_Name || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Company_Name: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    placeholder="Enter company name"
-                  />
-                </div>
-                {/* Industrial / Category / Subcategory Cascading Dropdowns */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
-                    Industrial
-                    <div className="flex gap-2">
-                      {formData.CM_Industrial_ID && !isEditingIndustrial && !isAddingIndustrial && (
-                        <>
-                          <button type="button" onClick={() => { setIsEditingIndustrial(true); setIndustrialInput(industrials.find(i => i.CM_Industrial_ID == formData.CM_Industrial_ID)?.CM_Industrial_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
-                          <button type="button" onClick={() => { if (confirm("Delete this Industrial?")) handleManageIndustrial('DELETE', formData.CM_Industrial_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
-                        </>
-                      )}
-                      {!isEditingIndustrial && !isAddingIndustrial && (
-                        <button type="button" onClick={() => setIsAddingIndustrial(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
-                      )}
-                    </div>
-                  </label>
-                  {isAddingIndustrial || isEditingIndustrial ? (
-                    <div className="flex gap-2">
-                      <input type="text" value={industrialInput} onChange={(e) => setIndustrialInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Industrial name" />
-                      <button type="button" onClick={() => handleManageIndustrial(isEditingIndustrial ? 'PUT' : 'POST', isEditingIndustrial ? formData.CM_Industrial_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => { setIsAddingIndustrial(false); setIsEditingIndustrial(false); setIndustrialInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
-                    </div>
-                  ) : (
-                    <select
-                      value={formData.CM_Industrial_ID || ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData({ ...formData, CM_Industrial_ID: val, CM_Category_ID: "", CM_Subcategory_ID: "" });
-                        fetchCategories(val);
-                        setSubcategories([]);
-                      }}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    >
-                      <option value="">Select Industrial</option>
-                      {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
-                    </select>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
-                    Category
-                    <div className="flex gap-2">
-                      {formData.CM_Category_ID && !isEditingCategory && !isAddingCategory && (
-                        <>
-                          <button type="button" onClick={() => { setIsEditingCategory(true); setCategoryInput(categories.find(c => c.CM_Category_ID == formData.CM_Category_ID)?.CM_Category_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
-                          <button type="button" onClick={() => { if (confirm("Delete this Category?")) handleManageCategory('DELETE', formData.CM_Category_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
-                        </>
-                      )}
-                      {!isEditingCategory && !isAddingCategory && formData.CM_Industrial_ID && (
-                        <button type="button" onClick={() => setIsAddingCategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
-                      )}
-                    </div>
-                  </label>
-                  {isAddingCategory || isEditingCategory ? (
-                    <div className="flex gap-2">
-                      <input type="text" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Category name" />
-                      <button type="button" onClick={() => handleManageCategory(isEditingCategory ? 'PUT' : 'POST', isEditingCategory ? formData.CM_Category_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => { setIsAddingCategory(false); setIsEditingCategory(false); setCategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
-                    </div>
-                  ) : (
-                    <select
-                      value={formData.CM_Category_ID || ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData({ ...formData, CM_Category_ID: val, CM_Subcategory_ID: "" });
-                        fetchSubcategories(val);
-                      }}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                      disabled={!formData.CM_Industrial_ID}
-                    >
-                      <option value="">Select Category</option>
-                      {categories.map(c => <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>)}
-                    </select>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
-                    Subcategory
-                    <div className="flex gap-2">
-                      {formData.CM_Subcategory_ID && !isEditingSubcategory && !isAddingSubcategory && (
-                        <>
-                          <button type="button" onClick={() => { setIsEditingSubcategory(true); setSubcategoryInput(subcategories.find(s => s.CM_Subcategory_ID == formData.CM_Subcategory_ID)?.CM_Subcategory_Name || ""); }} className="text-blue-500 hover:text-blue-700 transition-colors bg-blue-100 px-2 py-1.5 rounded-xl bg-blue-100 px-2 py-1.5 rounded-xl"><Edit2 className="h-3 w-3" /></button>
-                          <button type="button" onClick={() => { if (confirm("Delete this Subcategory?")) handleManageSubcategory('DELETE', formData.CM_Subcategory_ID); }} className="00 hover:text-red-700 transition-colors bg-red-100 px-2 py-1.5 rounded-xl"><Trash2 className="h-3 w-3" /></button>
-                        </>
-                      )}
-                      {!isEditingSubcategory && !isAddingSubcategory && formData.CM_Category_ID && (
-                        <button type="button" onClick={() => setIsAddingSubcategory(true)} className="text-emerald-500 hover:text-emerald-700 transition-colors bg-green-100 px-2 py-1.5 rounded-xl"><Plus className="h-3 w-3" /></button>
-                      )}
-                    </div>
-                  </label>
-                  {isAddingSubcategory || isEditingSubcategory ? (
-                    <div className="flex gap-2">
-                      <input type="text" value={subcategoryInput} onChange={(e) => setSubcategoryInput(e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all" placeholder="Subcategory name" />
-                      <button type="button" onClick={() => handleManageSubcategory(isEditingSubcategory ? 'PUT' : 'POST', isEditingSubcategory ? formData.CM_Subcategory_ID : null)} className="px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"><Check className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => { setIsAddingSubcategory(false); setIsEditingSubcategory(false); setSubcategoryInput(""); }} className="px-3 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition-colors"><X className="h-4 w-4" /></button>
-                    </div>
-                  ) : (
-                    <select
-                      value={formData.CM_Subcategory_ID || ""}
-                      onChange={(e) => setFormData({ ...formData, CM_Subcategory_ID: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                      disabled={!formData.CM_Category_ID}
-                    >
-                      <option value="">Select Subcategory</option>
-                      {subcategories.map(s => <option key={s.CM_Subcategory_ID} value={s.CM_Subcategory_ID}>{s.CM_Subcategory_Name}</option>)}
-                    </select>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Phone Number *</label>
-                  <input
-                    required
-                    type="tel"
-                    value={formData.CM_Phone || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Phone: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    placeholder="e.g. 9876543210"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Alt Phone</label>
-                  <input
-                    type="tel"
-                    value={formData.CM_Alt_Phone || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Alt_Phone: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Email Address</label>
-                  <input
-                    type="email"
-                    value={formData.CM_Email || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Email: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    placeholder="client@example.com"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">City</label>
-                  <input
-                    type="text"
-                    value={formData.CM_City || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_City: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Full Address</label>
-                  <textarea
-                    rows="2"
-                    value={formData.CM_Address || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Address: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all resize-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Lead Source</label>
-                  <select
-                    value={formData.CM_Lead_Source || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Lead_Source: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  >
-                    {SOURCE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Product Required</label>
-                  <input
-                    type="text"
-                    value={formData.CM_Product_Required || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Product_Required: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    placeholder="e.g. Billing"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Expected Budget</label>
-                  <input
-                    type="number"
-                    value={formData.CM_Expected_Budget || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Expected_Budget: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                    placeholder="Amount in â‚¹"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Sales Executive</label>
-                  <select
-                    value={formData.CM_Sales_Executive_ID || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Sales_Executive_ID: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  >
-                    <option value="">Select Executive</option>
-                    {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Lead Status</label>
-                  <select
-                    value={formData.CM_Lead_Status || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Lead_Status: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  >
-                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Next Follow-up Date</label>
-                  <input
-                    type="date"
-                    value={formData.CM_Next_Follow_Up_Date || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Next_Follow_Up_Date: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Next Follow-up Time</label>
-                  <input
-                    type="time"
-                    value={formData.CM_Next_Follow_Up_Time || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Next_Follow_Up_Time: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Remarks</label>
-                  <textarea
-                    rows="2"
-                    value={formData.CM_Remarks || ""}
-                    onChange={(e) => setFormData({ ...formData, CM_Remarks: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring focus:ring-blue-500 outline-none transition-all resize-none"
-                    placeholder="Any additional notes..."
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-100 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-                  {selectedLead ? "Update Lead" : "Save Lead"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Detail Slide-over / Modal */}
-      {isDetailOpen && selectedLead && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-end bg-black/40 backdrop-blur-sm">
-          <div className="bg-white h-full w-full max-w-7xl shadow-md flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="px-4 pt-4 border-b border-gray-100 bg-white sticky top-0 z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">{selectedLead.CM_Client_Name}</h2>
-                  </div>
-                </div>
-                <button onClick={() => setIsDetailOpen(false)} className="text-red-400 hover:text-red-600 transition-colors bg-gray-50 p-2 rounded-md self-start">
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              <div className="flex gap-6">
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className={`text-sm font-bold pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                  History
-                  <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadVisits.length}</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('payments')}
-                  className={`text-sm font-bold pb-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'payments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                  Payments
-                  <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadPayments.length}</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('details')}
-                  className={`text-sm font-bold pb-3 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                  Details
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {activeTab === 'details' && (
-                <div className="space-y-8">
-                  {/* Quick Status Bar */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Status</p>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[selectedLead.CM_Lead_Status]}`}>
-                          {selectedLead.CM_Lead_Status}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedLead.CM_Lead_Status !== "Converted" && (
-                      <button
-                        onClick={() => setIsConvertModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100"
-                      >
-                        Convert to Project <ArrowRight className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Information Sections */}
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Company</p>
-                      <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Company_Name || "Not specified"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sales Executive</p>
-                      <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                        <User className="h-4 w-4 text-indigo-500" /> {selectedLead.Executive_Name || "Unassigned"}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone</p>
-                      <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-emerald-500" /> {selectedLead.CM_Phone}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alt Phone</p>
-                      <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Alt_Phone || "N/A"}</p>
-                    </div>
-                    <div className="col-span-2 space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</p>
-                      <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-blue-500" /> {selectedLead.CM_Email || "No email provided"}
-                      </p>
-                    </div>
-                    <div className="col-span-2 space-y-1">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Address</p>
-                      <p className="text-sm font-bold text-gray-700 flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" /> {selectedLead.CM_Address || "No address provided"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="h-px bg-gray-100" />
-
-                  <div className="space-y-6">
-                    <h3 className="text-sm font-bold text-gray-900 border-l-4 border-indigo-600 pl-3">Requirement Details</h3>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</p>
-                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Product_Required || "Not specified"}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
-                        <p className="text-sm font-extrabold text-indigo-600">{selectedLead.CM_Expected_Budget ? `â‚¹${Number(selectedLead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
-                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Lead_Source || "Direct"}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Created On</p>
-                        <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400" /> {new Date(selectedLead.CM_Created_At).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="h-px bg-gray-100" />
-
-                  <div className="space-y-6">
-                    <h3 className="text-sm font-bold text-gray-900 border-l-4 border-blue-600 pl-3">Classification</h3>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Industrial</p>
-                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Industrial_Name || "Not specified"}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
-                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Category_Name || "Not specified"}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subcategory</p>
-                        <p className="text-sm font-bold text-gray-700">{selectedLead.CM_Subcategory_Name || "Not specified"}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <h3 className="text-sm font-bold text-gray-900 border-l-4 border-amber-600 pl-3">Follow-up Schedule</h3>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Date</p>
-                        <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-blue-500" /> {formatFollowUpDate(selectedLead.CM_Next_Follow_Up_Date)}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Time</p>
-                        <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-amber-600" /> {formatFollowUpTime(selectedLead.CM_Next_Follow_Up_Time)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remarks</p>
-                    <div className="p-4 bg-gray-50 rounded-2xl text-sm text-gray-600 leading-relaxed italic border border-gray-100">
-                      "{selectedLead.CM_Remarks || "No additional remarks recorded."}"
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'history' && (
-                <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => openAddVisitModal()}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-sm"
-                    >
-                      <Plus className="h-4 w-4" /> Add Visit
-                    </button>
-                  </div>
-                  {loadingVisits ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-                      <p className="text-sm text-gray-500 font-medium">Loading visit history...</p>
-                    </div>
-                  ) : leadVisits.length === 0 ? (
-                    <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                      <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-base text-gray-500 font-bold">No visits recorded yet</p>
-                      <p className="text-xs text-gray-400 mt-1">There are no documented interactions for this lead.</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-md">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse table-fixed">
-                          <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200">
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Purpose</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-60 border-r border-gray-200">Remarks</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Executive</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Next Follow-up & Time</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Product</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-20 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {leadVisits.map((v, idx) => (
-                              <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors">
-                                <td className="px-4 py-3 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-                                  <p className="text-xs font-bold text-gray-700">
-                                    {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                                  </p>
-                                  {v.CM_Visit_Time && (
-                                    <p className="text-[10px] text-gray-500 mt-0.5">
-                                      {new Date(`2000-01-01T${v.CM_Visit_Time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                    </p>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-
-                                  <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p> </td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-                                  <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-3">{v.CM_Remarks || "No remarks recorded"}</p>
-                                </td>
-                                <td className="px-4 py-3 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
-                                  {v.Executive_Name || "Unassigned"}
-                                </td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-                                  {v.CM_Next_Followup_Date ? (
-                                    <div className="flex flex-col gap-0.5">
-                                      <p className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                                        {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                                      </p>
-                                      {v.CM_Next_Followup_Time && (
-                                        <p className="text-[10px] text-gray-500 font-medium">
-                                          {new Date(`2000-01-01T${v.CM_Next_Followup_Time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ) : <span className="text-gray-300">—</span>}
-                                </td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitStatusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                    {v.CM_Visit_Status}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  {v.CM_Visit_Products && (
-                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitProductColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                      {v.CM_Visit_Products}
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  <div className="flex justify-end gap-1">
-                                    <button onClick={() => openEditVisitModal(v)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
-                                    <button onClick={() => handleDeleteVisit(v.CM_Visit_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeTab === 'payments' && (
-                <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => openAddPaymentModal()}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-sm"
-                    >
-                      <Plus className="h-4 w-4" /> Add Payment
-                    </button>
-                  </div>
-                  {loadingPayments ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-                      <p className="text-sm text-gray-500 font-medium">Loading payment history...</p>
-                    </div>
-                  ) : leadPayments.length === 0 ? (
-                    <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                      <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-base text-gray-500 font-bold">No payments recorded yet</p>
-                      <p className="text-xs text-gray-400 mt-1">There are no documented payments for this lead.</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-md">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse table-fixed">
-                          <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200">
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-12 text-center border-r border-gray-200">#</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Date</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Amount</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-44 border-r border-gray-200">Type</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Mode</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Status</th>
-                              <th className="px-4 py-3 text-[11px] font-bold text-gray-600 uppercase w-20 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {leadPayments.map((p, idx) => (
-                              <tr key={p.CM_Payment_ID} className="hover:bg-blue-50/30 transition-colors">
-                                <td className="px-4 py-3 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-                                  <p className="text-xs font-bold text-gray-700">
-                                    {new Date(p.CM_Payment_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                                  </p>
-                                </td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-                                  <p className="text-sm font-extrabold text-gray-900">â‚¹{Number(p.CM_Amount).toLocaleString()}</p>
-                                </td>
-                                <td className="px-4 py-3 border-r border-gray-100">
-                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
-                                    p.CM_Payment_Type === "Partial Payment" ? "bg-purple-100 text-purple-700 border-purple-200" :
-                                      p.CM_Payment_Type === "Final Payment" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
-                                        p.CM_Payment_Type === "Domain Payment" ? "bg-teal-100 text-teal-700 border-teal-200" :
-                                          "bg-gray-100 text-gray-600 border-gray-200"
-                                    }`}>
-                                    {p.CM_Payment_Type}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 border-r border-gray-100 text-xs font-medium text-gray-700">
-                                  {p.CM_Payment_Mode}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Status === "Pending" ? "bg-amber-100 text-amber-700 border-amber-200" :
-                                    p.CM_Payment_Status === "Paid" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                                      "bg-red-100 text-red-700 border-red-200"
-                                    }`}>
-                                    {p.CM_Payment_Status}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  <div className="flex justify-end gap-1">
-                                    <button onClick={() => openEditPaymentModal(p)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
-                                    <button onClick={() => handleDeletePayment(p.CM_Payment_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-gray-100 flex gap-3 bg-gray-50">
-              {activeTab === 'details' && (
-                <button
-                  onClick={() => { setIsDetailOpen(false); openEditModal(selectedLead); }}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm"
-                >
-                  <Edit2 className="h-4 w-4" /> Edit Details
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Detail Slide-over removed, details are rendered inline in expanded row */}
 
       {/* Visit Add/Edit Modal */}
-      {isVisitModalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-gray-800">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-500 text-white">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                {selectedVisit ? "Edit Client Visit" : "Log New Client Visit"}
-              </h2>
-              <button onClick={() => setIsVisitModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
-            </div>
-
-            <form onSubmit={handleVisitSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Lead Name</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={selectedLead?.CM_Client_Name || ""}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none text-gray-500"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Date *</label>
-                <input
-                  required
-                  type="date"
-                  value={visitFormData.CM_Visit_Date || ""}
-                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Visit_Date: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Purpose of Visit *</label>
-                <input
-                  required
-                  type="text"
-                  value={visitFormData.CM_Purpose || ""}
-                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Purpose: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                  placeholder="e.g. Site Survey, Product Demo..."
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Date</label>
-                <input
-                  type="date"
-                  value={visitFormData.CM_Next_Followup_Date || ""}
-                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Next_Followup_Date: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Time</label>
-                <input
-                  type="time"
-                  value={visitFormData.CM_Next_Followup_Time || ""}
-                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Next_Followup_Time: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Status</label>
-                  <button type="button" onClick={() => setIsManageStatusModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
-                    <Settings size={12} /> Manage Options
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {visitStatusOptions.map(s => (
-                    <button key={s} type="button" onClick={() => setVisitFormData({ ...visitFormData, CM_Visit_Status: s })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${visitFormData.CM_Visit_Status === s ? `${visitStatusColorsMap[s] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 space-y-1 mt-2">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Product</label>
-                  <button type="button" onClick={() => setIsManageProductModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
-                    <Settings size={12} /> Manage Options
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setVisitFormData({ ...visitFormData, CM_Visit_Products: "" })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!visitFormData.CM_Visit_Products ? `bg-gray-100 text-gray-700 border-gray-300 shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>None</button>
-                  {visitProductOptions.map(p => (
-                    <button key={p} type="button" onClick={() => setVisitFormData({ ...visitFormData, CM_Visit_Products: p })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${visitFormData.CM_Visit_Products === p ? `${visitProductColorsMap[p] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{p}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Remarks</label>
-                <textarea
-                  rows="3"
-                  value={visitFormData.CM_Remarks || ""}
-                  onChange={(e) => setVisitFormData({ ...visitFormData, CM_Remarks: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none resize-none"
-                  placeholder="Details of discussion..."
-                />
-              </div>
-
-              <div className="md:col-span-2 flex gap-3 mt-4">
-                <button type="button" onClick={() => setIsVisitModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-bold transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  {selectedVisit ? "Update Visit" : "Save Visit"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <VisitFormModal
+        isOpen={isVisitModalOpen}
+        onClose={() => setIsVisitModalOpen(false)}
+        selectedVisit={selectedVisit}
+        preselectedLeadId={selectedLead?.CM_Lead_ID}
+        user={user}
+        onSuccess={() => {
+          if (selectedLead) {
+            fetchLeadVisits(selectedLead.CM_Lead_ID);
+          }
+          fetchLeads();
+        }}
+      />
 
       {/* Payment Add/Edit Modal */}
       {isPaymentModalOpen && (
@@ -2075,6 +1792,75 @@ export default function LeadsPage() {
           <div className="bg-slate-50 min-h-[80vh] rounded-2xl shadow-2xl relative max-w-5xl mx-auto">
             <div className="pt-2 pb-6">
               <VisitProductsMasterPage onClose={() => { setIsManageProductModalOpen(false); fetchVisitProducts(); }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Alert Modal */}
+      {confirmConfig.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all scale-100">
+            {/* Top Indicator Bar */}
+            <div className={`h-2.5 w-full ${
+              confirmConfig.type === 'danger'
+                ? 'bg-gradient-to-r from-rose-500 to-red-600'
+                : 'bg-gradient-to-r from-amber-400 to-orange-500'
+            }`} />
+
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                  confirmConfig.type === 'danger'
+                    ? 'bg-rose-100 text-rose-600'
+                    : 'bg-amber-100 text-amber-600'
+                }`}>
+                  <AlertCircle size={26} />
+                </div>
+
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {confirmConfig.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {confirmConfig.message}
+                  </p>
+                </div>
+
+                <button
+                  onClick={closeConfirm}
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeConfirm}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-all"
+                >
+                  {confirmConfig.cancelText || "Cancel"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const action = confirmConfig.onConfirm;
+                    closeConfirm();
+                    if (action) action();
+                  }}
+                  className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 text-white ${
+                    confirmConfig.type === 'danger'
+                      ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                      : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
+                  }`}
+                >
+                  {confirmConfig.confirmText || "Confirm"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -37,11 +37,37 @@ function LoginScreen() {
   const [otpSent, setOtpSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
+  const [targetPosition, setTargetPosition] = useState({ x: 50, y: 50 });
   const containerRef = useRef(null);
+  const animationRef = useRef(null);
 
   const currentScreen = useAuthScreenStore((state) => state.currentScreen);
   const setCurrentScreen = useAuthScreenStore((state) => state.setCurrentScreen);
+
+  // Smooth mouse follow animation
+  useEffect(() => {
+    const smoothFollow = () => {
+      setMousePosition(prev => {
+        const dx = targetPosition.x - prev.x;
+        const dy = targetPosition.y - prev.y;
+        // Smooth easing - adjust the divisor (20) for faster/slower following
+        return {
+          x: prev.x + dx * 0.05,
+          y: prev.y + dy * 0.05
+        };
+      });
+      animationRef.current = requestAnimationFrame(smoothFollow);
+    };
+
+    animationRef.current = requestAnimationFrame(smoothFollow);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [targetPosition]);
 
   // Handle mouse move for interactive background
   const handleMouseMove = (e) => {
@@ -49,7 +75,7 @@ function LoginScreen() {
       const rect = containerRef.current.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
-      setMousePosition({ x, y });
+      setTargetPosition({ x, y });
     }
   };
 
@@ -71,7 +97,7 @@ function LoginScreen() {
         100% { transform: translateX(100%); }
       }
       
-      @keyradient-gradient {
+      @keyframes gradient-gradient {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
@@ -196,7 +222,7 @@ function LoginScreen() {
   }, []);
 
   // Create floating particles
-  const particles = Array.from({ length: 15 }).map((_, i) => ({
+  const particles = Array.from({ length: 20 }).map((_, i) => ({
     id: i,
     size: Math.random() * 4 + 2,
     left: Math.random() * 100,
@@ -715,22 +741,69 @@ function LoginScreen() {
       }}
       className="solar-gradient"
     >
-      {/* Interactive Background Elements */}
+      {/* Interactive Background Elements - Three Color Gradient Following Mouse */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        overflow: 'hidden'
       }}>
-        {/* Dynamic gradient based on mouse */}
+        {/* Primary Gradient - Gold/Yellow */}
         <div style={{
           position: 'absolute',
           top: `${mousePosition.y}%`,
           left: `${mousePosition.x}%`,
+          width: '600px',
+          height: '600px',
+          background: 'radial-gradient(circle, rgba(255, 215, 0, 0.25) 0%, rgba(255, 165, 0, 0.1) 40%, transparent 70%)',
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          transition: 'none',
+          filter: 'blur(20px)',
+          willChange: 'transform'
+        }} />
+
+        {/* Secondary Gradient - Purple/Blue */}
+        <div style={{
+          position: 'absolute',
+          top: `${100 - mousePosition.y}%`,
+          left: `${mousePosition.x + 10}%`,
           width: '500px',
           height: '500px',
-          background: 'radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(147, 51, 234, 0.2) 0%, rgba(59, 130, 246, 0.1) 40%, transparent 70%)',
           transform: 'translate(-50%, -50%)',
-          transition: 'all 0.3s ease-out'
+          borderRadius: '50%',
+          transition: 'none',
+          filter: 'blur(30px)',
+          willChange: 'transform'
+        }} />
+
+        {/* Tertiary Gradient - Pink/Red */}
+        <div style={{
+          position: 'absolute',
+          top: `${mousePosition.y + 20}%`,
+          left: `${100 - mousePosition.x}%`,
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(236, 72, 153, 0.15) 0%, rgba(239, 68, 68, 0.08) 40%, transparent 70%)',
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          transition: 'none',
+          filter: 'blur(40px)',
+          willChange: 'transform'
+        }} />
+
+        {/* Ambient Glow - Center */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '800px',
+          height: '800px',
+          background: 'radial-gradient(circle, rgba(255, 215, 0, 0.05) 0%, transparent 70%)',
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          filter: 'blur(60px)'
         }} />
 
         {/* Floating particles */}
@@ -743,7 +816,8 @@ function LoginScreen() {
               height: `${particle.size}px`,
               left: `${particle.left}%`,
               top: `${particle.top}%`,
-              animation: `float ${particle.duration}s ease-in-out ${particle.delay}s infinite`
+              animation: `float ${particle.duration}s ease-in-out ${particle.delay}s infinite`,
+              opacity: 0.3 + Math.random() * 0.3
             }}
           />
         ))}
@@ -753,8 +827,8 @@ function LoginScreen() {
           position: 'absolute',
           inset: 0,
           backgroundImage: `
-          linear-gradient(90deg, rgba(255,215,0,0.05) 1px, transparent 1px),
-          linear-gradient(0deg, rgba(255,215,0,0.05) 1px, transparent 1px)
+          linear-gradient(90deg, rgba(255,215,0,0.03) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(255,215,0,0.03) 1px, transparent 1px)
         `,
           backgroundSize: '40px 40px',
           maskImage: 'radial-gradient(circle at center, black, transparent 70%)'

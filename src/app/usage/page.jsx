@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useSWRData } from "../utils/useSWRData";
+import { SkeletonTable } from "../components/SkeletonLoader";
 
 export default function UsagePage() {
-  const [items, setItems] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: usageData, isLoading: usageLoading, mutate: mutateUsage } = useSWRData("/api/usage");
+  const { data: prodData, isLoading: prodLoading } = useSWRData("/api/products");
+
+  const items = useMemo(() => (Array.isArray(usageData?.items) ? usageData.items : []), [usageData]);
+  const products = useMemo(() => (Array.isArray(prodData?.items) ? prodData.items : []), [prodData]);
+
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -13,7 +18,7 @@ export default function UsagePage() {
     CM_product_id: "",
     CM_quantity: 0,
     CM_unit_price: 0,
-    CM_total_amount: "", // optional, auto = qty * price
+    CM_total_amount: "",
     CM_usage_date: "",
     CM_created_by: "",
   });
@@ -32,29 +37,6 @@ export default function UsagePage() {
     if (Number(form.CM_unit_price) < 0) errs.push("CM_unit_price must be >= 0");
     return errs;
   };
-
-  async function load() {
-    try {
-      setLoading(true);
-      const [usageRes, prodRes] = await Promise.all([
-        fetch("/api/usage", { cache: "no-store" }),
-        fetch("/api/products", { cache: "no-store" }),
-      ]);
-      const usageData = await usageRes.json();
-      const prodData = await prodRes.json();
-      setItems(Array.isArray(usageData.items) ? usageData.items : []);
-      setProducts(Array.isArray(prodData.items) ? prodData.items : []);
-      setError("");
-    } catch (e) {
-      setError("Failed to load usage or products");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -84,7 +66,7 @@ export default function UsagePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.errors?.join?.(", ") || "Failed to create usage entry");
       setForm({ CM_project_id: "", CM_product_id: "", CM_quantity: 0, CM_unit_price: 0, CM_total_amount: "", CM_usage_date: "", CM_created_by: "" });
-      await load();
+      mutateUsage();
     } catch (e) {
       setError(String(e.message || e));
     } finally {
@@ -92,8 +74,13 @@ export default function UsagePage() {
     }
   }
 
-  const selectedProduct = products.find((p) => String(p.CM_product_id) === String(form.CM_product_id));
+  const selectedProduct = useMemo(
+    () => products.find((p) => String(p.CM_product_id) === String(form.CM_product_id)),
+    [products, form.CM_product_id]
+  );
+  
   const computedTotal = Number(form.CM_quantity || 0) * Number(form.CM_unit_price || 0);
+  const loading = usageLoading || prodLoading;
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -162,7 +149,7 @@ export default function UsagePage() {
           <span className="text-xs text-gray-500">{items.length} entries</span>
         </div>
         {loading ? (
-          <div className="text-sm text-gray-500">Loading...</div>
+          <SkeletonTable rows={5} cols={7} />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">

@@ -380,7 +380,6 @@ export default function ReportsPage() {
                       <th className="px-2 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300 w-1/3">Purpose / Product Needed</th>
                       <th className="px-2 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300">Product Name</th>
                       <th className="px-2 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300 text-center">Demo</th>
-                      <th className="px-2 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300 text-center">Visits</th>
                       <th className="px-2 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300 text-center">Status</th>
                       <th className="px-2 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300">Payment Details</th>
                     </tr>
@@ -407,11 +406,6 @@ export default function ReportsPage() {
                         <td className="px-2 py-1 text-center border border-slate-300">
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${row.demo_given === 'Yes' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
                             {row.demo_given === 'Yes' ? 'ON' : 'OFF'}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1 text-center border border-slate-300">
-                          <span className="font-mono text-[11px] font-bold text-slate-700">
-                            {row.visit_count}
                           </span>
                         </td>
                         <td className="px-2 py-1 text-center border border-slate-300">

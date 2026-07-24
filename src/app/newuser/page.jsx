@@ -24,6 +24,17 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "../store/useAuthScreenStore";
 import Navbar from "../components/Navbar";
 import { formatTitleCase, formatSentenceCase } from "../utils/textUtils";
+// Excel Row Component defined at top-level scope to prevent component re-creation and input focus loss on state updates
+const ExcelRow = ({ label, children, required }) => (
+    <div className="flex flex-col sm:flex-row border-b border-gray-300 last:border-b-0">
+        <div className="sm:w-1/3 bg-gray-100 p-3 text-sm font-medium text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-300 flex items-center">
+            {label} {required && <span className="text-red-500 ml-1">*</span>}
+        </div>
+        <div className="sm:w-2/3 bg-white relative">
+            {children}
+        </div>
+    </div>
+);
 
 function AddUser() {
     const { user } = useAuthStore();
@@ -406,18 +417,6 @@ function AddUser() {
             year: 'numeric',
         });
     };
-
-    // Excel Row Component
-    const ExcelRow = ({ label, children, required }) => (
-        <div className="flex flex-col sm:flex-row border-b border-gray-300 last:border-b-0">
-            <div className="sm:w-1/3 bg-gray-100 p-3 text-sm font-medium text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-300 flex items-center">
-                {label} {required && <span className="text-red-500 ml-1">*</span>}
-            </div>
-            <div className="sm:w-2/3 bg-white relative">
-                {children}
-            </div>
-        </div>
-    );
 
     const inputClasses = "w-full h-full px-3 py-2.5 text-sm text-gray-800 bg-transparent focus:outline-none focus:bg-blue-50 focus:ring-inset focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-50";
 

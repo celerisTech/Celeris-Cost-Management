@@ -6,6 +6,56 @@ import { useAuthStore } from "../store/useAuthScreenStore";
 import Navbar from '../components/Navbar'
 import toast from "react-hot-toast";
 
+const ExcelRow = ({ label, children, required }) => (
+  <div className="flex flex-col sm:flex-row border-b border-gray-300 last:border-b-0">
+    <div className="sm:w-1/3 bg-gray-100 p-3 text-sm font-medium text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-300 flex items-center">
+      {label} {required && <span className="text-red-500 ml-1">*</span>}
+    </div>
+    <div className="sm:w-2/3 bg-white relative flex items-center min-h-[42px]">
+      {children}
+    </div>
+  </div>
+);
+
+const inputClasses = "w-full h-full px-3 py-2.5 text-sm text-gray-800 bg-transparent focus:outline-none focus:bg-blue-50 focus:ring-inset focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-50";
+// User Avatar Component with Image & Name First Letter Fallback
+const UserAvatar = ({ src, name, size = "md", className = "" }) => {
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [src]);
+
+  const firstLetter = (name?.trim()?.[0] || "U").toUpperCase();
+
+  const sizeClasses = {
+    sm: "w-8 h-8 text-xs font-bold",
+    md: "w-10 h-10 text-sm font-bold",
+    lg: "w-16 h-16 text-xl font-black rounded-2xl",
+  };
+
+  const currentSizeClass = sizeClasses[size] || sizeClasses.md;
+
+  if (src && !imageError) {
+    return (
+      <img
+        src={src}
+        alt={name || "User"}
+        onError={() => setImageError(true)}
+        className={`${size === 'lg' ? 'rounded-2xl' : 'rounded-full'} object-cover ${className}`}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${currentSizeClass} ${size === 'lg' ? 'rounded-2xl' : 'rounded-full'} bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center shadow-sm shrink-0 uppercase select-none ${className}`}
+    >
+      {firstLetter}
+    </div>
+  );
+};
+
 export default function TeamsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -64,20 +114,25 @@ export default function TeamsPage() {
   };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === "CM_First_Name" || name === "CM_Last_Name") {
+        updated.CM_Full_Name = `${updated.CM_First_Name || ""} ${updated.CM_Last_Name || ""}`.trim();
+      }
+      return updated;
+    });
   };
 
   const handleImageUpload = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
 
-    // Check file type
     if (!selectedFile.type.startsWith('image/')) {
       toast.error("Please upload an image file (JPG, PNG, etc.)");
       return;
     }
 
-    // Check file size (max 5MB)
     if (selectedFile.size > 5 * 1024 * 1024) {
       toast.error("Image size should be less than 5MB");
       return;
@@ -90,7 +145,7 @@ export default function TeamsPage() {
       formData.append("image", selectedFile);
       formData.append("userId", form.CM_User_ID);
 
-      const res = await fetch("/api/teams", { // Changed from "/api/upload" to "/api/teams"
+      const res = await fetch("/api/teams", {
         method: "POST",
         body: formData,
       });
@@ -101,8 +156,6 @@ export default function TeamsPage() {
         setForm({ ...form, CM_Photo_URL: data.imageUrl });
         setImagePreview(data.imageUrl);
         toast.success("Image uploaded successfully!");
-
-        // Refresh members list to show updated image
         fetchMembers();
       } else {
         toast.error(data.error || "Failed to upload image");
@@ -115,7 +168,6 @@ export default function TeamsPage() {
     }
   };
 
-  // Update the removeImage function
   const removeImage = async () => {
     try {
       const res = await fetch("/api/teams", {
@@ -129,8 +181,6 @@ export default function TeamsPage() {
         setForm({ ...form, CM_Photo_URL: "" });
         setImagePreview("");
         toast.success("Image removed successfully!");
-
-        // Refresh members list
         fetchMembers();
       } else {
         toast.error(data.error || "Failed to remove image");
@@ -235,6 +285,54 @@ export default function TeamsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  // Role Ordering: Owner -> Manager -> Engineer -> Others
+  const getRoleOrder = (member) => {
+    const roleDesc = (member.CM_Role_Description || "").toLowerCase();
+    const laborRoll = (member.CM_Labor_Roll || "").toLowerCase();
+    const roleId = member.CM_Role_ID || "";
+
+    if (roleDesc.includes("owner") || roleDesc.includes("proprietor") || roleId === "ROL000001") {
+      return 1;
+    }
+    if (roleDesc.includes("manager") || roleId === "ROL000002") {
+      return 2;
+    }
+    if (roleDesc.includes("engineer") || laborRoll.includes("engineer") || roleId === "ROL000003") {
+      return 3;
+    }
+    return 4;
+  };
+
+  const getRoleBadgeStyle = (roleDesc, roleId) => {
+    const desc = (roleDesc || "").toLowerCase();
+    
+    if (desc.includes("owner") || desc.includes("proprietor") || roleId === "ROL000001") {
+      return "bg-purple-100 text-purple-800 border-purple-200";
+    }
+    if (desc.includes("manager") || roleId === "ROL000002") {
+      return "bg-blue-100 text-blue-800 border-blue-200";
+    }
+    if (desc.includes("engineer") || roleId === "ROL000003") {
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    }
+    if (desc.includes("sales") || desc.includes("executive")) {
+      return "bg-amber-100 text-amber-800 border-amber-200";
+    }
+    if (desc.includes("admin")) {
+      return "bg-rose-100 text-rose-800 border-rose-200";
+    }
+    return "bg-indigo-100 text-indigo-800 border-indigo-200";
+  };
+
+  const sortedMembers = [...filteredMembers].sort((a, b) => {
+    const orderA = getRoleOrder(a);
+    const orderB = getRoleOrder(b);
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return (a.CM_Full_Name || "").localeCompare(b.CM_Full_Name || "");
+  });
+
   // Calculate statistics
   const totalUsers = members.length;
   const activeUsers = members.filter(m => m.CM_Is_Active === "Active").length;
@@ -319,17 +417,14 @@ export default function TeamsPage() {
           {/* Notification Modal Overlay */}
           {showNotificationPanel && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              {/* Backdrop */}
               <div
                 className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
                 onClick={() => setShowNotificationPanel(false)}
               />
 
-              {/* Modal Content */}
               <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden relative z-10 animate-scaleIn flex flex-col border border-white/20">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
 
-                {/* Modal Header */}
                 <div className="flex justify-between items-center px-8 py-6 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex items-center gap-4">
                     <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
@@ -352,11 +447,9 @@ export default function TeamsPage() {
                   </button>
                 </div>
 
-                {/* Modal Body */}
                 <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                   <div className="space-y-8">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                      {/* Left Side: Message & File */}
                       <div className="space-y-6">
                         <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Broadcast Message</label>
@@ -414,7 +507,6 @@ export default function TeamsPage() {
                         </div>
                       </div>
 
-                      {/* Right Side: User Selection */}
                       <div className="flex flex-col h-[400px]">
                         <div className="flex items-center justify-between mb-4">
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Recipients</label>
@@ -477,7 +569,6 @@ export default function TeamsPage() {
                   </div>
                 </div>
 
-                {/* Modal Footer */}
                 <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-4">
                   <button
                     onClick={() => setShowNotificationPanel(false)}
@@ -537,7 +628,7 @@ export default function TeamsPage() {
           </div>
 
           {/* Members Display */}
-          {filteredMembers.length === 0 ? (
+          {sortedMembers.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-md p-20 text-center border border-slate-100">
               <div className="mx-auto w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
                 <Search size={32} className="text-slate-300" />
@@ -554,26 +645,27 @@ export default function TeamsPage() {
                     <tr>
                       <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100">Member</th>
                       <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100">Contact</th>
-                      <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100">Desiganetion</th>
+                      <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100">Designation</th>
                       <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100 text-center">Status</th>
                       <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredMembers.map((m, idx) => (
+                    {sortedMembers.map((m, idx) => (
                       <tr key={m.CM_User_ID} className={idx % 2 === 0 ? "bg-white hover:bg-blue-50" : "bg-gray-50 hover:bg-blue-50"}>
                         <td className="px-3 py-2 border border-gray-300">
                           <div className="flex items-center gap-3">
                             <div className="relative">
-                              <img
-                                src={m.CM_Photo_URL || "/default-avatar.png"}
-                                className="w-8 h-8 rounded-full object-cover border border-gray-300"
+                              <UserAvatar
+                                src={m.CM_Photo_URL}
+                                name={m.CM_Full_Name}
+                                size="sm"
+                                className="w-8 h-8 border border-gray-300"
                               />
                               <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white ${m.CM_Is_Active === "Active" ? "bg-emerald-500" : "bg-red-500"}`} />
                             </div>
                             <div>
                               <p className="font-semibold text-sm text-gray-900">{m.CM_Full_Name}</p>
-                              <p className="text-xs text-gray-500">{m.CM_Role_Description}</p>
                             </div>
                           </div>
                         </td>
@@ -584,7 +676,14 @@ export default function TeamsPage() {
                           </div>
                         </td>
                         <td className="px-3 py-2 border border-gray-300 text-sm text-gray-700">
-                          {m.CM_Labor_Roll || "-"}
+                          <div className="flex flex-col items-start gap-1">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-bold rounded-md border ${getRoleBadgeStyle(m.CM_Role_Description, m.CM_Role_ID)}`}>
+                              {m.CM_Role_Description || "-"}
+                            </span>
+                            {m.CM_Labor_Roll && m.CM_Labor_Roll !== m.CM_Role_Description && (
+                              <span className="text-xs text-gray-500 font-medium pl-0.5">{m.CM_Labor_Roll}</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 border border-gray-300 text-center">
                           <span className={`px-2 py-0.5 rounded text-xs font-semibold ${m.CM_Is_Active === "Active" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
@@ -610,7 +709,7 @@ export default function TeamsPage() {
 
               {/* Mobile Grid View */}
               <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {filteredMembers.map((m) => (
+                {sortedMembers.map((m) => (
                   <div key={m.CM_User_ID} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm active:scale-95 transition-transform relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4">
                       <button
@@ -624,13 +723,15 @@ export default function TeamsPage() {
                       </button>
                     </div>
                     <div className="flex items-center gap-4 mb-4">
-                      <img
-                        src={m.CM_Photo_URL || "/default-avatar.png"}
-                        className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg"
+                      <UserAvatar
+                        src={m.CM_Photo_URL}
+                        name={m.CM_Full_Name}
+                        size="lg"
+                        className="w-16 h-16 border-2 border-white shadow-lg"
                       />
                       <div className="min-w-0">
                         <h4 className="font-black text-slate-900 truncate">{m.CM_Full_Name}</h4>
-                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        <span className={`text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded-md border inline-block ${getRoleBadgeStyle(m.CM_Role_Description, m.CM_Role_ID)}`}>
                           {m.CM_Role_Description}
                         </span>
                       </div>
@@ -638,7 +739,7 @@ export default function TeamsPage() {
                     <div className="space-y-2 pt-4 border-t border-slate-50">
                       <div className="flex items-center text-xs font-bold text-slate-600">
                         <Briefcase size={14} className="mr-3 text-slate-400" />
-                        {m.CM_Labor_Roll || "-"}
+                        <span>Role: {m.CM_Role_Description}{m.CM_Labor_Roll && m.CM_Labor_Roll !== m.CM_Role_Description ? ` (${m.CM_Labor_Roll})` : ''}</span>
                       </div>
                       <div className="flex items-center text-xs font-bold text-slate-600">
                         <Mail size={14} className="mr-3 text-slate-400" />
@@ -669,57 +770,174 @@ export default function TeamsPage() {
             </div>
           )}
 
-          {/* Edit Modal */}
+          {/* Edit Modal (New User Page Grid Style Design) */}
           {editingUser && (
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-              <div className="bg-white text-black rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+              <div className="bg-white text-black border border-gray-300 shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-300 bg-gray-100">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Edit User Profile</h2>
-                    <p className="text-gray-600 text-sm mt-1">Update user information and permissions</p>
+                    <h2 className="text-xl font-bold text-gray-800">Edit User Details</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Update user information in grid layout</p>
                   </div>
                   <button
                     onClick={() => setEditingUser(null)}
-                    className="text-gray-500 hover:text-gray-700 rounded-full p-2 hover:bg-gray-200 transition-colors"
+                    className="text-gray-500 hover:text-gray-700 p-1.5 rounded-md hover:bg-gray-200 transition-colors"
                   >
-                    <X size={24} />
+                    <X size={20} />
                   </button>
                 </div>
 
                 {/* Form Body */}
-                <div className="overflow-y-auto p-6 bg-gray-50">
-                  <div className="space-y-8">
+                <div className="overflow-y-auto p-4 bg-gray-50 flex-1">
+                  <div className="bg-white border border-gray-300 shadow-sm rounded-none overflow-hidden">
+                    
+                    {/* SECTION: Role & Status */}
+                    <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                      Role & Status
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                      <div className="border-r border-gray-300">
+                        <ExcelRow label="User Role" required>
+                          <select
+                            name="CM_Role_ID"
+                            value={form.CM_Role_ID || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                            required
+                          >
+                            <option value="" disabled>Select Role...</option>
+                            {roles.map((r) => (
+                              <option key={r.CM_Role_ID} value={r.CM_Role_ID}>
+                                {r.CM_Role_Description}
+                              </option>
+                            ))}
+                          </select>
+                        </ExcelRow>
+                      </div>
+                      <div>
+                        <ExcelRow label="Account Status">
+                          <select
+                            name="CM_Is_Active"
+                            value={form.CM_Is_Active || "Active"}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          >
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                          </select>
+                        </ExcelRow>
+                      </div>
+                    </div>
 
-                    {/* Profile Picture Section */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
-                        <div className="w-2 h-6 bg-pink-500 rounded-full mr-3"></div>
-                        Profile Picture
-                      </h3>
-                      <div className="flex flex-col items-center">
-                        <div className="relative group mb-4">
+                    {/* SECTION: Personal Information */}
+                    <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                      Personal Information
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                      <div className="border-r border-gray-300 flex flex-col">
+                        <ExcelRow label="First Name" required>
+                          <input
+                            type="text"
+                            name="CM_First_Name"
+                            value={form.CM_First_Name || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                            required
+                          />
+                        </ExcelRow>
+                        <ExcelRow label="Last Name" required>
+                          <input
+                            type="text"
+                            name="CM_Last_Name"
+                            value={form.CM_Last_Name || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                            required
+                          />
+                        </ExcelRow>
+                        <ExcelRow label="Full Name">
+                          <input
+                            type="text"
+                            name="CM_Full_Name"
+                            value={form.CM_Full_Name || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                        <ExcelRow label="Father's Name">
+                          <input
+                            type="text"
+                            name="CM_Father_Name"
+                            value={form.CM_Father_Name || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                      </div>
+                      <div className="flex flex-col">
+                        <ExcelRow label="Date of Birth">
+                          <input
+                            type="date"
+                            name="CM_Date_Of_Birth"
+                            value={form.CM_Date_Of_Birth || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                        <ExcelRow label="Gender">
+                          <select
+                            name="CM_Gender"
+                            value={form.CM_Gender || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          >
+                            <option value="">Select Gender...</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </ExcelRow>
+                        <ExcelRow label="Marriage Status">
+                          <select
+                            name="CM_Marriage_Status"
+                            value={form.CM_Marriage_Status || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          >
+                            <option value="">Select Status...</option>
+                            <option value="Single">Single</option>
+                            <option value="Married">Married</option>
+                            <option value="Divorced">Divorced</option>
+                            <option value="Widowed">Widowed</option>
+                          </select>
+                        </ExcelRow>
+                      </div>
+                    </div>
+
+                    {/* SECTION: Photo Upload */}
+                    <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                      Photo Upload
+                    </div>
+                    <div className="border-b border-gray-300 bg-white p-4">
+                      <div className="flex flex-col sm:flex-row items-center gap-6">
+                        <div className="relative group">
                           <img
                             src={imagePreview || form.CM_Photo_URL || "/default-avatar.png"}
                             alt="Profile"
-                            className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg group-hover:opacity-80 transition-opacity duration-200"
+                            className="w-20 h-20 rounded-full object-cover border border-gray-300 shadow-sm"
                           />
-                          <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                            <Camera className="text-white" size={32} />
-                          </div>
                           <span
-                            className={`absolute bottom-0 right-0 rounded-full w-6 h-6 border-2 border-white ${form.CM_Is_Active === "Active" ? "bg-green-500" : "bg-red-500"
-                              }`}
-                          ></span>
+                            className={`absolute bottom-0 right-0 rounded-full w-3.5 h-3.5 border-2 border-white ${
+                              form.CM_Is_Active === "Active" ? "bg-green-500" : "bg-red-500"
+                            }`}
+                          />
                         </div>
 
-                        <div className="flex flex-col items-center gap-3 w-full max-w-md">
-                          <label className="flex flex-col items-center cursor-pointer bg-gray-100 hover:bg-gray-200 px-6 py-4 rounded-xl transition-all duration-200 border border-gray-300 border-dashed w-full">
-                            <div className="flex items-center">
-                              <Upload size={20} className="mr-3 text-gray-600" />
-                              <span className="text-gray-700 font-medium">Upload New Photo</span>
-                            </div>
-                            <span className="text-sm text-gray-500 mt-1">JPEG, PNG, GIF, WebP (Max 5MB)</span>
+                        <div className="flex flex-col gap-2">
+                          <label className="flex items-center cursor-pointer bg-white hover:bg-gray-50 px-4 py-2 rounded border border-gray-300 text-sm font-medium text-gray-700 shadow-sm transition-all w-fit">
+                            <Upload size={16} className="mr-2 text-gray-500" />
+                            <span>Upload New Photo</span>
                             <input
                               type="file"
                               className="hidden"
@@ -730,8 +948,8 @@ export default function TeamsPage() {
                           </label>
 
                           {uploadingImage && (
-                            <div className="flex items-center text-blue-600">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            <div className="flex items-center text-xs text-blue-600">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
                               Uploading...
                             </div>
                           )}
@@ -739,11 +957,8 @@ export default function TeamsPage() {
                           {form.CM_Photo_URL && !uploadingImage && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setForm({ ...form, CM_Photo_URL: '' });
-                                setImagePreview(null);
-                              }}
-                              className="text-sm text-red-600 hover:text-red-800 font-medium"
+                              onClick={removeImage}
+                              className="text-xs text-red-600 hover:text-red-800 font-medium text-left"
                             >
                               Remove Photo
                             </button>
@@ -752,328 +967,173 @@ export default function TeamsPage() {
                       </div>
                     </div>
 
-                    {/* Personal Information Section */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
-                        <div className="w-2 h-6 bg-blue-500 rounded-full mr-3"></div>
-                        Personal Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                    {/* SECTION: Contact Information */}
+                    <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                      Contact Information
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                      <div className="border-r border-gray-300 flex flex-col">
+                        <ExcelRow label="Phone Number" required>
                           <input
-                            type="text"
-                            name="CM_First_Name"
-                            value={form.CM_First_Name || ""}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+                            type="tel"
+                            name="CM_Phone_Number"
+                            maxLength={10}
+                            value={form.CM_Phone_Number || ""}
+                            onChange={(e) => handleChange({ target: { name: "CM_Phone_Number", value: e.target.value.replace(/\D/g, "") } })}
+                            className={inputClasses}
                             required
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                        </ExcelRow>
+                        <ExcelRow label="Email Address" required>
                           <input
-                            type="text"
-                            name="CM_Last_Name"
-                            value={form.CM_Last_Name || ""}
+                            type="email"
+                            name="CM_Email"
+                            value={form.CM_Email || ""}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+                            className={inputClasses}
                             required
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                        </ExcelRow>
+                      </div>
+                      <div className="flex flex-col">
+                        <ExcelRow label="Alt. Phone">
+                          <input
+                            type="tel"
+                            name="CM_Alternative_Phone"
+                            maxLength={10}
+                            value={form.CM_Alternative_Phone || ""}
+                            onChange={(e) => handleChange({ target: { name: "CM_Alternative_Phone", value: e.target.value.replace(/\D/g, "") } })}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                      </div>
+                    </div>
+
+                    {/* SECTION: Education & Experience */}
+                    <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                      Education & Experience
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                      <div className="border-r border-gray-300">
+                        <ExcelRow label="Higher Education">
                           <input
                             type="text"
-                            name="CM_Full_Name"
-                            value={form.CM_Full_Name || ""}
+                            name="CM_Higher_Education"
+                            value={form.CM_Higher_Education || ""}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+                            className={inputClasses}
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Father's Name</label>
+                        </ExcelRow>
+                      </div>
+                      <div>
+                        <ExcelRow label="Previous Experience">
                           <input
                             type="text"
-                            name="CM_Father_Name"
-                            value={form.CM_Father_Name || ""}
+                            name="CM_Previous_Experiences"
+                            value={form.CM_Previous_Experiences || ""}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+                            className={inputClasses}
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                          <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                              type="date"
-                              name="CM_Date_Of_Birth"
-                              value={form.CM_Date_Of_Birth || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                          <select
-                            name="CM_Gender"
-                            value={form.CM_Gender || ""}
+                        </ExcelRow>
+                      </div>
+                    </div>
+
+                    {/* SECTION: ID Documents */}
+                    <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                      ID Documents
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-gray-300">
+                      <div className="border-r border-gray-300">
+                        <ExcelRow label="Aadhaar Number">
+                          <input
+                            type="text"
+                            name="CM_Aadhaar_Number"
+                            maxLength={12}
+                            value={form.CM_Aadhaar_Number || ""}
+                            onChange={(e) => handleChange({ target: { name: "CM_Aadhaar_Number", value: e.target.value.replace(/\D/g, "") } })}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                      </div>
+                      <div>
+                        <ExcelRow label="PAN Number">
+                          <input
+                            type="text"
+                            name="CM_PAN_Number"
+                            maxLength={10}
+                            value={form.CM_PAN_Number || ""}
+                            onChange={(e) => handleChange({ target: { name: "CM_PAN_Number", value: e.target.value.toUpperCase() } })}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                      </div>
+                    </div>
+
+                    {/* SECTION: Address Information */}
+                    <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                      Address Information
+                    </div>
+                    <div className="border-b border-gray-300">
+                      <ExcelRow label="Complete Address">
+                        <textarea
+                          name="CM_Address"
+                          value={form.CM_Address || ""}
+                          onChange={handleChange}
+                          className={`${inputClasses} resize-y min-h-[60px]`}
+                          rows="2"
+                        />
+                      </ExcelRow>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2">
+                      <div className="border-r border-gray-300 flex flex-col">
+                        <ExcelRow label="City">
+                          <input
+                            type="text"
+                            name="CM_City"
+                            value={form.CM_City || ""}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                          >
-                            <option value="">Select Gender</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Contact Information */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
-                        <div className="w-2 h-6 bg-green-500 rounded-full mr-3"></div>
-                        Contact Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                              type="email"
-                              name="CM_Email"
-                              value={form.CM_Email || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                              type="text"
-                              name="CM_Phone_Number"
-                              value={form.CM_Phone_Number || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                              required
-                              maxLength={10}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Alternative Phone</label>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                              type="text"
-                              name="CM_Alternative_Phone"
-                              value={form.CM_Alternative_Phone || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                              maxLength={10}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                          <select
-                            name="CM_Role_ID"
-                            value={form.CM_Role_ID || ""}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                        <ExcelRow label="State">
+                          <input
+                            type="text"
+                            name="CM_State"
+                            value={form.CM_State || ""}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            required
-                          >
-                            <option value="">Select Role</option>
-                            {roles.map((role) => (
-                              <option key={role.CM_Role_ID} value={role.CM_Role_ID}>
-                                {role.CM_Role_Description}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                        <ExcelRow label="Postal Code">
+                          <input
+                            type="text"
+                            name="CM_Postal_Code"
+                            maxLength={6}
+                            value={form.CM_Postal_Code || ""}
+                            onChange={(e) => handleChange({ target: { name: "CM_Postal_Code", value: e.target.value.replace(/\D/g, "") } })}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
                       </div>
-                    </div>
-
-                    {/* Education & Experience */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
-                        <div className="w-2 h-6 bg-amber-500 rounded-full mr-3"></div>
-                        Education & Experience
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Higher Education</label>
-                          <div className="relative">
-                            <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                              type="text"
-                              name="CM_Higher_Education"
-                              value={form.CM_Higher_Education || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Previous Experiences</label>
-                          <div className="relative">
-                            <Briefcase className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <textarea
-                              name="CM_Previous_Experiences"
-                              value={form.CM_Previous_Experiences || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white resize-none"
-                              rows="3"
-                              placeholder="Describe previous work experiences..."
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ID Documents */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
-                        <div className="w-2 h-6 bg-purple-500 rounded-full mr-3"></div>
-                        ID Documents
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Aadhaar Number</label>
-                          <div className="relative">
-                            <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                              type="text"
-                              name="CM_Aadhaar_Number"
-                              value={form.CM_Aadhaar_Number || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                              maxLength={12}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number</label>
-                          <div className="relative">
-                            <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                              type="text"
-                              name="CM_PAN_Number"
-                              value={form.CM_PAN_Number || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white uppercase"
-                              maxLength={10}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Address Information */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
-                        <div className="w-2 h-6 bg-indigo-500 rounded-full mr-3"></div>
-                        Address Information
-                      </h3>
-                      <div className="space-y-6">
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                          <div className="relative">
-                            <MapPin className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <textarea
-                              name="CM_Address"
-                              value={form.CM_Address || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl pl-10 p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white resize-none"
-                              rows="2"
-                              placeholder="Enter complete address..."
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                            <input
-                              type="text"
-                              name="CM_City"
-                              value={form.CM_City || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
-                            <input
-                              type="text"
-                              name="CM_District"
-                              value={form.CM_District || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                            <input
-                              type="text"
-                              name="CM_State"
-                              value={form.CM_State || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
-                            <input
-                              type="text"
-                              name="CM_Postal_Code"
-                              value={form.CM_Postal_Code || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                              maxLength={6}
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1">
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                            <input
-                              type="text"
-                              name="CM_Country"
-                              value={form.CM_Country || ""}
-                              onChange={handleChange}
-                              className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* System Information */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
-                        <div className="w-2 h-6 bg-gray-500 rounded-full mr-3"></div>
-                        System Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                          <select
-                            name="CM_Is_Active"
-                            value={form.CM_Is_Active || "Active"}
+                      <div className="flex flex-col">
+                        <ExcelRow label="District">
+                          <input
+                            type="text"
+                            name="CM_District"
+                            value={form.CM_District || ""}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                          >
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                          </select>
-                        </div>
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
+                        <ExcelRow label="Country">
+                          <input
+                            type="text"
+                            name="CM_Country"
+                            value={form.CM_Country || ""}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          />
+                        </ExcelRow>
                       </div>
                     </div>
 
@@ -1081,16 +1141,16 @@ export default function TeamsPage() {
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="flex justify-end gap-4 p-6 border-t border-gray-200 bg-white">
+                <div className="flex justify-end gap-3 px-6 py-3 border-t border-gray-300 bg-gray-100">
                   <button
                     onClick={() => setEditingUser(null)}
-                    className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-all duration-200 font-medium shadow-sm hover:shadow"
+                    className="px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 transition-colors shadow-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSave}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 font-medium hover:from-blue-700 hover:to-indigo-700"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors shadow-sm"
                   >
                     Save Changes
                   </button>
@@ -1120,4 +1180,4 @@ export default function TeamsPage() {
       </div>
     </div>
   );
-}
+}

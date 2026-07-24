@@ -54,6 +54,33 @@ export default function PaymentsPage() {
   const [leadSearchText, setLeadSearchText] = useState("");
   const [showLeadSuggestions, setShowLeadSuggestions] = useState(false);
 
+  // Custom Confirmation Modal State
+  const [confirmConfig, setConfirmConfig] = useState({
+    show: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'danger',
+    onConfirm: null
+  });
+
+  const showConfirm = ({ title, message, confirmText = 'Yes, Delete', cancelText = 'Cancel', type = 'danger', onConfirm }) => {
+    setConfirmConfig({
+      show: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      type,
+      onConfirm
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, show: false }));
+  };
+
   const filteredLeads = leads.filter(l =>
     l.CM_Client_Name?.toLowerCase().includes(leadSearchText.toLowerCase()) ||
     l.CM_Company_Name?.toLowerCase().includes(leadSearchText.toLowerCase())
@@ -204,22 +231,29 @@ export default function PaymentsPage() {
     }
   };
 
-  const handleDelete = async (paymentId) => {
-    if (!confirm("Are you sure?")) return;
-    try {
-      const res = await fetch(`/api/sales-payments?_method=DELETE`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ CM_Payment_ID: paymentId, CM_Updated_By: user?.id })
-      });
-      if (res.ok) {
-        toast.success("Payment deleted");
-        fetchPayments();
-        fetchStats();
+  const handleDelete = (paymentId) => {
+    showConfirm({
+      title: "Delete Payment Record?",
+      message: "Are you sure you want to delete this payment record? This action cannot be undone.",
+      confirmText: "Yes, Delete Payment",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/sales-payments?_method=DELETE`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ CM_Payment_ID: paymentId, CM_Updated_By: user?.id })
+          });
+          if (res.ok) {
+            toast.success("Payment deleted");
+            fetchPayments();
+            fetchStats();
+          }
+        } catch (error) {
+          toast.error("Delete failed");
+        }
       }
-    } catch (error) {
-      toast.error("Delete failed");
-    }
+    });
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -659,6 +693,74 @@ export default function PaymentsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Custom Confirmation Alert Modal */}
+      {confirmConfig.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all scale-100">
+            {/* Top Indicator Bar */}
+            <div className={`h-2.5 w-full ${
+              confirmConfig.type === 'danger'
+                ? 'bg-gradient-to-r from-rose-500 to-red-600'
+                : 'bg-gradient-to-r from-amber-400 to-orange-500'
+            }`} />
+
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                  confirmConfig.type === 'danger'
+                    ? 'bg-rose-100 text-rose-600'
+                    : 'bg-amber-100 text-amber-600'
+                }`}>
+                  <AlertCircle size={26} />
+                </div>
+
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {confirmConfig.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {confirmConfig.message}
+                  </p>
+                </div>
+
+                <button
+                  onClick={closeConfirm}
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeConfirm}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-all"
+                >
+                  {confirmConfig.cancelText || "Cancel"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const action = confirmConfig.onConfirm;
+                    closeConfirm();
+                    if (action) action();
+                  }}
+                  className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 text-white ${
+                    confirmConfig.type === 'danger'
+                      ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                      : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
+                  }`}
+                >
+                  {confirmConfig.confirmText || "Confirm"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

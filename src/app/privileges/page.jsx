@@ -3,9 +3,58 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { useAuthStore } from "../store/useAuthScreenStore";
-import { FiSearch, FiUser, FiUsers, FiSmartphone, FiUserCheck, FiMail, FiUserX, FiCheckCircle, FiList, FiTarget, FiCheck, FiX, FiLock, FiGrid, FiBox, FiFilter, FiEye, FiEyeOff, FiChevronRight } from 'react-icons/fi';
+import { FiSearch, FiUser, FiUsers, FiSmartphone, FiUserCheck, FiMail, FiUserX, FiCheckCircle, FiList, FiTarget, FiCheck, FiX, FiLock, FiGrid, FiBox, FiFilter, FiEye, FiEyeOff, FiChevronRight, FiBriefcase, FiAlertCircle, FiXCircle } from 'react-icons/fi';
 import { BiSelectMultiple } from 'react-icons/bi';
 import { MdOutlineFilterList, MdGridView, MdList } from 'react-icons/md';
+
+const ExcelRow = ({ label, children, required }) => (
+  <div className="flex flex-col sm:flex-row border-b border-gray-300 last:border-b-0">
+    <div className="sm:w-1/3 bg-gray-100 p-3 text-sm font-medium text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-300 flex items-center">
+      {label} {required && <span className="text-red-500 ml-1">*</span>}
+    </div>
+    <div className="sm:w-2/3 bg-white relative flex items-center min-h-[42px] px-3 py-2">
+      {children}
+    </div>
+  </div>
+);
+
+// User Avatar Component with Image & Name First Letter Fallback
+const UserAvatar = ({ src, name, size = "md", className = "" }) => {
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [src]);
+
+  const firstLetter = (name?.trim()?.[0] || "U").toUpperCase();
+
+  const sizeClasses = {
+    sm: "w-8 h-8 text-xs font-bold",
+    md: "w-10 h-10 text-sm font-bold",
+    lg: "w-16 h-16 text-xl font-black rounded-2xl",
+  };
+
+  const currentSizeClass = sizeClasses[size] || sizeClasses.md;
+
+  if (src && !imageError) {
+    return (
+      <img
+        src={src}
+        alt={name || "User"}
+        onError={() => setImageError(true)}
+        className={`${size === 'lg' ? 'rounded-2xl' : 'rounded-full'} object-cover ${className}`}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${currentSizeClass} ${size === 'lg' ? 'rounded-2xl' : 'rounded-full'} bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center shadow-sm shrink-0 uppercase select-none ${className}`}
+    >
+      {firstLetter}
+    </div>
+  );
+};
 
 const PrivilegeAssignment = () => {
   const [navigationLinks, setNavigationLinks] = useState([]);
@@ -14,6 +63,23 @@ const PrivilegeAssignment = () => {
   const [message, setMessage] = useState('');
   const [sections, setSections] = useState([]);
   const { user, setUser } = useAuthStore();
+  const [assignmentMode, setAssignmentMode] = useState('user'); // 'user' or 'role'
+
+  // Custom Alert Modal State
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    type: 'success', // 'success' | 'error' | 'warning'
+    title: '',
+    message: ''
+  });
+
+  const showAlert = (type, title, message) => {
+    setAlertConfig({ show: true, type, title, message });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig(prev => ({ ...prev, show: false }));
+  };
 
   // User search states
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,6 +99,32 @@ const PrivilegeAssignment = () => {
   // View mode state
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
+  // Role ordering: Owner -> Manager -> Engineer -> Others
+  const getRoleOrder = (userItem) => {
+    const roleDesc = (userItem.CM_Role_Description || "").toLowerCase();
+    const roleId = userItem.CM_Role_ID || "";
+
+    if (roleDesc.includes("owner") || roleDesc.includes("proprietor") || roleId === "ROL000001") {
+      return 1;
+    }
+    if (roleDesc.includes("manager") || roleId === "ROL000002") {
+      return 2;
+    }
+    if (roleDesc.includes("engineer") || roleId === "ROL000003") {
+      return 3;
+    }
+    return 4;
+  };
+
+  const sortedSearchResults = [...searchResults].sort((a, b) => {
+    const orderA = getRoleOrder(a);
+    const orderB = getRoleOrder(b);
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return (a.CM_Full_Name || "").localeCompare(b.CM_Full_Name || "");
+  });
+
   // Fetch all navigation links and users on component mount
   useEffect(() => {
     fetchNavigationLinks();
@@ -42,7 +134,7 @@ const PrivilegeAssignment = () => {
   // Fetch existing privileges when user is selected
   useEffect(() => {
     if (selectedUser) {
-      fetchExistingPrivileges();
+      fetchExistingPrivileges(selectedUser, assignmentMode);
     }
   }, [selectedUser]);
 
@@ -144,10 +236,11 @@ const PrivilegeAssignment = () => {
     }
   };
 
-  const fetchExistingPrivileges = async () => {
+  const fetchExistingPrivileges = async (targetUser = selectedUser, modeToFetch = assignmentMode) => {
+    if (!targetUser) return;
     try {
       setLoading(true);
-      const response = await axios.get(`/api/user-privileges?userId=${selectedUser.CM_User_ID}&roleId=${selectedUser.CM_Role_ID}`);
+      const response = await axios.get(`/api/user-privileges?userId=${targetUser.CM_User_ID}&roleId=${targetUser.CM_Role_ID}&mode=${modeToFetch}&_t=${Date.now()}`);
       if (response.data.success) {
         setExistingPrivileges(response.data.data);
         setSelectedPrivileges(response.data.data.map(priv => priv.CM_Nav_Link_ID));
@@ -159,13 +252,23 @@ const PrivilegeAssignment = () => {
     }
   };
 
-  const handleUserSelect = (user) => {
-    setSelectedUser(user);
+  const handleAssignmentModeChange = (newMode) => {
+    if (newMode === assignmentMode) return;
+    setAssignmentMode(newMode);
+    if (selectedUser) {
+      fetchExistingPrivileges(selectedUser, newMode);
+    }
+  };
+
+  const handleUserSelect = (userItem) => {
+    setSelectedUser(userItem);
     setSearchTerm('');
     setMessage('');
     setActiveSection('all');
     setSearchNavbar('');
     setViewMode('grid');
+    setAssignmentMode('user');
+    fetchExistingPrivileges(userItem, 'user');
   };
 
   const handlePrivilegeToggle = (navLinkId) => {
@@ -228,7 +331,9 @@ const PrivilegeAssignment = () => {
     e.preventDefault();
 
     if (!selectedUser) {
-      setMessage('Please select a user first');
+      const msg = 'Please select a user first before assigning privileges.';
+      setMessage(msg);
+      showAlert('warning', 'User Selection Required', msg);
       return;
     }
 
@@ -242,12 +347,15 @@ const PrivilegeAssignment = () => {
         companyId: selectedUser.CM_Company_ID,
         navLinkIds: selectedPrivileges,
         createdBy: user?.CM_Full_Name || "",
+        assignmentMode: assignmentMode,
       };
 
       const response = await axios.post('/api/assign-privileges', privilegeData);
 
       if (response.data.success) {
-        setMessage(`✅ Successfully assigned ${selectedPrivileges.length} privileges to ${selectedUser.CM_Full_Name}`);
+        const successMsg = `Successfully assigned ${selectedPrivileges.length} privilege(s) in ${assignmentMode === 'user' ? 'User-Specific' : 'Role-Default'} mode for ${selectedUser.CM_Full_Name}.`;
+        setMessage(`✅ ${successMsg}`);
+        showAlert('success', 'Privileges Updated Successfully', successMsg);
         fetchExistingPrivileges();
 
         // If assigning to self, force refresh sidebar
@@ -258,11 +366,15 @@ const PrivilegeAssignment = () => {
           }
         }
       } else {
-        setMessage(`❌ ${response.data.message || 'Failed to assign privileges'}`);
+        const errorMsg = response.data.message || 'Failed to assign privileges';
+        setMessage(`❌ ${errorMsg}`);
+        showAlert('error', 'Assignment Failed', errorMsg);
       }
     } catch (error) {
       console.error('Error assigning privileges:', error);
-      setMessage(`❌ ${error.response?.data?.message || 'Error assigning privileges'}`);
+      const errorMsg = error.response?.data?.message || 'Error occurred while assigning privileges';
+      setMessage(`❌ ${errorMsg}`);
+      showAlert('error', 'Error Occurred', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -276,6 +388,7 @@ const PrivilegeAssignment = () => {
     setActiveSection('all');
     setSearchNavbar('');
     setViewMode('grid');
+    setAssignmentMode('user');
   };
 
   const getPrivilegeCountBySection = (section) => {
@@ -329,156 +442,193 @@ const PrivilegeAssignment = () => {
             {/* User Search Section */}
             {!selectedUser ? (
               <div className="p-2 sm:p-2 md:p-2">
-                  {/* Search & Filter Bar */}
-                  <div className="flex flex-col lg:flex-row gap-4 mb-3">
-                    <div className="relative flex-1">
-                      <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-                      <input
-                        type="text"
-                        placeholder="Search by name, ID, mobile or email..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full py-3 pl-12 pr-4 bg-white border border-slate-400 rounded-xl
+                {/* Search & Filter Bar */}
+                <div className="flex flex-col lg:flex-row gap-4 mb-3">
+                  <div className="relative flex-1">
+                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, ID, mobile or email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full py-3 pl-12 pr-4 bg-white border border-slate-400 rounded-xl
                                  focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50
                                  placeholder-gray-400 text-sm font-medium transition-all"
-                      />
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <div className="relative min-w-[200px]">
-                        <select
-                          value={selectedRole}
-                          onChange={(e) => setSelectedRole(e.target.value)}
-                          className="w-full py-3 pl-10 pr-10 bg-white border border-slate-400 rounded-xl
-                                   focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50
-                                   appearance-none text-sm font-bold text-slate-700 cursor-pointer transition-all"
-                        >
-                          <option value="all">All Roles</option>
-                          {roles.map(role => (
-                            <option key={role} value={role}>{role}</option>
-                          ))}
-                        </select>
-                        <FiUserCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <MdOutlineFilterList className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                      </div>
-                      
-                      <button
-                        onClick={fetchAllUsers}
-                        className="px-6 py-3 bg-white border border-slate-400 text-slate-600 rounded-xl
-                                 hover:bg-slate-50 hover:text-blue-600 font-bold text-sm transition-all shadow-sm"
-                      >
-                        Refresh
-                      </button>
-                    </div>
+                    />
                   </div>
 
-                  {/* Search Results Display */}
-                  {searchResults.length > 0 ? (
-                    <div className="space-y-6">
-                      {/* Desktop Excel-Style Table */}
-                      <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-                        <table className="w-full text-left border-collapse">
-                          <thead className="bg-slate-50">
-                            <tr>
-                              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b">User Details</th>
-                              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b">Role</th>
-                              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b">Contact Info</th>
-                              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b text-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                            {searchResults.map((user) => (
-                              <tr 
-                                key={user.CM_User_ID} 
-                                onClick={() => handleUserSelect(user)}
-                                className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
-                              >
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <div>
-                                      <p className="font-bold text-slate-900">{user.CM_Full_Name}</p>
-                                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">{user.CM_User_ID}</p>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-black rounded uppercase border border-slate-200">
-                                    {user.CM_Role_Description}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="space-y-0.5">
-                                    <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                      <FiSmartphone size={12} className="text-slate-400" /> {user.CM_Phone_Number}
-                                    </p>
-                                    <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                                      <FiMail size={12} className="text-slate-400" /> {user.CM_Email}
-                                    </p>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                  <button className="p-2 rounded-lg text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 transition-all">
-                                    <FiCheckCircle size={20} />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                  <div className="flex gap-3">
+                    <div className="relative min-w-[200px]">
+                      <select
+                        value={selectedRole}
+                        onChange={(e) => setSelectedRole(e.target.value)}
+                        className="w-full py-3 pl-10 pr-10 bg-white border border-slate-400 rounded-xl
+                                   focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50
+                                   appearance-none text-sm font-bold text-slate-700 cursor-pointer transition-all"
+                      >
+                        <option value="all">All Roles</option>
+                        {roles.map(role => (
+                          <option key={role} value={role}>{role}</option>
+                        ))}
+                      </select>
+                      <FiUserCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <MdOutlineFilterList className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
 
-                      {/* Mobile Grid View */}
-                      <div className="md:hidden grid grid-cols-1 gap-4">
-                        {searchResults.map((user) => (
-                          <div
-                            key={user.CM_User_ID}
-                            onClick={() => handleUserSelect(user)}
-                            className="bg-white border border-slate-200 rounded-2xl p-5 active:scale-95 transition-transform shadow-sm"
-                          >
-                            <div className="flex items-center gap-4 mb-4">
-                              <div className="h-12 w-12 rounded-xl bg-blue-500 flex items-center justify-center text-white font-black text-xl">
-                                {user.CM_Full_Name?.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-black text-slate-900 truncate">{user.CM_Full_Name}</h4>
-                                <p className="text-xs font-bold text-blue-600">{user.CM_Role_Description}</p>
-                              </div>
-                              <FiChevronRight className="text-slate-300" />
-                            </div>
-                            <div className="space-y-2 pt-4 border-t border-slate-100">
-                              <div className="flex items-center gap-3 text-slate-600">
-                                <FiSmartphone className="text-slate-400" size={14} />
-                                <span className="text-sm font-medium">{user.CM_Phone_Number}</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-slate-600">
-                                <FiMail className="text-slate-400" size={14} />
-                                <span className="text-sm font-medium truncate">{user.CM_Email}</span>
-                              </div>
+                    <button
+                      onClick={fetchAllUsers}
+                      className="px-6 py-3 bg-white border border-slate-400 text-slate-600 rounded-xl
+                                 hover:bg-slate-50 hover:text-blue-600 font-bold text-sm transition-all shadow-sm"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search Results Display */}
+                {sortedSearchResults.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block bg-white shadow-sm border border-gray-300 overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-max">
+                        <thead>
+                          <tr>
+                            <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100">Member</th>
+                            <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100">Contact</th>
+                            <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100">Designation</th>
+                            <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100 text-center">Status</th>
+                            <th className="px-3 py-2 border border-gray-300 text-sm font-semibold text-gray-700 bg-gray-100 text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedSearchResults.map((u, idx) => (
+                            <tr
+                              key={u.CM_User_ID}
+                              onClick={() => handleUserSelect(u)}
+                              className={idx % 2 === 0 ? "bg-white hover:bg-blue-50 cursor-pointer" : "bg-gray-50 hover:bg-blue-50 cursor-pointer"}
+                            >
+                              <td className="px-3 py-2 border border-gray-300">
+                                <div className="flex items-center gap-3">
+                                  <div className="relative">
+                                    <UserAvatar
+                                      src={u.CM_Photo_URL}
+                                      name={u.CM_Full_Name}
+                                      size="sm"
+                                      className="w-8 h-8 border border-gray-300"
+                                    />
+                                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white ${u.CM_Is_Active === "Active" ? "bg-emerald-500" : "bg-red-500"}`} />
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-sm text-gray-900">{u.CM_Full_Name}</p>
+                                    <p className="text-xs text-gray-500">{u.CM_Role_Description}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 border border-gray-300">
+                                <div className="text-sm text-gray-700">
+                                  <div>{u.CM_Email}</div>
+                                  <div className="text-gray-500">{u.CM_Phone_Number}</div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 border border-gray-300 text-sm text-gray-700">
+                                {u.CM_Role_Description || "-"}
+                              </td>
+                              <td className="px-3 py-2 border border-gray-300 text-center">
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.CM_Is_Active === "Active" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
+                                  {u.CM_Is_Active || "Active"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 border border-gray-300 text-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUserSelect(u);
+                                  }}
+                                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded shadow-sm transition-colors"
+                                >
+                                  Assign Privileges
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Grid View */}
+                    <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {sortedSearchResults.map((u) => (
+                        <div
+                          key={u.CM_User_ID}
+                          onClick={() => handleUserSelect(u)}
+                          className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm active:scale-95 transition-transform relative overflow-hidden cursor-pointer"
+                        >
+                          <div className="flex items-center gap-4 mb-4">
+                            <UserAvatar
+                              src={u.CM_Photo_URL}
+                              name={u.CM_Full_Name}
+                              size="lg"
+                              className="w-16 h-16 border-2 border-white shadow-lg"
+                            />
+                            <div className="min-w-0">
+                              <h4 className="font-black text-slate-900 truncate">{u.CM_Full_Name}</h4>
+                              <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                                {u.CM_Role_Description}
+                              </span>
                             </div>
                           </div>
-                        ))}
-                      </div>
+                          <div className="space-y-2 pt-4 border-t border-slate-50">
+                            <div className="flex items-center text-xs font-bold text-slate-600">
+                              <FiBriefcase size={14} className="mr-3 text-slate-400" />
+                              {u.CM_Role_Description || "-"}
+                            </div>
+                            <div className="flex items-center text-xs font-bold text-slate-600">
+                              <FiMail size={14} className="mr-3 text-slate-400" />
+                              {u.CM_Email}
+                            </div>
+                            <div className="flex items-center text-xs font-bold text-slate-600">
+                              <FiSmartphone size={14} className="mr-3 text-slate-400" />
+                              {u.CM_Phone_Number}
+                            </div>
+                          </div>
+                          <div className="mt-6 flex items-center justify-between">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${u.CM_Is_Active === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                              {u.CM_Is_Active || "Active"}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUserSelect(u);
+                              }}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm"
+                            >
+                              Assign
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ) : searchLoading || loading ? (
-                    <div className="flex flex-col justify-center items-center h-64 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-b-blue-600"></div>
-                      <p className="mt-4 font-bold text-slate-500">Searching Users...</p>
+                  </div>
+                ) : searchLoading || loading ? (
+                  <div className="flex flex-col justify-center items-center h-64 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-b-blue-600"></div>
+                    <p className="mt-4 font-bold text-slate-500">Searching Users...</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-20 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                      <FiUserX className="text-slate-300 text-3xl" />
                     </div>
-                  ) : (
-                    <div className="text-center py-20 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                        <FiUserX className="text-slate-300 text-3xl" />
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-800">No matching users</h3>
-                      <p className="text-slate-500 mt-1">Try adjusting your filters or search term</p>
-                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">No matching users</h3>
+                    <p className="text-slate-500 mt-1">Try adjusting your filters or search term</p>
+                  </div>
 
-                  )}
-                
+                )}
+
                 {/* Message */}
                 {message && (
                   <div className={`rounded-xl p-4 mb-4 ${message.includes("❌") ? "bg-red-50 text-red-700 border border-red-200" :
-                      "bg-green-50 text-green-700 border border-green-200"
+                    "bg-green-50 text-green-700 border border-green-200"
                     }`}>
                     <div className="flex items-center gap-2">
                       {message.includes("❌") ? "❌" : "✅"} {message}
@@ -487,110 +637,129 @@ const PrivilegeAssignment = () => {
                 )}
               </div>
             ) : (
-              /* Privilege Assignment Section */
+              /* Privilege Assignment Section (Excel Grid Style Design) */
               <div className="p-2">
-                {/* Selected User Card */}
-                <div className="p-4 sm:p-3 mb-2 text-black">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-white rounded-lg shadow-sm">
-                          <FiUser className="text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-blue-900">Assigning Privileges to</h3>
-                          <p className="text-blue-700 font-medium">{selectedUser.CM_Full_Name}</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <div className="bg-white/80 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500">Role</p>
-                          <p className="font-semibold">{selectedUser.CM_Role_Description}</p>
-                        </div>
-                        <div className="bg-white/80 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500">Mobile</p>
-                          <p className="font-semibold">{selectedUser.CM_Phone_Number}</p>
-                        </div>
-                        <div className="bg-white/80 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500">Email</p>
-                          <p className="font-semibold truncate">{selectedUser.CM_Email}</p>
-                        </div>
-                      </div>
-                    </div>
+                <div className="bg-white border border-gray-300 shadow-sm rounded-none overflow-hidden text-black mb-6">
+                  
+                  {/* SECTION: Selected User Details */}
+                  <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider flex justify-between items-center">
+                    <span>Target User & Assignment Mode</span>
                     <button
+                      type="button"
                       onClick={clearSelection}
-                      className="px-5 py-2 bg-white text-gray-700 rounded-xl border-2 border-gray-300
-                               hover:border-gray-400 hover:shadow-md flex items-center gap-2 font-medium"
+                      className="text-xs bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 px-3 py-1 rounded shadow-sm flex items-center gap-1 font-medium transition-colors"
                     >
-                      <FiUserX />
-                      Change User
+                      <FiUserX className="text-gray-500" /> Change User
                     </button>
                   </div>
-                </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
-                  <div className="bg-gradient-to-br from-blue-50 to-white border-l-4 border-blue-200 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-blue-600 font-medium">Existing</p>
-                        <p className="text-3xl font-bold text-blue-800">{existingPrivileges.length}</p>
+                  <div className="border-b border-gray-300">
+                    <ExcelRow label="Selected Member">
+                      <div className="flex items-center gap-3 py-1">
+                        <img
+                          src={selectedUser.CM_Photo_URL || "/default-avatar.png"}
+                          className="w-8 h-8 rounded-full object-cover border border-gray-300 shadow-sm"
+                          alt={selectedUser.CM_Full_Name}
+                        />
+                        <div>
+                          <p className="font-bold text-sm text-gray-900">{selectedUser.CM_Full_Name}</p>
+                          <p className="text-xs text-gray-500">{selectedUser.CM_Role_Description} • {selectedUser.CM_Email || selectedUser.CM_Phone_Number}</p>
+                        </div>
                       </div>
-                      <div className="p-3 bg-blue-100 rounded-xl">
-                        <FiCheckCircle className="text-blue-600 text-xl" />
+                    </ExcelRow>
+
+                    <ExcelRow label="Assignment Type" required>
+                      <div className="flex flex-col sm:flex-row gap-4 py-1.5 w-full">
+                        <div
+                          onClick={() => handleAssignmentModeChange('user')}
+                          className={`flex-1 flex items-start gap-2.5 p-2.5 border rounded cursor-pointer transition-all ${
+                            assignmentMode === 'user'
+                              ? 'border-blue-500 bg-blue-50/60 font-semibold text-blue-900'
+                              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="assignmentMode"
+                            value="user"
+                            checked={assignmentMode === 'user'}
+                            onChange={() => handleAssignmentModeChange('user')}
+                            className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold block">User-Specific Privilege</span>
+                            <span className="text-[11px] font-normal text-gray-500 block">Customize access for {selectedUser.CM_First_Name || selectedUser.CM_Full_Name} only</span>
+                          </div>
+                        </div>
+
+                        <div
+                          onClick={() => handleAssignmentModeChange('role')}
+                          className={`flex-1 flex items-start gap-2.5 p-2.5 border rounded cursor-pointer transition-all ${
+                            assignmentMode === 'role'
+                              ? 'border-blue-500 bg-blue-50/60 font-semibold text-blue-900'
+                              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="assignmentMode"
+                            value="role"
+                            checked={assignmentMode === 'role'}
+                            onChange={() => handleAssignmentModeChange('role')}
+                            className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold block">Role-Default Privilege</span>
+                            <span className="text-[11px] font-normal text-gray-500 block">Update default access for all {selectedUser.CM_Role_Description} users</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </ExcelRow>
+
+                    <ExcelRow label="Privileges Overview">
+                      <div className="flex flex-wrap gap-4 text-xs font-medium py-1">
+                        <span className="px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded">
+                          Existing: <strong className="ml-1">{existingPrivileges.length}</strong>
+                        </span>
+                        <span className="px-2.5 py-1 bg-green-50 text-green-800 border border-green-200 rounded">
+                          Selected: <strong className="ml-1">{selectedPrivileges.length}</strong>
+                        </span>
+                        <span className="px-2.5 py-1 bg-gray-100 text-gray-800 border border-gray-200 rounded">
+                          Total Available: <strong className="ml-1">{navigationLinks.length}</strong>
+                        </span>
+                      </div>
+                    </ExcelRow>
                   </div>
 
-                  <div className="bg-gradient-to-br from-green-50 to-white border-l-4 border-green-200 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-green-600 font-medium">Selected</p>
-                        <p className="text-3xl font-bold text-green-800">{selectedPrivileges.length}</p>
-                      </div>
-                      <div className="p-3 bg-green-100 rounded-xl">
-                        <FiList className="text-green-600 text-xl" />
-                      </div>
-                    </div>
+                  {/* SECTION: Navigation Privileges Grid */}
+                  <div className="bg-gray-200 border-b border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 uppercase tracking-wider flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                    <span>Navigation Privileges</span>
+                    <span className="text-xs text-gray-600 font-normal">
+                      Showing {filteredLinks.length} of {navigationLinks.length} privileges
+                    </span>
                   </div>
 
-                  <div className="bg-gradient-to-br from-purple-50 to-white border-l-4 border-purple-200 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-purple-600 font-medium">Total</p>
-                        <p className="text-3xl font-bold text-purple-800">{selectedPrivileges.length}</p>
+                  {/* Filter & Action Toolbar */}
+                  <div className="p-3 bg-gray-50 border-b border-gray-300 flex flex-col md:flex-row justify-between items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+                      {/* Search */}
+                      <div className="relative flex-1 min-w-[200px]">
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <input
+                          type="text"
+                          placeholder="Search navigation privileges..."
+                          value={searchNavbar}
+                          onChange={(e) => setSearchNavbar(e.target.value)}
+                          className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-xs text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
                       </div>
-                      <div className="p-3 bg-purple-100 rounded-xl">
-                        <FiTarget className="text-purple-600 text-xl" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Filters & Controls */}
-                <div className="bg-white text-black">
-                  <div className="flex flex-col lg:flex-row gap-4 mb-4">
-                    {/* Search */}
-                    <div className="relative flex-1">
-                      <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search privileges..."
-                        value={searchNavbar}
-                        onChange={(e) => setSearchNavbar(e.target.value)}
-                        className="w-full p-3 pl-12 border-2 border-gray-200 rounded-xl focus:outline-none 
-                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      />
-                    </div>
-
-                    {/* Section Filter */}
-                    <div className="flex gap-3">
-                      <div className="relative flex-1 sm:flex-none">
+                      {/* Section Dropdown */}
+                      <div className="relative min-w-[160px]">
                         <select
                           value={activeSection}
                           onChange={(e) => setActiveSection(e.target.value)}
-                          className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white focus:outline-none 
-                                   focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="all">All Sections ({getSectionCount('all')})</option>
                           {sections.map((section) => (
@@ -599,187 +768,159 @@ const PrivilegeAssignment = () => {
                             </option>
                           ))}
                         </select>
-                        <MdOutlineFilterList className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                      </div>
-
-                      {/* View Toggle */}
-                      <div className="flex bg-gray-100 rounded-xl p-1">
-                        <button
-                          onClick={() => setViewMode('grid')}
-                          className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
-                        >
-                          <MdGridView className={`text-lg ${viewMode === 'grid' ? 'text-blue-600' : 'text-gray-500'}`} />
-                        </button>
-                        <button
-                          onClick={() => setViewMode('list')}
-                          className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
-                        >
-                          <MdList className={`text-lg ${viewMode === 'list' ? 'text-blue-600' : 'text-gray-500'}`} />
-                        </button>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Bulk Actions */}
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() => handleSelectAll()}
-                      className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl
-                               hover:from-green-600 hover:to-emerald-700 flex items-center gap-2 text-sm font-medium"
-                    >
-                      <FiEye />
-                      Select All Visible
-                    </button>
-                    <button
-                      onClick={() => handleDeselectAll()}
-                      className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl
-                               hover:from-red-600 hover:to-pink-700 flex items-center gap-2 text-sm font-medium"
-                    >
-                      <FiEyeOff />
-                      Deselect All Visible
-                    </button>
-                    <div className="flex-1 text-right">
-                      <span className="text-gray-600 text-sm">
-                        Showing {filteredLinks.length} of {navigationLinks.length} items
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Privileges Grid/List */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-                  <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                        <FiLock className="text-blue-500" />
-                        Navigation Privileges ({filteredLinks.length})
-                      </h3>
-                      <span className="text-sm text-gray-600">
-                        {selectedPrivileges.length} selected
-                      </span>
+                    {/* Bulk Actions */}
+                    <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectAll()}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded shadow-sm transition-colors flex items-center gap-1"
+                      >
+                        <FiEye size={14} /> Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeselectAll()}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded shadow-sm transition-colors flex items-center gap-1"
+                      >
+                        <FiEyeOff size={14} /> Deselect All
+                      </button>
                     </div>
                   </div>
 
-                  {filteredLinks.length === 0 ? (
-                    <div className="p-10 text-center bg-gray-50">
-                      <FiSearch className="mx-auto text-gray-300 text-4xl mb-3" />
-                      <p className="text-gray-500">No navigation items found</p>
-                    </div>
-                  ) : viewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4 sm:p-6">
-                      {filteredLinks.map((link) => {
-                        const isExisting = existingPrivileges.some(
-                          (priv) => priv.CM_Nav_Link_ID === link.CM_Nav_Link_ID
-                        );
-                        const isSelected = selectedPrivileges.includes(link.CM_Nav_Link_ID);
+                  {/* Excel Table View for Navigation Privileges */}
+                  <div className="overflow-x-auto bg-white">
+                    {filteredLinks.length === 0 ? (
+                      <div className="p-10 text-center text-gray-500 text-sm">
+                        <FiSearch className="mx-auto text-gray-300 text-3xl mb-2" />
+                        No navigation privileges matched your criteria.
+                      </div>
+                    ) : (
+                      <table className="w-full text-left border-collapse min-w-max">
+                        <thead>
+                          <tr className="bg-gray-100 border-b border-gray-300 text-xs font-semibold text-gray-700">
+                            <th className="w-12 px-3 py-2.5 border-r border-gray-300 text-center">
+                              <input
+                                type="checkbox"
+                                checked={filteredLinks.length > 0 && filteredLinks.every(l => selectedPrivileges.includes(l.CM_Nav_Link_ID))}
+                                onChange={(e) => e.target.checked ? handleSelectAll() : handleDeselectAll()}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                              />
+                            </th>
+                            <th className="px-4 py-2.5 border-r border-gray-300">Privilege Name</th>
+                            <th className="px-4 py-2.5 border-r border-gray-300">Section</th>
+                            <th className="px-4 py-2.5 border-r border-gray-300 text-center">Assignment Status</th>
+                            <th className="px-4 py-2.5 text-center">Access Granted</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredLinks.map((link, idx) => {
+                            const isExisting = existingPrivileges.some(
+                              (priv) => priv.CM_Nav_Link_ID === link.CM_Nav_Link_ID
+                            );
+                            const isSelected = selectedPrivileges.includes(link.CM_Nav_Link_ID);
 
-                        return (
-                          <div
-                            key={link.CM_Nav_Link_ID}
-                            onClick={() => handlePrivilegeToggle(link.CM_Nav_Link_ID)}
-                            className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200
-                                     ${isSelected
-                                ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-blue-100 shadow-md'
-                                : 'border-gray-200 hover:border-blue-200 hover:bg-blue-50/50'}
-                                     ${isExisting ? 'ring-1 ring-green-300' : ''}`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`p-2 rounded-lg ${isSelected ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                                <FiBox className={isSelected ? 'text-blue-600' : 'text-gray-500'} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-gray-800 mb-1 truncate">{link.CM_Name}</h4>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                            return (
+                              <tr
+                                key={link.CM_Nav_Link_ID}
+                                onClick={() => handlePrivilegeToggle(link.CM_Nav_Link_ID)}
+                                className={`border-b border-gray-300 text-sm cursor-pointer transition-colors ${
+                                  isSelected ? "bg-blue-50/80 hover:bg-blue-100/80" : idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50/50 hover:bg-gray-100/50"
+                                }`}
+                              >
+                                <td className="px-3 py-2.5 border-r border-gray-300 text-center" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handlePrivilegeToggle(link.CM_Nav_Link_ID)}
+                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="px-4 py-2.5 border-r border-gray-300 font-medium text-gray-900">
+                                  <div className="flex items-center gap-2">
+                                    <FiBox className={isSelected ? "text-blue-600" : "text-gray-400"} size={16} />
+                                    <span>{link.CM_Name}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-2.5 border-r border-gray-300 text-gray-600 text-xs">
+                                  <span className="px-2 py-0.5 bg-gray-100 border border-gray-300 rounded font-medium text-gray-700">
                                     {link.CM_Section}
                                   </span>
-                                  {isExisting && (
-                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full flex items-center gap-1">
-                                      <FiCheck size={10} /> Existing
+                                </td>
+                                <td className="px-4 py-2.5 border-r border-gray-300 text-center text-xs">
+                                  {isExisting ? (
+                                    <span className="px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 rounded font-semibold inline-flex items-center gap-1">
+                                      <FiCheck size={12} /> Assigned
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-500 border border-gray-200 rounded font-medium">
+                                      Not Assigned
                                     </span>
                                   )}
-                                </div>
-                              </div>
-                              <div className={`w-5 h-5 rounded border flex items-center justify-center
-                                             ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
-                                {isSelected && <FiCheck className="text-white text-xs" />}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    /* List View */
-                    <div className="divide-y divide-gray-100">
-                      {filteredLinks.map((link) => {
-                        const isExisting = existingPrivileges.some(
-                          (priv) => priv.CM_Nav_Link_ID === link.CM_Nav_Link_ID
-                        );
-                        const isSelected = selectedPrivileges.includes(link.CM_Nav_Link_ID);
-
-                        return (
-                          <div
-                            key={link.CM_Nav_Link_ID}
-                            onClick={() => handlePrivilegeToggle(link.CM_Nav_Link_ID)}
-                            className={`flex items-center gap-4 p-4 cursor-pointer transition-colors
-                                     ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                          >
-                            <div className={`w-6 h-6 rounded border flex items-center justify-center flex-shrink-0
-                                           ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
-                              {isSelected && <FiCheck className="text-white text-xs" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-800 mb-1">{link.CM_Name}</h4>
-                              <div className="flex flex-wrap gap-2">
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                  {link.CM_Section}
-                                </span>
-                                {isExisting && (
-                                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full flex items-center gap-1">
-                                    <FiCheck size={10} /> Already assigned
+                                </td>
+                                <td className="px-4 py-2.5 text-center text-xs">
+                                  <span className={`px-2.5 py-1 rounded font-bold uppercase ${
+                                    isSelected ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+                                  }`}>
+                                    {isSelected ? "Allowed" : "Blocked"}
                                   </span>
-                                )}
-                              </div>
-                            </div>
-                            <FiBox className={`text-lg ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Submit Button */}
-                <div className="flex justify-center">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={loading || selectedPrivileges.length === 0}
-                    className={`px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl
-                             hover:from-blue-700 hover:to-purple-700 shadow-lg font-semibold text-lg
-                             flex items-center gap-3 transition-all duration-200
-                             ${loading || selectedPrivileges.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                        Assigning...
-                      </>
-                    ) : (
-                      <>
-                        <FiLock />
-                        Assign {selectedPrivileges.length} Privilege{selectedPrivileges.length !== 1 ? 's' : ''}
-                      </>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     )}
-                  </button>
+                  </div>
+
+                  {/* SECTION: Action Footer Bar */}
+                  <div className="bg-gray-100 border-t border-gray-300 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="text-xs text-gray-700">
+                      <strong>{selectedPrivileges.length}</strong> privilege(s) selected for <strong>{selectedUser.CM_Full_Name}</strong> ({assignmentMode === 'user' ? 'User-Specific' : 'Role-Default'} mode).
+                    </div>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={loading || selectedPrivileges.length === 0}
+                      className={`px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-semibold shadow-sm flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Assigning Privileges...
+                        </>
+                      ) : (
+                        <>
+                          <FiLock size={16} />
+                          Save & Assign {selectedPrivileges.length} Privilege{selectedPrivileges.length !== 1 ? 's' : ''}
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Message */}
+                {/* Inline Alert Banner */}
                 {message && (
-                  <div className={`mt-6 rounded-xl p-4 text-center ${message.includes("❌") ? "bg-red-50 text-red-700 border border-red-200" :
-                      "bg-green-50 text-green-700 border border-green-200"
-                    }`}>
-                    {message}
+                  <div className={`mt-4 rounded-xl p-4 border flex items-center justify-between shadow-sm transition-all animate-fade-in ${
+                    message.includes("❌")
+                      ? "bg-rose-50 border-rose-200 text-rose-800"
+                      : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      {message.includes("❌") ? (
+                        <FiXCircle className="text-rose-500 text-xl flex-shrink-0" />
+                      ) : (
+                        <FiCheckCircle className="text-emerald-500 text-xl flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-semibold">{message}</span>
+                    </div>
+                    <button
+                      onClick={() => setMessage('')}
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded-md transition-colors"
+                    >
+                      <FiX size={16} />
+                    </button>
                   </div>
                 )}
               </div>
@@ -787,6 +928,71 @@ const PrivilegeAssignment = () => {
           </div>
         </div>
       </div>
+
+      {/* Styled Custom Alert Modal */}
+      {alertConfig.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
+          <div className={`relative w-full max-w-md bg-white rounded-2xl shadow-2xl border overflow-hidden transform transition-all scale-100 ${
+            alertConfig.type === 'success' ? 'border-emerald-200' :
+            alertConfig.type === 'error' ? 'border-rose-200' : 'border-amber-200'
+          }`}>
+            {/* Top Indicator Bar */}
+            <div className={`h-2 w-full ${
+              alertConfig.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-teal-500' :
+              alertConfig.type === 'error' ? 'bg-gradient-to-r from-rose-500 to-red-600' : 'bg-gradient-to-r from-amber-400 to-orange-500'
+            }`} />
+
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                  alertConfig.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
+                  alertConfig.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+                }`}>
+                  {alertConfig.type === 'success' ? (
+                    <FiCheckCircle size={26} />
+                  ) : alertConfig.type === 'error' ? (
+                    <FiXCircle size={26} />
+                  ) : (
+                    <FiAlertCircle size={26} />
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {alertConfig.title}
+                  </h3>
+                  <p className="mt-1 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {alertConfig.message}
+                  </p>
+                </div>
+
+                <button
+                  onClick={closeAlert}
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              {/* Action Button */}
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={closeAlert}
+                  className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 ${
+                    alertConfig.type === 'success'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+                      : alertConfig.type === 'error'
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200'
+                      : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
+                  }`}
+                >
+                  Okay, Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   let connection: any;
   try {
     const body = await request.json();
-    const { userId, roleId, companyId, navLinkIds, createdBy } = body;
+    const { userId, roleId, companyId, navLinkIds, createdBy, assignmentMode = 'role' } = body;
 
     // Validate required fields
     if (!userId || !roleId || !companyId || !navLinkIds || !Array.isArray(navLinkIds)) {
@@ -16,7 +16,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (navLinkIds.length === 0) {
+    // Only reject empty privileges list for role assignment.
+    // For user assignment, empty means deleting user-specific overrides (reverting to role defaults).
+    if (assignmentMode === 'role' && navLinkIds.length === 0) {
       return NextResponse.json(
         { success: false, message: 'No privileges selected' },
         { status: 400 }
@@ -24,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const pool = getDb();
-    connection = await (await pool).getConnection(); // ✅ FIX HERE
+    connection = await (await pool).getConnection();
 
     // Begin transaction
     await connection.beginTransaction();
@@ -56,67 +58,85 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check if navigation links exist
-      const placeholders = navLinkIds.map(() => '?').join(',');
-      const [navLinkRows] = await connection.execute(
-        `SELECT CM_Nav_Link_ID FROM ccms_nav_link WHERE CM_Nav_Link_ID IN (${placeholders})`,
-        navLinkIds
-      );
-
-      const existingNavLinks = navLinkRows as any[];
-      if (existingNavLinks.length !== navLinkIds.length) {
-        await connection.rollback();
-        return NextResponse.json(
-          { success: false, message: 'One or more navigation links not found' },
-          { status: 404 }
+      // Check if navigation links exist (if any are being assigned)
+      if (navLinkIds.length > 0) {
+        const placeholders = navLinkIds.map(() => '?').join(',');
+        const [navLinkRows] = await connection.execute(
+          `SELECT CM_Nav_Link_ID FROM ccms_nav_link WHERE CM_Nav_Link_ID IN (${placeholders})`,
+          navLinkIds
         );
+
+        const existingNavLinks = navLinkRows as any[];
+        if (existingNavLinks.length !== navLinkIds.length) {
+          await connection.rollback();
+          return NextResponse.json(
+            { success: false, message: 'One or more navigation links not found' },
+            { status: 404 }
+          );
+        }
       }
 
-      // Get existing privileges to show what's being added
-      const [existingPrivileges] = await connection.execute(
-        'SELECT CM_Nav_Link_ID FROM ccms_privilege_master WHERE CM_Role_ID = ?',
-        [roleId]
-      );
-
-      const existingPrivilegeIds = (existingPrivileges as any[]).map(
-        (priv) => priv.CM_Nav_Link_ID
-      );
-
-      // Delete existing privileges for this role (replace all privileges)
-      await connection.execute(
-        'DELETE FROM ccms_privilege_master WHERE CM_Role_ID = ?',
-        [roleId]
-      );
-
-      // Insert new privileges
       const currentTime = new Date();
-      for (const navLinkId of navLinkIds) {
+
+      if (assignmentMode === 'user') {
+        // Delete existing user-specific privileges
         await connection.execute(
-          `INSERT INTO ccms_privilege_master 
-           (CM_Role_ID, CM_Nav_Link_ID, CM_Created_By, CM_Created_At, CM_Uploaded_By, CM_Uploaded_At) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [roleId, navLinkId, createdBy, currentTime, createdBy, currentTime]
+          'DELETE FROM ccms_privilege_master WHERE CM_User_ID = ?',
+          [userId]
         );
+
+        // Insert new user-specific privileges
+        for (const navLinkId of navLinkIds) {
+          await connection.execute(
+            `INSERT INTO ccms_privilege_master 
+             (CM_Role_ID, CM_User_ID, CM_Nav_Link_ID, CM_Created_By, CM_Created_At, CM_Uploaded_By, CM_Uploaded_At) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [roleId, userId, navLinkId, createdBy, currentTime, createdBy, currentTime]
+          );
+        }
+      } else {
+        // Role mode: Delete existing privileges for this role (without user specificity)
+        await connection.execute(
+          'DELETE FROM ccms_privilege_master WHERE CM_Role_ID = ? AND CM_User_ID IS NULL',
+          [roleId]
+        );
+
+        // Also clear user-specific privileges for this user so they revert to using role defaults
+        if (userId) {
+          await connection.execute(
+            'DELETE FROM ccms_privilege_master WHERE CM_User_ID = ?',
+            [userId]
+          );
+        }
+
+        // Insert new role-level privileges
+        for (const navLinkId of navLinkIds) {
+          await connection.execute(
+            `INSERT INTO ccms_privilege_master 
+             (CM_Role_ID, CM_User_ID, CM_Nav_Link_ID, CM_Created_By, CM_Created_At, CM_Uploaded_By, CM_Uploaded_At) 
+             VALUES (?, NULL, ?, ?, ?, ?, ?)`,
+            [roleId, navLinkId, createdBy, currentTime, createdBy, currentTime]
+          );
+        }
       }
 
       // Commit transaction
       await connection.commit();
 
-      const newPrivileges = navLinkIds.filter((id) => !existingPrivilegeIds.includes(id));
-
       const res = NextResponse.json({
         success: true,
-        message: `Successfully assigned ${navLinkIds.length} privileges to user`,
+        message: assignmentMode === 'user'
+          ? `Successfully assigned ${navLinkIds.length} user-specific privileges`
+          : `Successfully assigned ${navLinkIds.length} privileges to role`,
         data: {
           userId,
           roleId,
+          assignmentMode,
           totalPrivileges: navLinkIds.length,
-          existingPrivileges: existingPrivilegeIds.length,
-          newPrivilegesAdded: newPrivileges.length,
         },
       });
       res.headers.set('Cache-Control', 'no-store');
-    return res;
+      return res;
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -136,5 +156,9 @@ export async function POST(request: NextRequest) {
     );
     res.headers.set('Cache-Control', 'no-store');
     return res;
-  } 
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
 }

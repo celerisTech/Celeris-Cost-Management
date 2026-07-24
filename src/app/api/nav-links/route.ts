@@ -41,28 +41,63 @@ export async function GET(request: NextRequest) {
       return res;
     }
 
-    // 4. Fetch from DB - optimized query
     const db = await getDb();
-    const [rows] = await db.query(
-      `SELECT 
-          nl.CM_Name AS label,
-          nl.CM_Path AS href,
-          nl.CM_Section AS section
-       FROM ccms_nav_link nl
-       JOIN ccms_privilege_master pm ON nl.CM_Nav_Link_ID = pm.CM_Nav_Link_ID
-       WHERE pm.CM_Role_ID = (
-         SELECT CM_Role_ID FROM ccms_users WHERE CM_User_ID = ?
-       )
-       ORDER BY 
-         CASE nl.CM_Section 
-           WHEN 'Overview' THEN 1
-           WHEN 'Operations' THEN 2
-           WHEN 'Administration' THEN 3
-           ELSE 4
-         END,
-         nl.CM_Name`,
+
+    // Check if user has user-specific privileges assigned
+    const [userPrivsCheck] = await db.query(
+      `SELECT 1 FROM ccms_privilege_master WHERE CM_User_ID = ? LIMIT 1`,
       [userId]
     );
+
+    const hasUserPrivileges = Array.isArray(userPrivsCheck) && userPrivsCheck.length > 0;
+
+    let query = '';
+    let queryParams: any[] = [];
+
+    if (hasUserPrivileges) {
+      // User has specific privileges assigned
+      query = `
+        SELECT DISTINCT
+            nl.CM_Name AS label,
+            nl.CM_Path AS href,
+            nl.CM_Section AS section
+        FROM ccms_nav_link nl
+        JOIN ccms_privilege_master pm ON nl.CM_Nav_Link_ID = pm.CM_Nav_Link_ID
+        WHERE pm.CM_User_ID = ?
+        ORDER BY 
+          CASE nl.CM_Section 
+            WHEN 'Overview' THEN 1
+            WHEN 'Operations' THEN 2
+            WHEN 'Administration' THEN 3
+            ELSE 4
+          END,
+          nl.CM_Name
+      `;
+      queryParams = [userId];
+    } else {
+      // User inherits role-default privileges
+      query = `
+        SELECT DISTINCT
+            nl.CM_Name AS label,
+            nl.CM_Path AS href,
+            nl.CM_Section AS section
+        FROM ccms_nav_link nl
+        JOIN ccms_privilege_master pm ON nl.CM_Nav_Link_ID = pm.CM_Nav_Link_ID
+        WHERE pm.CM_Role_ID = (SELECT CM_Role_ID FROM ccms_users WHERE CM_User_ID = ?) 
+          AND pm.CM_User_ID IS NULL
+        ORDER BY 
+          CASE nl.CM_Section 
+            WHEN 'Overview' THEN 1
+            WHEN 'Operations' THEN 2
+            WHEN 'Administration' THEN 3
+            ELSE 4
+          END,
+          nl.CM_Name
+      `;
+      queryParams = [userId];
+    }
+
+    const [rows] = await db.query(query, queryParams);
 
     // 5. Group into sections
     const grouped: Record<string, { href: string; label: string }[]> = {};

@@ -30,43 +30,47 @@ async function logActivity(db: any, leadId: unknown, action: string, desc: strin
   }
 }
 
-async function markUserAttendance(db: any, userId: any, description: string) {
+async function markUserAttendance(db: any, userId: any, description: string, attendanceDate?: string | null) {
   if (!userId) return;
   try {
-    const today = new Date().toISOString().split('T')[0];
-    
+    const formattedDate = attendanceDate ? (formatDbDate(attendanceDate) || new Date().toISOString().split('T')[0]) : new Date().toISOString().split('T')[0];
+
     // 1. Get user info
     const [userRows]: any = await db.query(
-      `SELECT CM_Company_ID, CM_Labor_Type_ID FROM ccms_users WHERE CM_User_ID = ?`,
+      `SELECT CM_User_ID, CM_Company_ID, CM_Labor_Type_ID FROM ccms_users WHERE CM_User_ID = ?`,
       [userId]
     );
-    if (!userRows || userRows.length === 0) return;
-    
-    const { CM_Company_ID, CM_Labor_Type_ID } = userRows[0];
-    if (!CM_Company_ID || !CM_Labor_Type_ID) return; // User is not linked to labor/company
-    
-    // 2. Check if attendance already exists today
+
+    let companyId = 1;
+    let laborId = userId;
+
+    if (userRows && userRows.length > 0) {
+      companyId = userRows[0].CM_Company_ID || 1;
+      laborId = userRows[0].CM_Labor_Type_ID || userId;
+    }
+
+    // 2. Check if attendance already exists today / target date
     const [existingAttendanceRows]: any = await db.query(
       `SELECT CM_Attendance_ID FROM ccms_attendance 
-       WHERE CM_Labor_ID = ? AND CM_Attendance_Date = ?`,
-      [CM_Labor_Type_ID, today]
+       WHERE CM_Labor_ID = ? AND DATE(CM_Attendance_Date) = ?`,
+      [laborId, formattedDate]
     );
-    
+
     // 3. If no attendance exists, mark as present
     if (!existingAttendanceRows || existingAttendanceRows.length === 0) {
       await db.query(
         `INSERT INTO ccms_attendance 
-          (CM_Company_ID, CM_Project_ID, CM_Labor_ID, CM_Attendance_Date, CM_Status, CM_Total_Working_Hours, CM_Remarks, CM_Created_At, CM_Created_By)
-         VALUES (?, 0, ?, ?, 'Present', 8, ?, NOW(), ?)`,
+          (CM_Company_ID, CM_Project_ID, CM_Labor_ID, CM_Attendance_Date, CM_Status, CM_Shift, CM_In_Time, CM_Out_Time, CM_Total_Working_Hours, CM_Remarks, CM_Created_At, CM_Created_By)
+         VALUES (?, 0, ?, ?, 'Present', 'Day', '09:00:00', '17:00:00', 8, ?, NOW(), ?)`,
         [
-          CM_Company_ID,
-          CM_Labor_Type_ID,
-          today,
+          companyId,
+          laborId,
+          formattedDate,
           `Automatically marked Present via ${description}`,
           userId
         ]
       );
-      console.log(`Automated attendance for ${CM_Labor_Type_ID}`);
+      console.log(`✅ Automated attendance recorded for User/Labor ID ${laborId} on ${formattedDate}`);
     }
   } catch (error) {
     console.error('Failed to mark user attendance automatically:', error);
@@ -144,7 +148,7 @@ export async function GET(request: NextRequest) {
 
       (SELECT COUNT(*) 
        FROM ccms_sales_lead 
-       WHERE CM_Lead_Status = 'Converted' 
+       WHERE (CM_Lead_Status = 'Converted' OR CM_Followup_Status = 'Converted')
          AND CM_Is_Deleted = 0
          ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
          ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS converted_leads,
@@ -153,7 +157,9 @@ export async function GET(request: NextRequest) {
        FROM ccms_sales_lead sl
        LEFT JOIN ccms_sales_visit sv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = sv.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0
        WHERE sl.CM_Is_Deleted = 0
-         AND (sl.CM_Lead_Status IN ('Rejected', 'Not Interested') OR sv.CM_Visit_Status IN ('Rejected', 'Not Interested'))
+         AND (sl.CM_Lead_Status IN ('Rejected', 'Not Interested') 
+              OR sl.CM_Followup_Status IN ('Rejected', 'Not Interested') 
+              OR sv.CM_Visit_Status IN ('Rejected', 'Not Interested'))
          ${fDate ? "AND DATE(sl.CM_Created_At) >= ?" : ""}
          ${tDate ? "AND DATE(sl.CM_Created_At) <= ?" : ""}) AS rejected_leads,
 
@@ -168,7 +174,9 @@ export async function GET(request: NextRequest) {
        FROM ccms_sales_lead sl
        LEFT JOIN ccms_sales_visit sv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = sv.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0
        WHERE sl.CM_Is_Deleted = 0
-         AND (sl.CM_Lead_Status = 'Proposal Sent' OR sv.CM_Visit_Status = 'Proposal Sent')
+         AND (sl.CM_Lead_Status = 'Proposal Sent' 
+              OR sl.CM_Followup_Status = 'Proposal Sent' 
+              OR sv.CM_Visit_Status = 'Proposal Sent')
          ${fDate ? "AND DATE(sl.CM_Created_At) >= ?" : ""}
          ${tDate ? "AND DATE(sl.CM_Created_At) <= ?" : ""}) AS proposal_sent
       `, statsParams);
@@ -216,9 +224,11 @@ export async function GET(request: NextRequest) {
          u.CM_User_ID COLLATE utf8mb4_general_ci
 
     WHERE v.CM_Is_Deleted = 0
+      AND l.CM_Is_Deleted = 0
       AND v.CM_Next_Followup_Date >= CURDATE()
       AND v.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
       AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+      AND COALESCE(l.CM_Followup_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
 
     ORDER BY v.CM_Next_Followup_Date ASC
   `);
@@ -243,9 +253,11 @@ export async function GET(request: NextRequest) {
          l.CM_Lead_ID COLLATE utf8mb4_general_ci
 
     WHERE v.CM_Is_Deleted = 0
+      AND l.CM_Is_Deleted = 0
       AND v.CM_Next_Followup_Date >= CURDATE()
       AND v.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
       AND COALESCE(l.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+      AND COALESCE(l.CM_Followup_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
   `);
 
       stats.pending_followups = Number(
@@ -557,7 +569,7 @@ export async function GET(request: NextRequest) {
           });
         }
         const entry = executiveMap.get(execKey);
-        
+
         const isCall = String(visit.CM_Purpose || '').toLowerCase().includes('call');
         if (isCall) {
           entry.call_count = Number(entry.call_count || 0) + 1;
@@ -688,12 +700,23 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (status) {
-      const effectiveStatusExpr = "COALESCE((SELECT CM_Visit_Status FROM ccms_sales_visit WHERE CM_Lead_ID = sl.CM_Lead_ID AND CM_Is_Deleted = 0 ORDER BY CM_Visit_ID DESC LIMIT 1), sl.CM_Lead_Status)";
       if (status === 'Rejected' || status === 'Not Interested') {
-        whereClause += ` AND ${effectiveStatusExpr} IN ('Rejected', 'Not Interested')`;
+        whereClause += ` AND (
+          sl.CM_Lead_Status IN ('Rejected', 'Not Interested') 
+          OR sl.CM_Followup_Status IN ('Rejected', 'Not Interested')
+          OR sl.CM_Lead_ID COLLATE utf8mb4_general_ci IN (
+            SELECT CM_Lead_ID FROM ccms_sales_visit WHERE CM_Is_Deleted = 0 AND CM_Visit_Status IN ('Rejected', 'Not Interested')
+          )
+        )`;
       } else {
-        whereClause += ` AND ${effectiveStatusExpr} = ?`;
-        params.push(status);
+        whereClause += ` AND (
+          sl.CM_Lead_Status = ? 
+          OR sl.CM_Followup_Status = ?
+          OR sl.CM_Lead_ID COLLATE utf8mb4_general_ci IN (
+            SELECT CM_Lead_ID FROM ccms_sales_visit WHERE CM_Is_Deleted = 0 AND CM_Visit_Status = ?
+          )
+        )`;
+        params.push(status, status, status);
       }
     }
     if (executiveId) { whereClause += ' AND sl.CM_Sales_Executive_ID = ?'; params.push(executiveId); }
@@ -714,13 +737,71 @@ export async function GET(request: NextRequest) {
     );
     const total = Number(countResult?.[0]?.total || 0);
 
+    // Count stats for overall query (without status filter restriction)
+    const statsParams: any[] = [];
+    let statsWhere = 'WHERE sl.CM_Is_Deleted = 0';
+    if (executiveId) { statsWhere += ' AND sl.CM_Sales_Executive_ID = ?'; statsParams.push(executiveId); }
+    if (industrialId) { statsWhere += ' AND sl.CM_Industrial_ID = ?'; statsParams.push(industrialId); }
+    if (categoryId) { statsWhere += ' AND sl.CM_Category_ID = ?'; statsParams.push(categoryId); }
+    if (fromDate) { statsWhere += ' AND DATE(sl.CM_Created_At) >= ?'; statsParams.push(formatDbDate(fromDate)); }
+    if (toDate) { statsWhere += ' AND DATE(sl.CM_Created_At) <= ?'; statsParams.push(formatDbDate(toDate)); }
+    const cleanSearchForStats = search ? String(search).trim() : '';
+    if (cleanSearchForStats) {
+      statsWhere += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ?)';
+      const s = `%${cleanSearchForStats}%`;
+      statsParams.push(s, s, s, s, s);
+    }
+
+    const [statsResult]: any = await db.query(`
+      SELECT 
+        COUNT(*) AS total,
+        SUM(CASE WHEN sl.CM_Lead_Status = 'New Lead' THEN 1 ELSE 0 END) AS newLead,
+        SUM(CASE WHEN sl.CM_Lead_Status = 'Converted' OR sl.CM_Followup_Status = 'Converted' OR lv.Last_Visit_Status = 'Converted' THEN 1 ELSE 0 END) AS converted,
+        SUM(CASE WHEN sl.CM_Lead_Status = 'Proposal Sent' OR sl.CM_Followup_Status = 'Proposal Sent' OR prop.has_prop = 1 OR lv.Last_Visit_Status = 'Proposal Sent' THEN 1 ELSE 0 END) AS proposalSent,
+        SUM(CASE WHEN sl.CM_Lead_Status IN ('Rejected', 'Not Interested') OR sl.CM_Followup_Status IN ('Rejected', 'Not Interested') OR ni.has_ni = 1 OR lv.Last_Visit_Status IN ('Rejected', 'Not Interested') THEN 1 ELSE 0 END) AS notInterested
+      FROM ccms_sales_lead sl
+      LEFT JOIN (
+        SELECT v1.CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, v1.CM_Visit_Status AS Last_Visit_Status
+        FROM ccms_sales_visit v1
+        INNER JOIN (
+          SELECT CM_Lead_ID, MAX(CM_Visit_ID) AS max_id
+          FROM ccms_sales_visit
+          WHERE CM_Is_Deleted = 0
+          GROUP BY CM_Lead_ID
+        ) v2 ON v1.CM_Lead_ID = v2.CM_Lead_ID AND v1.CM_Visit_ID = v2.max_id
+      ) lv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = lv.CM_Lead_ID
+      LEFT JOIN (
+        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_prop
+        FROM ccms_sales_visit
+        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status = 'Proposal Sent'
+        GROUP BY CM_Lead_ID
+      ) prop ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = prop.CM_Lead_ID
+      LEFT JOIN (
+        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_ni
+        FROM ccms_sales_visit
+        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status IN ('Rejected', 'Not Interested')
+        GROUP BY CM_Lead_ID
+      ) ni ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = ni.CM_Lead_ID
+      ${statsWhere}
+    `, statsParams);
+
+    const stats = {
+      total: Number(statsResult?.[0]?.total || 0),
+      newLead: Number(statsResult?.[0]?.newLead || 0),
+      converted: Number(statsResult?.[0]?.converted || 0),
+      proposalSent: Number(statsResult?.[0]?.proposalSent || 0),
+      notInterested: Number(statsResult?.[0]?.notInterested || 0)
+    };
+
     // Fetch paginated leads with optimized joins
     const [leads]: any = await db.query(`
       SELECT sl.*, u.CM_Full_Name AS Executive_Name,
         ind.CM_Industrial_Name, cat.CM_Category_Name, sub.CM_Subcategory_Name,
         COALESCE(v.v_count, 0) AS visit_count,
         COALESCE(p.p_sum, 0) AS total_paid,
-        lv.Last_Visit_Status
+        lv.Last_Visit_Status,
+        COALESCE(prop.has_prop, 0) AS Had_Proposal_Sent,
+        COALESCE(ni.has_ni, 0) AS Had_Not_Interested
 
       FROM ccms_sales_lead sl
       LEFT JOIN ccms_users u ON sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
@@ -749,6 +830,18 @@ export async function GET(request: NextRequest) {
         WHERE CM_Payment_Status = 'Paid' AND CM_Payment_Type != 'Domain Payment' AND CM_Is_Deleted = 0 
         GROUP BY CM_Lead_ID
       ) p ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = p.CM_Lead_ID
+      LEFT JOIN (
+        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_prop
+        FROM ccms_sales_visit
+        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status = 'Proposal Sent'
+        GROUP BY CM_Lead_ID
+      ) prop ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = prop.CM_Lead_ID
+      LEFT JOIN (
+        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_ni
+        FROM ccms_sales_visit
+        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status IN ('Rejected', 'Not Interested')
+        GROUP BY CM_Lead_ID
+      ) ni ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = ni.CM_Lead_ID
       ${whereClause}
       ORDER BY sl.CM_Created_At DESC, sl.CM_Lead_ID DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -757,6 +850,7 @@ export async function GET(request: NextRequest) {
     return safeJsonResponse({
       leads: leads || [],
       total,
+      stats,
       page,
       limit,
       totalPages: limit > 0 ? Math.ceil(total / limit) : 1
@@ -790,10 +884,10 @@ export async function POST(request: NextRequest) {
       `INSERT INTO ccms_sales_lead (
         CM_Lead_ID, CM_Client_Name, CM_Company_Name, CM_Phone, CM_Alt_Phone,
         CM_Email, CM_Address, CM_City, CM_Lead_Source, CM_Product_Required,
-        CM_Project_Type, CM_Expected_Budget, CM_Sales_Executive_ID, CM_Lead_Status,
+        CM_Project_Type, CM_Expected_Budget, CM_Sales_Executive_ID, CM_Lead_Status, CM_Followup_Status,
         CM_Remarks, CM_Next_Follow_Up_Date, CM_Next_Follow_Up_Time, CM_Industrial_ID, CM_Category_ID, CM_Subcategory_ID,
         CM_Created_By, CM_Created_At
-      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         body.CM_Client_Name.trim(),
         sanitize(body.CM_Company_Name),
@@ -808,6 +902,7 @@ export async function POST(request: NextRequest) {
         parseNum(body.CM_Expected_Budget),
         sanitize(body.CM_Sales_Executive_ID),
         sanitize(body.CM_Lead_Status) || 'New Lead',
+        sanitize(body.CM_Followup_Status) || 'Follow Up',
         sanitize(body.CM_Remarks),
         body.CM_Next_Follow_Up_Date ? formatDbDate(body.CM_Next_Follow_Up_Date) : null,
         body.CM_Next_Follow_Up_Time || null,
@@ -825,8 +920,14 @@ export async function POST(request: NextRequest) {
     const newLeadId = rows[0]?.CM_Lead_ID;
     await logActivity(db, newLeadId, 'Lead Created', `New lead created for ${body.CM_Client_Name}`, body.CM_Created_By);
 
-    // Automatically mark attendance
-    await markUserAttendance(db, body.CM_Created_By, 'CRM Lead Creation');
+    // Automatically mark attendance for creator and assigned sales executive
+    const activeUserId = body.CM_Created_By || body.CM_Sales_Executive_ID;
+    if (activeUserId) {
+      await markUserAttendance(db, activeUserId, 'CRM Lead Creation');
+    }
+    if (body.CM_Sales_Executive_ID && body.CM_Sales_Executive_ID !== activeUserId) {
+      await markUserAttendance(db, body.CM_Sales_Executive_ID, 'CRM Lead Executive Assignment');
+    }
 
     return NextResponse.json({ success: true, CM_Lead_ID: newLeadId }, { status: 201 });
   } catch (error: any) {
@@ -854,7 +955,7 @@ async function updateLead(request: NextRequest) {
         CM_Client_Name = ?, CM_Company_Name = ?, CM_Phone = ?, CM_Alt_Phone = ?,
         CM_Email = ?, CM_Address = ?, CM_City = ?, CM_Lead_Source = ?,
         CM_Product_Required = ?, CM_Project_Type = ?, CM_Expected_Budget = ?,
-        CM_Sales_Executive_ID = ?, CM_Lead_Status = ?, CM_Remarks = ?,
+        CM_Sales_Executive_ID = ?, CM_Lead_Status = ?, CM_Followup_Status = ?, CM_Remarks = ?,
         CM_Next_Follow_Up_Date = ?, CM_Next_Follow_Up_Time = ?,
         CM_Industrial_ID = ?, CM_Category_ID = ?, CM_Subcategory_ID = ?,
         CM_Updated_By = ?, CM_Updated_At = NOW()
@@ -873,6 +974,7 @@ async function updateLead(request: NextRequest) {
         parseNum(body.CM_Expected_Budget),
         sanitize(body.CM_Sales_Executive_ID),
         sanitize(body.CM_Lead_Status) || 'New Lead',
+        sanitize(body.CM_Followup_Status) || 'Follow Up',
         sanitize(body.CM_Remarks),
         body.CM_Next_Follow_Up_Date ? formatDbDate(body.CM_Next_Follow_Up_Date) : null,
         body.CM_Next_Follow_Up_Time || null,
@@ -889,6 +991,15 @@ async function updateLead(request: NextRequest) {
       await logActivity(db, CM_Lead_ID, 'Status Changed', `Status changed from "${oldStatus}" to "${newStatus}"`, body.CM_Updated_By);
     } else {
       await logActivity(db, CM_Lead_ID, 'Lead Updated', `Lead details updated`, body.CM_Updated_By);
+    }
+
+    // Automatically mark attendance on lead update
+    const updaterUserId = body.CM_Updated_By || body.CM_Sales_Executive_ID;
+    if (updaterUserId) {
+      await markUserAttendance(db, updaterUserId, 'CRM Lead Update');
+    }
+    if (body.CM_Sales_Executive_ID && body.CM_Sales_Executive_ID !== updaterUserId) {
+      await markUserAttendance(db, body.CM_Sales_Executive_ID, 'CRM Lead Executive Assignment');
     }
 
     return NextResponse.json({ success: true, message: 'Lead updated' });

@@ -56,49 +56,100 @@ async function logActivity(db: any, leadId: unknown, action: string, desc: strin
   } catch (e) { console.error('logActivity error:', e); }
 }
 
-async function markUserAttendance(db: any, userId: any, description: string) {
+async function markUserAttendance(db: any, userId: any, description: string, attendanceDate?: string | null) {
   if (!userId) return;
   try {
-    const today = new Date().toISOString().split('T')[0];
-    
+    const formattedDate = attendanceDate ? (toMysqlDate(attendanceDate) || new Date().toISOString().split('T')[0]) : new Date().toISOString().split('T')[0];
+
     // 1. Get user info
     const [userRows]: any = await db.execute(
-      `SELECT CM_Company_ID, CM_Labor_Type_ID FROM ccms_users WHERE CM_User_ID = ?`,
+      `SELECT CM_User_ID, CM_Company_ID, CM_Labor_Type_ID FROM ccms_users WHERE CM_User_ID = ?`,
       [userId]
     );
-    if (!userRows || userRows.length === 0) return;
-    
-    const { CM_Company_ID, CM_Labor_Type_ID } = userRows[0];
-    if (!CM_Company_ID || !CM_Labor_Type_ID) return; // User is not linked to labor/company
-    
-    // 2. Check if attendance already exists today
+
+    let companyId = 1;
+    let laborId = userId;
+
+    if (userRows && userRows.length > 0) {
+      companyId = userRows[0].CM_Company_ID || 1;
+      laborId = userRows[0].CM_Labor_Type_ID || userId;
+    }
+
+    // 2. Check if attendance already exists on target date
     const [existingAttendanceRows]: any = await db.execute(
       `SELECT CM_Attendance_ID FROM ccms_attendance 
-       WHERE CM_Labor_ID = ? AND CM_Attendance_Date = ?`,
-      [CM_Labor_Type_ID, today]
+       WHERE CM_Labor_ID = ? AND DATE(CM_Attendance_Date) = ?`,
+      [laborId, formattedDate]
     );
-    
+
     // 3. If no attendance exists, mark as present
     if (!existingAttendanceRows || existingAttendanceRows.length === 0) {
       await db.execute(
         `INSERT INTO ccms_attendance 
-          (CM_Company_ID, CM_Project_ID, CM_Labor_ID, CM_Attendance_Date, CM_Status, CM_Total_Working_Hours, CM_Remarks, CM_Created_At, CM_Created_By)
-         VALUES (?, 0, ?, ?, 'Present', 8, ?, NOW(), ?)`,
+          (CM_Company_ID, CM_Project_ID, CM_Labor_ID, CM_Attendance_Date, CM_Status, CM_Shift, CM_In_Time, CM_Out_Time, CM_Total_Working_Hours, CM_Remarks, CM_Created_At, CM_Created_By)
+         VALUES (?, 0, ?, ?, 'Present', 'Day', '09:00:00', '17:00:00', 8, ?, NOW(), ?)`,
         [
-          CM_Company_ID,
-          CM_Labor_Type_ID,
-          today,
+          companyId,
+          laborId,
+          formattedDate,
           `Automatically marked Present via ${description}`,
           userId
         ]
       );
-      console.log(`Automated attendance for ${CM_Labor_Type_ID}`);
+      console.log(`✅ Automated visit attendance recorded for User/Labor ID ${laborId} on ${formattedDate}`);
     }
   } catch (error) {
     console.error('Failed to mark user attendance automatically:', error);
   }
 }
 
+async function recalculateLeadStatuses(db: any, leadId: string) {
+  const [visits]: any = await db.execute(
+    `SELECT CM_Visit_Status, CM_Demo_Given, CM_Visit_Date, CM_Visit_ID 
+     FROM ccms_sales_visit 
+     WHERE CM_Lead_ID = ? AND CM_Is_Deleted = 0 
+     ORDER BY CM_Visit_Date ASC, CM_Visit_ID ASC`,
+    [leadId]
+  );
+
+  let leadStatus = 'New Lead';
+  let followupStatus = 'Follow Up';
+
+  for (const visit of visits) {
+    const status = String(visit.CM_Visit_Status || '').trim();
+    const isDemo = status === 'Demo Given' || visit.CM_Demo_Given === 'Yes';
+    const isProposal = status === 'Proposal Sent';
+    const isConverted = status === 'Converted';
+    const isNotInterested = status === 'Not Interested' || status === 'Rejected';
+    const isFollowUp = !isDemo && !isProposal && !isConverted && !isNotInterested;
+
+    if (isNotInterested) {
+      leadStatus = 'Not Interested';
+      followupStatus = 'Not Interested';
+    } else if (isConverted) {
+      leadStatus = 'Converted';
+      followupStatus = 'Converted';
+    } else if (isProposal) {
+      leadStatus = 'Proposal Sent';
+      followupStatus = 'Proposal Sent';
+    } else if (isDemo) {
+      leadStatus = 'Demo Given';
+      followupStatus = 'Demo Given';
+    } else if (isFollowUp) {
+      leadStatus = status || 'Follow Up';
+      if (followupStatus !== 'Demo Given' && followupStatus !== 'Proposal Sent') {
+        followupStatus = 'Follow Up';
+      }
+    }
+  }
+
+  await db.execute(
+    `UPDATE ccms_sales_lead 
+     SET CM_Lead_Status = ?, CM_Followup_Status = ?, CM_Updated_At = NOW() 
+     WHERE CM_Lead_ID = ?`,
+    [leadStatus, followupStatus, leadId]
+  );
+}
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
@@ -156,9 +207,11 @@ export async function GET(request: NextRequest) {
                  GROUP BY sv2.CM_Lead_ID
                )
           AND  sv.CM_Is_Deleted = 0
+          AND  sl.CM_Is_Deleted = 0
           AND  sv.CM_Next_Followup_Date >= CURDATE()
           AND  sv.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
           AND  COALESCE(sl.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+          AND  COALESCE(sl.CM_Followup_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
           ${extraCondition}
         ORDER BY sv.CM_Next_Followup_Date ASC
       `, params);
@@ -350,29 +403,18 @@ export async function POST(request: NextRequest) {
     );
     const newId = row?.CM_Visit_ID;
 
-    const purposeNormalized = String(body.CM_Purpose || '').trim().toLowerCase();
-
-    if (body.CM_Demo_Given === 'Yes') {
-      await db.execute(
-        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Demo Given', CM_Updated_At = NOW()
-         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Follow-up Call', 'Visited')`, [body.CM_Lead_ID]
-      );
-    } else if (purposeNormalized === 'demo call') {
-      await db.execute(
-        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Follow-up Call', CM_Updated_At = NOW()
-         WHERE CM_Lead_ID = ? AND CM_Lead_Status = 'New Lead'`, [body.CM_Lead_ID]
-      );
-    } else {
-      await db.execute(
-        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Visited', CM_Updated_At = NOW()
-         WHERE CM_Lead_ID = ? AND CM_Lead_Status = 'New Lead'`, [body.CM_Lead_ID]
-      );
-    }
+    await recalculateLeadStatuses(db, body.CM_Lead_ID);
 
     await logActivity(db, body.CM_Lead_ID, 'Visit Logged', `Visit #${newId} recorded`, body.CM_Created_By);
     
-    // Automatically mark attendance
-    await markUserAttendance(db, body.CM_Created_By, 'CRM Visit Log');
+    // Automatically mark attendance for creator and assigned executive
+    const activeUserId = body.CM_Created_By || body.CM_Sales_Executive_ID;
+    if (activeUserId) {
+      await markUserAttendance(db, activeUserId, 'CRM Visit Log', body.CM_Visit_Date);
+    }
+    if (body.CM_Sales_Executive_ID && body.CM_Sales_Executive_ID !== activeUserId) {
+      await markUserAttendance(db, body.CM_Sales_Executive_ID, 'CRM Visit Executive Assignment', body.CM_Visit_Date);
+    }
 
     return NextResponse.json({ success: true, CM_Visit_ID: newId }, { status: 201 });
 
@@ -430,25 +472,19 @@ async function updateVisit(request: NextRequest) {
       ]
     );
 
-    const purposeNormalized = String(body.CM_Purpose || '').trim().toLowerCase();
-    if (body.CM_Demo_Given === 'Yes') {
-      await db.execute(
-        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Demo Given', CM_Updated_At = NOW()
-         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Follow-up Call', 'Visited')`, [body.CM_Lead_ID]
-      );
-    } else if (purposeNormalized === 'demo call') {
-      await db.execute(
-        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Follow-up Call', CM_Updated_At = NOW()
-         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Visited', 'Demo Given')`, [body.CM_Lead_ID]
-      );
-    } else {
-      await db.execute(
-        `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Visited', CM_Updated_At = NOW()
-         WHERE CM_Lead_ID = ? AND CM_Lead_Status IN ('New Lead', 'Follow-up Call', 'Demo Given')`, [body.CM_Lead_ID]
-      );
-    }
+    await recalculateLeadStatuses(db, body.CM_Lead_ID);
 
     await logActivity(db, body.CM_Lead_ID, 'Visit Updated', `Visit ${CM_Visit_ID} updated`, body.CM_Updated_By);
+
+    // Automatically mark attendance on visit update
+    const updaterUserId = body.CM_Updated_By || body.CM_Sales_Executive_ID;
+    if (updaterUserId) {
+      await markUserAttendance(db, updaterUserId, 'CRM Visit Update', body.CM_Visit_Date);
+    }
+    if (body.CM_Sales_Executive_ID && body.CM_Sales_Executive_ID !== updaterUserId) {
+      await markUserAttendance(db, body.CM_Sales_Executive_ID, 'CRM Visit Executive Assignment', body.CM_Visit_Date);
+    }
+
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
@@ -464,11 +500,18 @@ async function deleteVisit(request: NextRequest) {
     const { CM_Visit_ID, CM_Updated_By } = body;
     if (!CM_Visit_ID) return NextResponse.json({ error: 'Visit ID required' }, { status: 400 });
 
+    const [[visit]]: any = await db.execute(`SELECT CM_Lead_ID FROM ccms_sales_visit WHERE CM_Visit_ID = ?`, [CM_Visit_ID]);
+    const leadId = visit?.CM_Lead_ID;
+
     await db.execute(
       `UPDATE ccms_sales_visit SET CM_Is_Deleted = 1, CM_Updated_By = ?, CM_Updated_At = NOW()
        WHERE CM_Visit_ID = ?`,
       [CM_Updated_By ?? null, CM_Visit_ID]
     );
+
+    if (leadId) {
+      await recalculateLeadStatuses(db, leadId);
+    }
     return NextResponse.json({ success: true });
 
   } catch (error: any) {

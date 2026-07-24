@@ -1,21 +1,11 @@
 import { NextResponse } from "next/server";
 
 export function middleware(req) {
-  // Check for 'token' (set by login) or 'ccms_token' (legacy)
+  // Check for 'token' or 'ccms_token'
   const token = req.cookies.get("token")?.value || req.cookies.get("ccms_token")?.value;
-
   const { pathname } = req.nextUrl;
 
-  // Define paths that require authentication
-  // We protect /api routes, but must exclude public APIs like login
-  const isApiRoute = pathname.startsWith("/api");
-  const isPublicApi =
-    pathname.startsWith("/api/login") ||
-    pathname.startsWith("/api/register") ||
-    pathname.startsWith("/api/public") ||
-    pathname.startsWith("/api/get-user"); // 🔓 allow login / signup helper
-
-  // UI Routes that definitely need protection
+  // Protected UI Routes
   const protectedRoutes = [
     "/dashboard",
     "/projects",
@@ -26,32 +16,39 @@ export function middleware(req) {
     "/settings",
     "/usage",
     "/warehouse",
+    "/stock-management",
+    "/purchase-summary",
+    "/salary-report",
   ];
 
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
-  // 1. (Disabled) API auth via middleware
-  // NOTE: Individual API routes should handle their own auth.
-  // if (isApiRoute && !isPublicApi) {
-  //   if (!token) {
-  //     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  //   }
-  // }
-
-  // 2. Protect UI Routes
-  if (isProtectedRoute) {
-    if (!token) {
-      // Redirect to login page
-      return NextResponse.redirect(new URL("/", req.url));
-    }
+  // Protect UI Routes
+  if (isProtectedRoute && !token) {
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
-  return NextResponse.next();
+  // Create response
+  const response = NextResponse.next();
+
+  // Inject OWASP Security Headers
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(self)"
+  );
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https:;"
+  );
+
+  return response;
 }
 
 export const config = {
   matcher: [
-    // Protect these UI paths
     "/dashboard/:path*",
     "/projects/:path*",
     "/expenses/:path*",
@@ -61,7 +58,9 @@ export const config = {
     "/settings/:path*",
     "/usage/:path*",
     "/warehouse/:path*",
-    // Also run middleware on all API routes to check auth
+    "/stock-management/:path*",
+    "/purchase-summary/:path*",
+    "/salary-report/:path*",
     "/api/:path*",
   ],
 };

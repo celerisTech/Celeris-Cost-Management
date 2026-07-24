@@ -297,7 +297,7 @@ export default function CRMDashboardPage() {
       textColor: "text-rose-900",
       iconBg: "bg-rose-50",
       iconColor: "text-rose-600",
-      link: "/dashboard/crm/visits?status=Not Interested"
+      link: "/dashboard/crm/leads?status=Not+Interested"
     },
     {
       label: "Total Collection",
@@ -321,7 +321,7 @@ export default function CRMDashboardPage() {
       textColor: "text-orange-900",
       iconBg: "bg-orange-50",
       iconColor: "text-orange-600",
-      link: "/dashboard/crm/visits?status=Proposal+Sent"
+      link: "/dashboard/crm/leads?status=Proposal+Sent"
     },
   ];
 
@@ -485,7 +485,7 @@ export default function CRMDashboardPage() {
             >
               Product Wise Distribution
             </button>
-            <button
+            {/* <button
               onClick={() => setActiveChartViewTab("financials")}
               className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${activeChartViewTab === "financials"
                 ? "border-indigo-600 text-indigo-600 font-bold"
@@ -493,7 +493,7 @@ export default function CRMDashboardPage() {
                 }`}
             >
               Client Financials
-            </button>
+            </button> */}
           </div>
 
           {/* FILTER label and main dropdown aligned to the right */}

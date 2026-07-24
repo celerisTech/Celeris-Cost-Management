@@ -49,7 +49,8 @@ export const useAuthStore = create(
       // 👇 Function to refresh navLinks
       refreshNavLinks: async (force = false) => {
         const state = get();
-        if (!state.user || !state.user.id) return;
+        const userId = state.user?.CM_User_ID || state.user?.id || state.user?.user_id;
+        if (!userId) return;
 
         // Skip if not stale and not forced
         if (!force && !state.areNavLinksStale()) return;

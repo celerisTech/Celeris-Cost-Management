@@ -281,7 +281,7 @@ export default function EngineerProjectsPage() {
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <div className="flex flex-col items-center justify-center h-screen p-4">
         <div className="bg-white border border-red-200 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-lg">
           <div className="flex justify-center mb-6">
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 rounded-full flex items-center justify-center">
@@ -454,8 +454,8 @@ export default function EngineerProjectsPage() {
             </div>
           </div>
 
-          {/* Projects List - Excel-style Table View */}
-          <div className="bg-white shadow-sm border border-slate-300 overflow-hidden animate-slide-in">
+          {/* Desktop View (Table) */}
+          <div className="hidden md:block bg-white shadow-sm border border-slate-300 overflow-hidden animate-slide-in">
             {/* Table Container */}
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-sm">
@@ -490,7 +490,7 @@ export default function EngineerProjectsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredProjects.map((project, index) => {
+                    filteredProjects.map((project) => {
                       const taskStats = getTaskStats(project);
                       const progressPercentage = taskStats.total > 0 
                         ? Math.round((taskStats.completed / taskStats.total) * 100) 
@@ -588,6 +588,116 @@ export default function EngineerProjectsPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile Grid View (Shown on screens smaller than md) */}
+          <div className="md:hidden grid grid-cols-1 sm:grid-cols-2 gap-4 animate-slide-in">
+            {filteredProjects.length === 0 ? (
+              <div className="col-span-full bg-white border border-slate-200 rounded-xl p-8 text-center">
+                <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-sm font-semibold text-slate-700 mb-1">No projects found</h3>
+                <p className="text-slate-500 text-xs mb-3">Try adjusting your search or filters</p>
+                <button
+                  onClick={clearFilters}
+                  className="px-3 py-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 transition-colors text-xs"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              filteredProjects.map((project) => {
+                const taskStats = getTaskStats(project);
+                const progressPercentage = taskStats.total > 0 
+                  ? Math.round((taskStats.completed / taskStats.total) * 100) 
+                  : 0;
+
+                return (
+                  <div
+                    key={project.CM_Project_ID}
+                    className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow space-y-3"
+                  >
+                    {/* Top Bar: Name, Leader, and Status */}
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold text-slate-900 truncate">
+                          {project.CM_Project_Name || '-'}
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Leader: {project.Project_Leader_Name || '-'}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 ${getTaskStatusBadge(project.CM_Status)}`}>
+                        {project.CM_Status || 'Unknown'}
+                      </span>
+                    </div>
+
+                    {/* Details Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Code</span>
+                        <span className="font-semibold text-slate-700">{project.CM_Project_Code || '-'}</span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Type</span>
+                        {project.CM_Project_Type ? (
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border ${getProjectTypeColor(project.CM_Project_Type)}`}>
+                            {project.CM_Project_Type}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Customer</span>
+                        <span className="font-medium text-slate-700 truncate block">{project.CM_Customer_Name || '-'}</span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Location</span>
+                        <span className="font-medium text-slate-700 truncate block">{project.CM_Project_Location || '-'}</span>
+                      </div>
+                    </div>
+
+                    {/* Task Stats & Progress */}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-600">Tasks Breakdown:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-700 font-bold" title="Total">Total: {taskStats.total}</span>
+                          <span className="text-emerald-700 font-bold" title="Completed">✓ {taskStats.completed}</span>
+                          <span className="text-amber-700 font-bold" title="Pending">⏳ {taskStats.pending}</span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                            style={{ width: `${progressPercentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 w-9 text-right">{progressPercentage}%</span>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-1">
+                      <button
+                        onClick={() => handleUpdateTasks(project)}
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        Update Tasks
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
 
 

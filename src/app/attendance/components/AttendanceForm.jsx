@@ -1,29 +1,25 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuthStore } from "@/app/store/useAuthScreenStore";
 import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   FiCalendar,
   FiUser,
   FiClock,
   FiSave,
-  FiMapPin,
   FiCheck,
   FiX,
   FiFilter,
   FiSearch,
-  FiBriefcase,
   FiLoader,
   FiCheckCircle,
-  FiAlertCircle,
   FiUsers,
   FiNavigation,
   FiWatch,
-  FiEdit2,
-  FiEye,
-  FiEyeOff
+  FiGrid,
+  FiCheckSquare
 } from "react-icons/fi";
 import { TbUsersGroup } from "react-icons/tb";
 
@@ -59,7 +55,7 @@ function AttendanceForm({ laborType }) {
     });
   }, [attendanceState]);
 
-  // Initialize
+  // Initialize date & role
   useEffect(() => {
     if (user?.CM_Role_ID) {
       setUserRole(user.CM_Role_ID);
@@ -96,7 +92,7 @@ function AttendanceForm({ laborType }) {
             projectId: null,
             inTime: { hour: "9", minute: "00", period: "AM" },
             outTime: { hour: "6", minute: "00", period: "PM" },
-            shift: "",
+            shift: "Day",
             remarks: "",
             laborId: emp.CM_Labor_Type_ID,
             laborName: `${emp.CM_First_Name} ${emp.CM_Last_Name}`,
@@ -147,7 +143,7 @@ function AttendanceForm({ laborType }) {
                 projectId: record.CM_Project_ID,
                 inTime: parseTime(record.CM_In_Time),
                 outTime: parseTime(record.CM_Out_Time),
-                shift: record.CM_Shift || "",
+                shift: record.CM_Shift || "Day",
                 remarks: record.CM_Remarks || "",
               };
             }
@@ -321,17 +317,18 @@ function AttendanceForm({ laborType }) {
 
   // Filter employees
   const filteredEmployees = employees.filter(e =>
-    `${e.CM_First_Name} ${e.CM_Last_Name}`.toLowerCase().includes(searchTerm.toLowerCase())
+    `${e.CM_First_Name} ${e.CM_Last_Name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.CM_Labor_Code || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Status Colors
+  // Status Badge Helper
   const getStatusColor = (status) => {
     switch (status) {
-      case "Present": return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "Half-Day": return "bg-amber-50 text-amber-700 border-amber-200";
-      case "Absent": return "bg-rose-50 text-rose-700 border-rose-200";
-      case "Week-Off": return "bg-blue-50 text-blue-700 border-blue-200";
-      default: return "bg-slate-50 text-slate-700 border-slate-200";
+      case "Present": return "bg-emerald-200 text-gray-700 font-bold border-emerald-400";
+      case "Half-Day": return "bg-amber-200 text-gray-700 font-bold border-amber-400";
+      case "Absent": return "bg-rose-100 text-gray-700 font-bold border-rose-400";
+      case "Week-Off": return "bg-blue-100 text-gray-700 font-bold border-blue-400";
+      default: return "bg-slate-200 text-slate-700 border-slate-300";
     }
   };
 
@@ -345,569 +342,517 @@ function AttendanceForm({ laborType }) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="p-2 sm:p-3"
-    >
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
-                Attendance Management
-              </h1>
-              <p className="text-slate-600 flex items-center gap-2">
-                <FiUsers className="text-slate-400" />
-                <span className="capitalize">{laborType} Employees • {new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 bg-white px-4 py-3 rounded-xl border border-blue-500">
-                <TbUsersGroup className="text-blue-500" />
-                <span className="text-sm text-black">{stats.total} Employees</span>
-              </div>
-              
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-3 rounded-xl font-semibold shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-              >
-                {isSubmitting ? (
-                  <>
-                    <FiLoader className="animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <FiSave />
-                    <span>Save Attendance</span>
-                  </>
-                )}
-              </button>
-            </div>
+    <div className="space-y-4">
+      {/* ---------- HEADER METRICS BAR (EXCEL STYLE) ---------- */}
+      <div className="bg-white border border-blue-200 rounded-xl p-2 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-1">
+          <div>
+            <h2 className="text-xl sm:text-xl font-black text-blue-500 tracking-tight flex items-center gap-2">
+              <FiGrid className="text-blue-500" />
+              Daily Attendance Sheet
+            </h2>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 mb-1">Present</p>
-                  <h3 className="text-2xl font-bold text-emerald-600">{stats.present}</h3>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
-                  <FiCheckCircle className="w-6 h-6 text-emerald-500" />
-                </div>
-              </div>
-              <div className="mt-3 w-full bg-slate-100 rounded-full h-2">
-                <div 
-                  className="bg-emerald-500 rounded-full h-2 transition-all duration-500" 
-                  style={{ width: `${(stats.present / stats.total) * 100 || 0}%` }}
-                />
-              </div>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+              <TbUsersGroup className="text-blue-700 text-lg" />
+              <span className="text-xs font-bold text-blue-900">{stats.total} Total Staff</span>
             </div>
 
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 mb-1">Absent</p>
-                  <h3 className="text-2xl font-bold text-rose-600">{stats.absent}</h3>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center">
-                  <FiX className="w-6 h-6 text-rose-500" />
-                </div>
-              </div>
-              <div className="mt-3 w-full bg-slate-100 rounded-full h-2">
-                <div 
-                  className="bg-rose-500 rounded-full h-2 transition-all duration-500" 
-                  style={{ width: `${(stats.absent / stats.total) * 100 || 0}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 mb-1">Half Day</p>
-                  <h3 className="text-2xl font-bold text-amber-600">{stats.halfDay}</h3>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
-                  <FiClock className="w-6 h-6 text-amber-500" />
-                </div>
-              </div>
-              <div className="mt-3 w-full bg-slate-100 rounded-full h-2">
-                <div 
-                  className="bg-amber-500 rounded-full h-2 transition-all duration-500" 
-                  style={{ width: `${(stats.halfDay / stats.total) * 100 || 0}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 mb-1">Total Hours</p>
-                  <h3 className="text-2xl font-bold text-blue-600">
-                    {Object.values(attendanceState).reduce((acc, curr) => {
-                      if (curr.status === "Present") {
-                        return acc + parseFloat(calculateTotalHours(curr.inTime, curr.outTime));
-                      }
-                      if (curr.status === "Half-Day") return acc + 4;
-                      return acc;
-                    }, 0).toFixed(1)}
-                  </h3>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
-                  <FiWatch className="w-6 h-6 text-blue-500" />
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-2">Total worked hours today</p>
-            </div>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || filteredEmployees.length === 0}
+              className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-md border border-blue-900 transition-all disabled:opacity-50 active:scale-95"
+            >
+              {isSubmitting ? (
+                <>
+                  <FiLoader className="animate-spin" />
+                  <span>Saving Sheet...</span>
+                </>
+              ) : (
+                <>
+                  <FiSave />
+                  <span>Save Sheet</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-          {/* Toolbar */}
-          <div className="p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="flex-1 w-full">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Search */}
-                  <div className="relative flex-1">
-                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by employee name..."
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-blue-500 focus:border-blue-500 focus:ring-3 focus:ring-blue-500/20 outline-none transition-all text-slate-700 placeholder-slate-400"
-                    />
-                  </div>
-
-                  {/* Date Picker */}
-                  <div className="relative sm:w-64">
-                    <FiCalendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 rounded-xl border border-blue-500 focus:border-blue-500 focus:ring-3 focus:ring-blue-500/20 outline-none transition-all text-slate-700"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2 px-4 py-3 rounded-xl border border-blue-500 hover:border-slate-400 bg-white text-slate-700 transition-colors"
-                >
-                  <FiFilter />
-                  <span className="hidden sm:inline">Filters</span>
-                </button>
-                
-                {laborType !== "Office" && (
-                  <div className="w-64">
-                    <Select
-                      options={projects.map(p => ({
-                        value: p.CM_Project_ID,
-                        label: p.CM_Project_Name,
-                        latitude: p.CM_Latitude,
-                        longitude: p.CM_Longitude,
-                        radius: p.CM_Radius_Meters
-                      }))}
-                      value={globalProject}
-                      onChange={handleGlobalProjectChange}
-                      placeholder={locationRestricted ? "Select Project (Required)" : "Global Project"}
-                      className="text-sm text-black py-3"
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          borderRadius: "0.75rem",
-                          borderColor: "#6ca9f5ff",
-                          minHeight: "50px",
-                          boxShadow: "none",
-                          "&:hover": {
-                            borderColor: "#5a9bf7ff"
-                          }
-                        })
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+        {/* Excel Metric KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-emerald-50/70 border-l-4 border-emerald-600 rounded-lg p-2 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Present</p>
+              <h3 className="text-2xl font-black text-emerald-700">{stats.present}</h3>
             </div>
-
-            {/* Quick Status Buttons */}
-            {showFilters && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="mt-4 pt-4 border-t border-slate-200"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-600 mr-2">Quick Actions:</span>
-                  <button
-                    onClick={() => updateAllStatus("Present")}
-                    className="px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors text-sm font-medium"
-                  >
-                    Mark All Present
-                  </button>
-                  <button
-                    onClick={() => updateAllStatus("Absent")}
-                    className="px-4 py-2 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors text-sm font-medium"
-                  >
-                    Mark All Absent
-                  </button>
-                  <button
-                    onClick={() => updateAllStatus("Half-Day")}
-                    className="px-4 py-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors text-sm font-medium"
-                  >
-                    Mark All Half Day
-                  </button>
-                </div>
-              </motion.div>
-            )}
+            <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">
+              <FiCheckCircle size={20} />
+            </div>
           </div>
 
-          {/* Responsive Table / Grid */}
-          <div className="overflow-x-auto">
-            {isLoading ? (
-              <div className="p-12 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
-                  <FiLoader className="w-8 h-8 text-blue-500 animate-spin" />
-                </div>
-                <h3 className="text-lg font-medium text-slate-700 mb-2">Loading Attendance Data</h3>
-                <p className="text-slate-500">Please wait while we fetch the latest records...</p>
+          <div className="bg-rose-50/70 border-l-4 border-rose-600 rounded-lg p-2 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-rose-800 uppercase tracking-wider">Absent</p>
+              <h3 className="text-2xl font-black text-rose-700">{stats.absent}</h3>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-rose-600 text-white flex items-center justify-center font-bold">
+              <FiX size={20} />
+            </div>
+          </div>
+
+          <div className="bg-amber-50/70 border-l-4 border-amber-600 rounded-lg p-2 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Half Day</p>
+              <h3 className="text-2xl font-black text-amber-700">{stats.halfDay}</h3>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold">
+              <FiClock size={20} />
+            </div>
+          </div>
+
+          <div className="bg-blue-50/70 border-l-4 border-blue-600 rounded-lg p-2 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-blue-900 uppercase tracking-wider">Total Hours</p>
+              <h3 className="text-2xl font-black text-blue-800">
+                {Object.values(attendanceState).reduce((acc, curr) => {
+                  if (curr.status === "Present") {
+                    return acc + parseFloat(calculateTotalHours(curr.inTime, curr.outTime));
+                  }
+                  if (curr.status === "Half-Day") return acc + 4;
+                  return acc;
+                }, 0).toFixed(1)} hrs
+              </h3>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-blue-700 text-white flex items-center justify-center font-bold">
+              <FiWatch size={20} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------- TOOLBAR & FILTERS ---------- */}
+      <div className="bg-white">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          {/* Search & Date Input */}
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-600" />
+              <input
+                type="text"
+                placeholder="Filter by name or code..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 rounded-lg border border-blue-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm text-slate-800 font-medium placeholder-slate-400 bg-white"
+              />
+            </div>
+
+            <div className="relative">
+              <FiCalendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-600" />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 rounded-lg border border-blue-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm text-slate-800 font-medium bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Quick Actions & Project Picker */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-300 hover:bg-blue-50 bg-white text-blue-900 font-bold text-xs shadow-sm transition-colors"
+            >
+              <FiFilter className="text-blue-700" />
+              <span>Bulk Quick Actions</span>
+            </button>
+
+            {laborType !== "Office" && (
+              <div className="w-56 sm:w-64">
+                <Select
+                  options={projects.map(p => ({
+                    value: p.CM_Project_ID,
+                    label: p.CM_Project_Name,
+                    latitude: p.CM_Latitude,
+                    longitude: p.CM_Longitude,
+                    radius: p.CM_Radius_Meters
+                  }))}
+                  value={globalProject}
+                  onChange={handleGlobalProjectChange}
+                  placeholder={locationRestricted ? "Select Project *" : "Global Project"}
+                  className="text-xs text-black"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      borderRadius: "0.5rem",
+                      borderColor: "#93c5fd",
+                      minHeight: "38px",
+                      fontSize: "0.85rem",
+                      boxShadow: "none",
+                      "&:hover": { borderColor: "#2563eb" }
+                    })
+                  }}
+                />
               </div>
-            ) : (
-              <>
-                {/* Desktop/Tablet: Table View */}
-                <div className="hidden md:block">
-                  <table className="w-full border-collapse border border-slate-300 bg-white">
-                    <thead>
-                      <tr className="bg-slate-200">
-                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Employee Name</th>
-                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">Status</th>
-                        {laborType !== "Office" && (
-                          <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Project</th>
-                        )}
-                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">In Time</th>
-                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">Out Time</th>
-                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">Shift</th>
-                        <th className="border border-slate-300 p-2 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredEmployees.map(emp => {
-                        const state = attendanceState[emp.CM_Labor_Type_ID] || {};
-                        const isPresent = state.status === "Present" || state.status === "Half-Day";
+            )}
+          </div>
+        </div>
 
-                        return (
-                          <tr
-                            key={emp.CM_Labor_Type_ID}
-                            className={`hover:bg-blue-50 transition-colors ${!isPresent ? "bg-slate-50" : ""}`}
-                          >
-                            {/* Employee */}
-                            <td className="border border-slate-300 p-2">
-                              <div className="font-medium text-slate-800 text-sm">
-                                {emp.CM_First_Name} {emp.CM_Last_Name}
-                              </div>
-                              <div className="text-xs text-slate-500 font-mono">{emp.CM_Labor_Code}</div>
-                            </td>
+        {/* Batch Status Buttons */}
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="pt-3 border-t border-blue-100 flex flex-wrap items-center gap-2"
+          >
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mr-2">Set All:</span>
+            <button
+              onClick={() => updateAllStatus("Present")}
+              className="px-3 py-1.5 rounded-lg bg-emerald-200 text-gray-700 font-bold text-xs hover:bg-emerald-300 shadow-sm transition-colors"
+            >
+              Mark All Present
+            </button>
+            <button
+              onClick={() => updateAllStatus("Absent")}
+              className="px-3 py-1.5 rounded-lg bg-rose-200 text-gray-700 font-bold text-xs hover:bg-rose-300 shadow-sm transition-colors"
+            >
+              Mark All Absent
+            </button>
+            <button
+              onClick={() => updateAllStatus("Half-Day")}
+              className="px-3 py-1.5 rounded-lg bg-amber-200 text-gray-700 font-bold text-xs hover:bg-amber-300 shadow-sm transition-colors"
+            >
+              Mark All Half Day
+            </button>
+            <button
+              onClick={() => updateAllStatus("Week-Off")}
+              className="px-3 py-1.5 rounded-lg bg-blue-200 text-gray-700 font-bold text-xs hover:bg-blue-300 shadow-sm transition-colors"
+            >
+              Mark All Week Off
+            </button>
+          </motion.div>
+        )}
+      </div>
 
-                            {/* Status */}
-                            <td className="border border-slate-300 p-0 align-top">
-                              <select
-                                value={state.status}
-                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "status", e.target.value)}
-                                className={`w-full h-full min-h-[40px] p-2 text-sm outline-none bg-transparent ${
-                                  state.status === "Present" ? "text-emerald-700 font-medium" : 
-                                  state.status === "Absent" ? "text-rose-700 font-medium" : 
-                                  state.status === "Half-Day" ? "text-amber-700 font-medium" : "text-slate-700"
-                                }`}
-                              >
-                                <option value="Present">Present</option>
-                                <option value="Absent">Absent</option>
-                                <option value="Half-Day">Half-Day</option>
-                                <option value="Week-Off">Week-Off</option>
-                              </select>
-                            </td>
+      {/* ---------- RESPONSIVE EXCEL TABLE & MOBILE GRID ---------- */}
+      <div className="bg-white border border-blue-200 rounded-xl shadow-md overflow-hidden">
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 mb-3 border border-blue-200">
+              <FiLoader className="w-7 h-7 text-blue-700 animate-spin" />
+            </div>
+            <h3 className="text-base font-bold text-blue-900 mb-1">Loading Excel Spreadsheet Data</h3>
+            <p className="text-xs text-slate-500">Fetching employee records for {laborType}...</p>
+          </div>
+        ) : (
+          <>
+            {/* ================= DESKTOP VIEW: EXCEL SPREADSHEET TABLE ================= */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full border-collapse border border-blue-200 bg-white text-xs">
+                <thead>
+                  <tr className="bg-blue-200 text-gray-800 border-b-2 border-blue-500 text-left font-bold uppercase tracking-wider">
+                    <th className="border border-blue-300/60 p-2.5 w-12 text-center">#</th>
+                    <th className="border border-blue-300/60 p-2.5 min-w-[200px]">Employee Name & Code</th>
+                    <th className="border border-blue-300/60 p-2.5 w-36 text-center">Status</th>
+                    {laborType !== "Office" && (
+                      <th className="border border-blue-300/60 p-2.5 min-w-[180px]">Project Assignment</th>
+                    )}
+                    <th className="border border-blue-300/60 p-2.5 w-36 text-center">In Time</th>
+                    <th className="border border-blue-300/60 p-2.5 w-36 text-center">Out Time</th>
+                    <th className="border border-blue-300/60 p-2.5 w-28 text-center">Shift</th>
+                    <th className="border border-blue-300/60 p-2.5 min-w-[200px]">Remarks / Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-blue-100">
+                  {filteredEmployees.map((emp, index) => {
+                    const state = attendanceState[emp.CM_Labor_Type_ID] || {};
+                    const isPresent = state.status === "Present" || state.status === "Half-Day";
+                    const isOdd = index % 2 === 1;
 
-                            {/* Project */}
-                            {laborType !== "Office" && (
-                              <td className="border border-slate-300 p-0 align-top">
-                                <select
-                                  disabled={!isPresent || locationRestricted}
-                                  value={state.projectId || ""}
-                                  onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "projectId", e.target.value)}
-                                  className="w-full h-full min-h-[40px] p-2 text-sm outline-none bg-transparent text-slate-700 disabled:opacity-50"
-                                >
-                                  <option value="" disabled>{locationRestricted ? (globalProject?.label || "Global") : "Select project..."}</option>
-                                  {projects.map(p => (
-                                    <option key={p.CM_Project_ID} value={p.CM_Project_ID}>{p.CM_Project_Name}</option>
-                                  ))}
-                                </select>
-                              </td>
-                            )}
+                    return (
+                      <tr
+                        key={emp.CM_Labor_Type_ID}
+                        className={`transition-colors hover:bg-blue-100/50 ${isOdd ? "bg-blue-50/40" : "bg-white"} ${!isPresent ? "opacity-90" : ""}`}
+                      >
+                        {/* Index */}
+                        <td className="border border-blue-200 p-2 text-center font-bold text-slate-700 bg-slate-50">
+                          {index + 1}
+                        </td>
 
-                            {/* In Time */}
-                            <td className="border border-slate-300 p-0 align-top">
-                              <div className={`flex items-center justify-center h-full min-h-[40px] px-1 ${!isPresent ? "opacity-50 pointer-events-none" : ""}`}>
-                                <select
-                                  value={state.inTime?.hour}
-                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, hour: e.target.value })}
-                                  className="bg-transparent border-none outline-none text-sm text-slate-700 p-1 w-10 text-center"
-                                >
-                                  {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
-                                    <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
-                                  )}
-                                </select>
-                                <span className="text-slate-400">:</span>
-                                <input
-                                  type="text"
-                                  value={state.inTime?.minute || "00"}
-                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, minute: e.target.value })}
-                                  className="w-8 bg-transparent border-none outline-none text-sm text-slate-700 text-center"
-                                />
-                                <button
-                                  onClick={() => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, period: state.inTime.period === "AM" ? "PM" : "AM" })}
-                                  className="px-1 py-1 text-xs text-black font-medium hover:bg-slate-100 rounded"
-                                >
-                                  {state.inTime?.period}
-                                </button>
-                              </div>
-                            </td>
-
-                            {/* Out Time */}
-                            <td className="border border-slate-300 p-0 align-top">
-                              <div className={`flex items-center justify-center h-full min-h-[40px] px-1 ${!isPresent ? "opacity-50 pointer-events-none" : ""}`}>
-                                <select
-                                  value={state.outTime?.hour}
-                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, hour: e.target.value })}
-                                  className="bg-transparent border-none outline-none text-sm text-slate-700 p-1 w-10 text-center"
-                                >
-                                  {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
-                                    <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
-                                  )}
-                                </select>
-                                <span className="text-slate-400">:</span>
-                                <input
-                                  type="text"
-                                  value={state.outTime?.minute || "00"}
-                                  onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, minute: e.target.value })}
-                                  className="w-8 bg-transparent border-none outline-none text-sm text-slate-700 text-center"
-                                />
-                                <button
-                                  onClick={() => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, period: state.outTime.period === "AM" ? "PM" : "AM" })}
-                                  className="px-1 py-1 text-xs text-black font-medium hover:bg-slate-100 rounded"
-                                >
-                                  {state.outTime?.period}
-                                </button>
-                              </div>
-                            </td>
-
-                            {/* Shift */}
-                            <td className="border border-slate-300 p-0 align-top">
-                              <input
-                                type="text"
-                                placeholder="Shift/Type"
-                                value={state.shift || ""}
-                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "shift", e.target.value)}
-                                className="w-full h-full min-h-[40px] text-slate-700 bg-transparent text-sm p-2 outline-none text-center"
-                              />
-                            </td>
-
-                            {/* Remarks */}
-                            <td className="border border-slate-300 p-0 align-top">
-                              <input
-                                type="text"
-                                placeholder="Remarks..."
-                                value={state.remarks || ""}
-                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "remarks", e.target.value)}
-                                className="w-full h-full min-h-[40px] text-slate-700 bg-transparent text-sm p-2 outline-none"
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      {filteredEmployees.length === 0 && (
-                        <tr>
-                          <td colSpan={laborType !== "Office" ? 5 : 4} className="p-12 text-center">
-                            <div className="flex flex-col items-center justify-center">
-                              <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                                <FiUser className="w-10 h-10 text-slate-400" />
-                              </div>
-                              <h3 className="text-lg font-medium text-slate-700 mb-2">No Employees Found</h3>
-                              <p className="text-slate-500 max-w-md">
-                                {searchTerm 
-                                  ? `No employees match "${searchTerm}". Try a different search term.`
-                                  : "No employees available for the selected criteria."
-                                }
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile: Grid/Card View */}
-                <div className="md:hidden space-y-4 p-2">
-                  {filteredEmployees.length === 0 ? (
-                    <div className="p-6 text-center">
-                      <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                        <FiUser className="w-8 h-8 text-slate-400" />
-                      </div>
-                      <h3 className="text-lg font-medium text-slate-700 mb-2">No Employees Found</h3>
-                      <p className="text-slate-500">
-                        {searchTerm 
-                          ? `No employees match "${searchTerm}".`
-                          : "No employees available."
-                        }
-                      </p>
-                    </div>
-                  ) : (
-                    filteredEmployees.map(emp => {
-                      const state = attendanceState[emp.CM_Labor_Type_ID] || {};
-                      const isPresent = state.status === "Present" || state.status === "Half-Day";
-
-                      return (
-                        <motion.div
-                          key={emp.CM_Labor_Type_ID}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm"
-                        >
-                          {/* Employee Header */}
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center flex-shrink-0">
-                                <FiUser className="w-5 h-5 text-blue-500" />
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-slate-800">
-                                  {emp.CM_First_Name} {emp.CM_Last_Name}
-                                </h4>
-                                <p className="text-xs text-slate-500 font-mono">{emp.CM_Labor_Code}</p>
-                              </div>
-                            </div>
-                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(state.status)}`}>
-                              {state.status}
-                            </span>
+                        {/* Employee Name */}
+                        <td className="border border-blue-200 p-2">
+                          <div className="font-bold text-slate-900 text-sm">
+                            {emp.CM_First_Name} {emp.CM_Last_Name}
                           </div>
+                          <div className="text-[11px] text-blue-700 font-semibold">{emp.CM_Labor_Code}</div>
+                        </td>
 
-                          {/* Status Toggle */}
-                          <div className="mb-4">
-                            <button
-                              onClick={() => updateRow(emp.CM_Labor_Type_ID, "status", isPresent ? "Absent" : "Present")}
-                              className={`w-full py-2 rounded-lg border-2 font-medium transition-colors ${
-                                isPresent
-                                  ? "bg-emerald-500 text-white border-emerald-500"
-                                  : "bg-slate-100 text-slate-600 border-slate-300"
-                              }`}
+                        {/* Status Selector */}
+                        <td className="border border-blue-200 p-1 text-center">
+                          <select
+                            value={state.status}
+                            onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "status", e.target.value)}
+                            className={`w-full py-1.5 px-2 text-xs rounded border outline-none font-bold cursor-pointer transition-all ${getStatusColor(state.status)}`}
+                          >
+                            <option value="Present" className="bg-white text-emerald-300 font-bold">Present</option>
+                            <option value="Absent" className="bg-white text-rose-700 font-bold">Absent</option>
+                            <option value="Half-Day" className="bg-white text-amber-700 font-bold">Half-Day</option>
+                            <option value="Week-Off" className="bg-white text-blue-700 font-bold">Week-Off</option>
+                          </select>
+                        </td>
+
+                        {/* Project Select */}
+                        {laborType !== "Office" && (
+                          <td className="border border-blue-200 p-1">
+                            <select
+                              disabled={!isPresent || locationRestricted}
+                              value={state.projectId || ""}
+                              onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "projectId", e.target.value)}
+                              className="w-full py-1.5 px-2 text-xs border border-blue-200 rounded outline-none bg-white text-slate-800 focus:border-blue-600 disabled:bg-slate-100 disabled:opacity-60"
                             >
-                              {isPresent ? "Mark Absent" : "Mark Present"}
+                              <option value="" disabled>{locationRestricted ? (globalProject?.label || "Global Project Required") : "Select project..."}</option>
+                              {projects.map(p => (
+                                <option key={p.CM_Project_ID} value={p.CM_Project_ID}>{p.CM_Project_Name}</option>
+                              ))}
+                            </select>
+                          </td>
+                        )}
+
+                        {/* In Time */}
+                        <td className="border border-blue-200 p-1 text-center">
+                          <div className={`flex items-center justify-center bg-white border border-blue-200 rounded py-1 px-1 ${!isPresent ? "opacity-40 pointer-events-none" : ""}`}>
+                            <select
+                              value={state.inTime?.hour}
+                              onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, hour: e.target.value })}
+                              className="bg-transparent outline-none text-xs font-bold text-slate-800 w-7 text-center"
+                            >
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
+                                <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
+                              )}
+                            </select>
+                            <span className="text-slate-400 font-bold">:</span>
+                            <input
+                              type="text"
+                              value={state.inTime?.minute || "00"}
+                              onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, minute: e.target.value })}
+                              className="w-6 bg-transparent outline-none text-xs font-bold text-slate-800 text-center"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, period: state.inTime.period === "AM" ? "PM" : "AM" })}
+                              className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-900 font-bold rounded hover:bg-blue-200 ml-1"
+                            >
+                              {state.inTime?.period}
                             </button>
                           </div>
+                        </td>
 
-                          {/* Project (if applicable) */}
+                        {/* Out Time */}
+                        <td className="border border-blue-200 p-1 text-center">
+                          <div className={`flex items-center justify-center bg-white border border-blue-200 rounded py-1 px-1 ${!isPresent ? "opacity-40 pointer-events-none" : ""}`}>
+                            <select
+                              value={state.outTime?.hour}
+                              onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, hour: e.target.value })}
+                              className="bg-transparent outline-none text-xs font-bold text-slate-800 w-7 text-center"
+                            >
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
+                                <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
+                              )}
+                            </select>
+                            <span className="text-slate-400 font-bold">:</span>
+                            <input
+                              type="text"
+                              value={state.outTime?.minute || "00"}
+                              onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, minute: e.target.value })}
+                              className="w-6 bg-transparent outline-none text-xs font-bold text-slate-800 text-center"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, period: state.outTime.period === "AM" ? "PM" : "AM" })}
+                              className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-900 font-bold rounded hover:bg-blue-200 ml-1"
+                            >
+                              {state.outTime?.period}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Shift */}
+                        <td className="border border-blue-200 p-1">
+                          <input
+                            type="text"
+                            placeholder="Shift"
+                            value={state.shift || ""}
+                            onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "shift", e.target.value)}
+                            className="w-full py-1.5 px-2 text-xs border border-blue-200 rounded outline-none bg-white text-slate-800 text-center font-medium focus:border-blue-600"
+                          />
+                        </td>
+
+                        {/* Remarks */}
+                        <td className="border border-blue-200 p-1">
+                          <input
+                            type="text"
+                            placeholder="Remarks..."
+                            value={state.remarks || ""}
+                            onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "remarks", e.target.value)}
+                            className="w-full py-1.5 px-2 text-xs border border-blue-200 rounded outline-none bg-white text-slate-800 focus:border-blue-600"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredEmployees.length === 0 && (
+                    <tr>
+                      <td colSpan={laborType !== "Office" ? 8 : 7} className="p-8 text-center bg-white">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-2 border border-blue-200">
+                            <FiUser className="w-6 h-6 text-blue-600" />
+                          </div>
+                          <h3 className="text-sm font-bold text-blue-900 mb-1">No Employees Found</h3>
+                          <p className="text-xs text-slate-500">
+                            {searchTerm ? `No employee matching "${searchTerm}"` : "No employees registered under this category."}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ================= MOBILE VIEW: RESPONSIVE EXCEL GRID CARDS ================= */}
+            <div className="md:hidden p-3 bg-slate-50">
+              {filteredEmployees.length === 0 ? (
+                <div className="p-6 text-center bg-white rounded-xl border border-blue-200">
+                  <FiUser className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                  <h3 className="text-sm font-bold text-blue-900">No Employees Found</h3>
+                  <p className="text-xs text-slate-500">Try adjusting your search criteria.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredEmployees.map((emp, index) => {
+                    const state = attendanceState[emp.CM_Labor_Type_ID] || {};
+                    const isPresent = state.status === "Present" || state.status === "Half-Day";
+
+                    return (
+                      <div
+                        key={emp.CM_Labor_Type_ID}
+                        className="bg-white rounded-xl border border-blue-300 shadow-sm overflow-hidden flex flex-col"
+                      >
+                        {/* Header Bar */}
+                        <div className="bg-blue-100 text-gray-700 px-3 py-2 flex items-center justify-between border-b border-blue-900">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-800 text-[10px] font-bold flex items-center justify-center border border-blue-500">
+                              {index + 1}
+                            </span>
+                            <div>
+                              <h4 className="font-bold text-xs text-gray-700">
+                                {emp.CM_First_Name} {emp.CM_Last_Name}
+                              </h4>
+                              <span className="text-[10px] text-gray-600">{emp.CM_Labor_Code}</span>
+                            </div>
+                          </div>
+
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getStatusColor(state.status)}`}>
+                            {state.status}
+                          </span>
+                        </div>
+
+                        {/* Body Grid Controls */}
+                        <div className="p-3 space-y-3 bg-white text-xs">
+                          {/* Quick Status Buttons */}
+                          <div>
+                            <label className="text-[10px] font-bold text-blue-900 uppercase block mb-1">Mark Status</label>
+                            <div className="grid grid-cols-4 gap-1">
+                              {["Present", "Absent", "Half-Day", "Week-Off"].map(st => (
+                                <button
+                                  key={st}
+                                  type="button"
+                                  onClick={() => updateRow(emp.CM_Labor_Type_ID, "status", st)}
+                                  className={`py-1.5 px-1 rounded text-[10px] font-bold border text-center transition-all ${
+                                    state.status === st ? getStatusColor(st) : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50"
+                                  }`}
+                                >
+                                  {st === "Half-Day" ? "Half" : st === "Week-Off" ? "Off" : st}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Project Assignment */}
                           {laborType !== "Office" && (
-                            <div className="mb-3">
-                              <label className="text-xs text-slate-500 block mb-1">Project</label>
-                              <Select
-                                isDisabled={!isPresent || locationRestricted}
-                                options={projects.map(p => ({
-                                  value: p.CM_Project_ID,
-                                  label: p.CM_Project_Name
-                                }))}
-                                value={projects.find(p => p.CM_Project_ID === state.projectId) ? {
-                                  value: state.projectId,
-                                  label: projects.find(p => p.CM_Project_ID === state.projectId).CM_Project_Name
-                                } : null}
-                                onChange={(opt) => updateRow(emp.CM_Labor_Type_ID, "projectId", opt?.value)}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                styles={{
-                                  control: (base) => ({
-                                    ...base,
-                                    borderRadius: "0.5rem",
-                                    borderColor: "#cbd5e1",
-                                    minHeight: "36px",
-                                    fontSize: "0.875rem",
-                                    backgroundColor: !isPresent ? "#f8fafc" : "white"
-                                  }),
-                                  menuPortal: base => ({ ...base, zIndex: 9999 })
-                                }}
-                                placeholder={locationRestricted ? (globalProject?.label || "Global") : "Select project..."}
-                                className="text-sm"
-                              />
+                            <div>
+                              <label className="text-[10px] font-bold text-blue-900 uppercase block mb-1">Project Site</label>
+                              <select
+                                disabled={!isPresent || locationRestricted}
+                                value={state.projectId || ""}
+                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "projectId", e.target.value)}
+                                className="w-full py-1.5 px-2 text-xs border border-blue-300 rounded bg-white text-slate-800 outline-none disabled:bg-slate-100 disabled:opacity-60"
+                              >
+                                <option value="" disabled>{locationRestricted ? (globalProject?.label || "Global Project Required") : "Select project..."}</option>
+                                {projects.map(p => (
+                                  <option key={p.CM_Project_ID} value={p.CM_Project_ID}>{p.CM_Project_Name}</option>
+                                ))}
+                              </select>
                             </div>
                           )}
 
-                          {/* Time IN/OUT */}
-                          <div className="grid grid-cols-2 gap-3 mb-3">
+                          {/* Times Grid */}
+                          <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="text-xs text-slate-500 block mb-1">In Time</label>
-                              <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1">
+                              <label className="text-[10px] font-bold text-blue-900 uppercase block mb-1">In Time</label>
+                              <div className={`flex items-center justify-between border border-blue-200 rounded p-1 bg-blue-50/30 ${!isPresent ? "opacity-50 pointer-events-none" : ""}`}>
                                 <select
                                   value={state.inTime?.hour}
                                   onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, hour: e.target.value })}
-                                  className="bg-transparent border-none outline-none text-sm text-slate-700 px-1 py-0.5"
-                                  disabled={!isPresent}
+                                  className="bg-transparent outline-none text-xs font-bold text-slate-800"
                                 >
                                   {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
                                     <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
                                   )}
                                 </select>
-                                <span>:</span>
+                                <span className="font-bold text-slate-400">:</span>
                                 <input
                                   type="text"
                                   value={state.inTime?.minute || "00"}
                                   onChange={e => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, minute: e.target.value })}
-                                  className="w-10 bg-transparent border-none outline-none text-sm text-center"
-                                  disabled={!isPresent}
+                                  className="w-5 bg-transparent outline-none text-xs font-bold text-center"
                                 />
                                 <button
+                                  type="button"
                                   onClick={() => updateRow(emp.CM_Labor_Type_ID, "inTime", { ...state.inTime, period: state.inTime.period === "AM" ? "PM" : "AM" })}
-                                  className="px-1.5 py-0.5 text-xs bg-white border border-slate-200 rounded ml-1"
-                                  disabled={!isPresent}
+                                  className="px-1 py-0.5 text-[9px] bg-blue-700 text-white font-bold rounded"
                                 >
                                   {state.inTime?.period}
                                 </button>
                               </div>
                             </div>
+
                             <div>
-                              <label className="text-xs text-slate-500 block mb-1">Out Time</label>
-                              <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1">
+                              <label className="text-[10px] font-bold text-blue-900 uppercase block mb-1">Out Time</label>
+                              <div className={`flex items-center justify-between border border-blue-200 rounded p-1 bg-blue-50/30 ${!isPresent ? "opacity-50 pointer-events-none" : ""}`}>
                                 <select
                                   value={state.outTime?.hour}
                                   onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, hour: e.target.value })}
-                                  className="bg-transparent border-none outline-none text-sm text-slate-700 px-1 py-0.5"
-                                  disabled={!isPresent}
+                                  className="bg-transparent outline-none text-xs font-bold text-slate-800"
                                 >
                                   {Array.from({ length: 12 }, (_, i) => i + 1).map(h => 
                                     <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>
                                   )}
                                 </select>
-                                <span>:</span>
+                                <span className="font-bold text-slate-400">:</span>
                                 <input
                                   type="text"
                                   value={state.outTime?.minute || "00"}
                                   onChange={e => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, minute: e.target.value })}
-                                  className="w-10 bg-transparent border-none outline-none text-sm text-center"
-                                  disabled={!isPresent}
+                                  className="w-5 bg-transparent outline-none text-xs font-bold text-center"
                                 />
                                 <button
+                                  type="button"
                                   onClick={() => updateRow(emp.CM_Labor_Type_ID, "outTime", { ...state.outTime, period: state.outTime.period === "AM" ? "PM" : "AM" })}
-                                  className="px-1.5 py-0.5 text-xs bg-white border border-slate-200 rounded ml-1"
-                                  disabled={!isPresent}
+                                  className="px-1 py-0.5 text-[9px] bg-blue-700 text-white font-bold rounded"
                                 >
                                   {state.outTime?.period}
                                 </button>
@@ -916,92 +861,71 @@ function AttendanceForm({ laborType }) {
                           </div>
 
                           {/* Shift & Remarks */}
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              placeholder="Shift/Work Type"
-                              value={state.shift || ""}
-                              onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "shift", e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg text-sm px-3 py-2 outline-none"
-                            />
-                            <textarea
-                              placeholder="Remarks"
-                              value={state.remarks || ""}
-                              onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "remarks", e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg text-sm px-3 py-2 outline-none resize-none h-12"
-                              rows={1}
-                            />
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="Shift (e.g. Day)"
+                                value={state.shift || ""}
+                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "shift", e.target.value)}
+                                className="w-full border border-blue-200 rounded px-2 py-1 text-xs outline-none bg-white font-medium"
+                              />
+                            </div>
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="Remarks..."
+                                value={state.remarks || ""}
+                                onChange={(e) => updateRow(emp.CM_Labor_Type_ID, "remarks", e.target.value)}
+                                className="w-full border border-blue-200 rounded px-2 py-1 text-xs outline-none bg-white"
+                              />
+                            </div>
                           </div>
-                        </motion.div>
-                      );
-                    })
-                  )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50/50">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-slate-600">
-                Showing <span className="font-semibold text-slate-800">{filteredEmployees.length}</span> of{" "}
-                <span className="font-semibold text-slate-800">{employees.length}</span> employees
-              </div>
-              
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                    <span className="text-xs text-slate-600">Present</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-rose-500"></div>
-                    <span className="text-xs text-slate-600">Absent</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <span className="text-xs text-slate-600">Half Day</span>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || filteredEmployees.length === 0}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-md shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <FiLoader className="animate-spin" />
-                      Saving Changes...
-                    </span>
-                  ) : (
-                    "Save Attendance"
-                  )}
-                </button>
-              </div>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* Location Alert for Engineers */}
-        {locationRestricted && !globalProject && (
-          <div className="mt-6 p-4 bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                <FiNavigation className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-amber-800">Location Verification Required</h4>
-                <p className="text-sm text-amber-700">
-                  As an engineer, you must select a project site to enable location-based attendance tracking.
-                </p>
-              </div>
-            </div>
-          </div>
+          </>
         )}
       </div>
-    </motion.div>
+
+      {/* ---------- FOOTER SAVE BAR ---------- */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="text-xs font-bold text-blue-900">
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={isSubmitting || filteredEmployees.length === 0}
+          className="w-full sm:w-auto px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-lg shadow-md border border-blue-900 transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
+        >
+          {isSubmitting ? (
+            <>
+              <FiLoader className="animate-spin" />
+              <span>Submitting Attendance...</span>
+            </>
+          ) : (
+            <>
+              <FiCheckSquare size={16} />
+              <span>Save & Submit Register</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Location Warning for Engineers */}
+      {locationRestricted && !globalProject && (
+        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-3">
+          <FiNavigation className="text-amber-700 text-lg flex-shrink-0" />
+          <p className="text-xs font-bold text-amber-900">
+            Engineer Location Guard Enabled: Please select a Project Site in the toolbar above before submitting attendance.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 

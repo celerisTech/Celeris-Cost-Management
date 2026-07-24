@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         u.CM_Full_Name,
         u.CM_Phone_Number,
         u.CM_Email,
+        u.CM_Photo_URL,
         u.CM_Is_Active
       FROM ccms_users AS u
       LEFT JOIN ccms_roles_master AS r 

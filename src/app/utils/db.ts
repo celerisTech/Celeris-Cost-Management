@@ -77,8 +77,10 @@ interface DbConfig {
   queueLimit: number;
   connectTimeout: number;
   multipleStatements: boolean;
-  dateStrings?: boolean;  // ✅ Added
-  timezone?: string;   
+  dateStrings?: boolean;
+  timezone?: string;
+  enableKeepAlive?: boolean;
+  keepAliveInitialDelay?: number;
 }
 
 function createDbPool(config: DbConfig): mysql.Pool {
@@ -94,25 +96,27 @@ async function getDb(): Promise<mysql.Pool> {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'celeris_ccms',
     waitForConnections: true,
-    connectionLimit: Number(process.env.DB_POOL_SIZE || 10),
+    connectionLimit: Number(process.env.DB_POOL_SIZE || 25),
     queueLimit: 0,
     connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT || 10000),
     multipleStatements: false,
-    dateStrings: true,       // ✅ critical fix
-    timezone: '+00:00'
+    dateStrings: true,
+    timezone: '+00:00',
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
   };
 
   try {
     pool = createDbPool(config);
 
-    // Test connection
+    // Quick test query
     const [rows] = await pool.query('SELECT 1 AS test');
     if (!rows || (Array.isArray(rows) && (rows as any[])[0]?.test !== 1)) {
       throw new Error('Database connection test failed');
     }
 
     (globalThis as any).__MYSQL_POOL__ = pool;
-    console.log('✅ MySQL pool created successfully');
+    console.log('✅ MySQL pool initialized successfully');
     return pool;
   } catch (error) {
     console.error('❌ Database connection error:', error);
@@ -122,19 +126,16 @@ async function getDb(): Promise<mysql.Pool> {
   }
 }
 
-// Execute a query directly
 export async function queryDb(sql: string, params: any[] = []) {
   const activePool = await getDb();
   return activePool.execute(sql, params);
 }
 
-// Get a raw connection if needed
 export async function getConnection() {
   const activePool = await getDb();
   return activePool.getConnection();
 }
 
-// ✅ Default export (for compatibility with your existing imports)
 export default getDb;
 
 // // src/app/utils/db.ts

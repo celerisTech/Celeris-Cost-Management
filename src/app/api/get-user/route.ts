@@ -60,9 +60,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const user = existing[0];
+      const user = existing[0] as any;
 
-      // 2. Check password
+      // 2. Check active status: only active users can log in
+      const statusStr = String(user.CM_Is_Active || "").toLowerCase();
+      if (statusStr !== "active" && statusStr !== "1" && statusStr !== "true") {
+        return NextResponse.json(
+          { error: "Your account is inactive. Please contact your administrator." },
+          { status: 403 }
+        );
+      }
+
+      // 3. Check password
       const isMatch = await bcrypt.compare(password, user.CM_Password);
       if (!isMatch) {
         return NextResponse.json(

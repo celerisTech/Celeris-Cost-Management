@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
     // Update lead status to 'Converted'
     await db.query(
-      `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Converted', CM_Updated_By = ?, CM_Updated_At = NOW() WHERE CM_Lead_ID = ?`,
+      `UPDATE ccms_sales_lead SET CM_Lead_Status = 'Converted', CM_Followup_Status = 'Converted', CM_Updated_By = ?, CM_Updated_At = NOW() WHERE CM_Lead_ID = ?`,
       [CM_Converted_By, CM_Lead_ID]
     );
 

@@ -206,57 +206,67 @@ export default function TaskReports() {
                         <p className="text-slate-600 font-medium">Fetching Task Reports...</p>
                     </div>
                 ) : filteredData.length > 0 ? (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-4">
                         {filteredData.map((item, idx) => (
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.2, delay: Math.min(idx * 0.05, 0.5) }}
                                 key={item.CM_Update_ID || idx}
-                                className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+                                className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                             >
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
+                                {/* Header: Engineer Name & Project */}
+                                <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <User size={16} className="text-blue-600" />
+                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Engineer:</span>
+                                        <span className="text-sm font-bold text-slate-800">{item.Engineer_Name || "-"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Projector size={16} className="text-indigo-600" />
+                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Project:</span>
+                                        <span className="text-sm font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-100">{item.CM_Project_Name || "-"}</span>
+                                    </div>
+                                </div>
+
+                                <div className="p-2 space-y-3">
+                                    {/* Task & Dates */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                                        <div>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Task Name</span>
+                                            <span className="text-sm font-semibold text-slate-900">{item.CM_Task_Name || "-"}</span>
+                                        </div>
+                                        <div className="sm:text-right">
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Task Dates</span>
+                                            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 inline-block">
+                                                {item.CM_Assign_Date ? format(new Date(item.CM_Assign_Date), "MMM d, yyyy") : "-"} to {item.CM_Due_Date ? format(new Date(item.CM_Due_Date), "MMM d, yyyy") : "-"}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Update Remark & Update Date */}
                                     <div>
-                                        <div className="text-blue-500 text-sm mb-0.5">Project Name</div>
-                                        <div className="text-slate-800 font-medium text-sm">{item.CM_Project_Name || "-"}</div>
-                                    </div>
-                                    <div className="sm:text-right">
-                                        <div className="text-blue-500 text-sm mb-0.5">Engineer name / Update date</div>
-                                        <div className="text-slate-800 font-medium text-sm">
-                                            {item.Engineer_Name || "-"} / {item.CM_Uploaded_At ? format(new Date(item.CM_Uploaded_At), "MMM d, yyyy h:mm a") : (item.CM_Update_Date ? format(new Date(item.CM_Update_Date), "MMM d, yyyy h:mm a") : "-")}
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Update</span>
+                                            <span className="text-xs text-slate-500 font-medium">
+                                                Update Date: {item.CM_Uploaded_At ? format(new Date(item.CM_Uploaded_At), "MMM d, yyyy h:mm a") : (item.CM_Update_Date ? format(new Date(item.CM_Update_Date), "MMM d, yyyy h:mm a") : "-")}
+                                            </span>
                                         </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 mt-1">
-                                    <div className="flex-1">
-                                        <div className="text-blue-500 text-sm mb-0.5">Task Name</div>
-                                        <div className="text-slate-900 font-semibold text-sm">{item.CM_Task_Name || "-"}</div>
-                                    </div>
-                                    <div className="sm:text-right">
-                                        <div className="text-blue-500 text-sm mb-0.5">Start Date & End Date</div>
-                                        <div className="text-slate-800 text-sm font-medium">
-                                            {item.CM_Assign_Date ? format(new Date(item.CM_Assign_Date), "MMM d, yyyy") : "-"} to {item.CM_Due_Date ? format(new Date(item.CM_Due_Date), "MMM d, yyyy") : "-"}
+                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm text-slate-800 leading-relaxed">
+                                            {item.CM_Remarks || "No remarks provided."}
                                         </div>
+                                        {(item.CM_Image_URL || item.Task_Image_URL) && (
+                                            <div className="mt-2.5">
+                                                <button
+                                                    onClick={() => setPreviewImage(item.CM_Image_URL || item.Task_Image_URL)}
+                                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
+                                                >
+                                                    <Projector size={14} />
+                                                    View Attached Image
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-
-                                <div>
-                                    <div className="text-blue-500 text-sm mb-0.5">Update task</div>
-                                    <div className="text-slate-800 text-sm leading-relaxed">
-                                        {item.CM_Remarks || "No remarks provided."}
-                                    </div>
-                                    {(item.CM_Image_URL || item.Task_Image_URL) && (
-                                        <div className="mt-2">
-                                            <button
-                                                onClick={() => setPreviewImage(item.CM_Image_URL || item.Task_Image_URL)}
-                                                className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md border border-blue-100 transition-colors"
-                                            >
-                                                <Projector size={14} />
-                                                View Attached Image
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             </motion.div>
                         ))}

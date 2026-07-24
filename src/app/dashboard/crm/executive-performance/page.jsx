@@ -13,6 +13,7 @@ import {
   Presentation,
   Search,
   Loader2,
+  Clock,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -104,6 +105,17 @@ export default function ExecutivePerformancePage() {
   const totalCallVisits = filteredExecutives.reduce((sum, item) => sum + (item.call_count || 0), 0);
   const totalFollowUps = filteredExecutives.reduce((sum, item) => sum + (item.followup_count || 0), 0);
 
+  const statCards = [
+    { label: "Total Leads", value: totalLeads, icon: Users, color: "text-blue-600", bg: "bg-blue-50/50", border: "border-blue-500" },
+    { label: "Demos", value: totalDemos, icon: Presentation, color: "text-violet-600", bg: "bg-violet-50/50", border: "border-violet-500" },
+    { label: "Proposals Sent", value: totalProposals, icon: FileText, color: "text-orange-600", bg: "bg-orange-50/50", border: "border-orange-500" },
+    { label: "Converted", value: totalConversions, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50/50", border: "border-emerald-500" },
+    { label: "Rejected / NI", value: totalRejected, icon: XCircle, color: "text-red-600", bg: "bg-red-50/50", border: "border-red-500" },
+    { label: "Visits", value: totalVisits, icon: BarChart3, color: "text-cyan-600", bg: "bg-cyan-50/50", border: "border-cyan-500" },
+    { label: "Calls", value: totalCallVisits, icon: FileText, color: "text-pink-600", bg: "bg-pink-50/50", border: "border-pink-500" },
+    { label: "Follow-ups", value: totalFollowUps, icon: Clock, color: "text-amber-600", bg: "bg-amber-50/50", border: "border-amber-500" },
+  ];
+
   const chartData = useMemo(() => {
     return filteredExecutives
       .slice()
@@ -169,79 +181,17 @@ export default function ExecutivePerformancePage() {
       </div>
 
       <div className="px-4 sm:px-6 py-4">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7 mb-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Leads</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalLeads)}</p>
+        {/* Stats Cards for Executives */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+          {statCards.map((s, i) => (
+            <div key={i} className={`p-3 rounded-xl border-l-4 ${s.border} ${s.bg} text-slate-800 shadow-sm transition-transform hover:scale-[1.02]`}>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 truncate">{s.label}</p>
+              <div className="flex items-center justify-between">
+                <p className={`text-xl font-extrabold ${s.color}`}>{formatNumber(s.value)}</p>
+                <s.icon className={`h-5 w-5 ${s.color} opacity-40`} />
               </div>
-              <div className="rounded-lg bg-blue-50 p-2 text-blue-600"><Users size={18} /></div>
             </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Demos</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalDemos)}</p>
-              </div>
-              <div className="rounded-lg bg-violet-50 p-2 text-violet-600"><Presentation size={18} /></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Proposals Sent</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalProposals)}</p>
-              </div>
-              <div className="rounded-lg bg-amber-50 p-2 text-amber-600"><FileText size={18} /></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Converted</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalConversions)}</p>
-              </div>
-              <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600"><CheckCircle2 size={18} /></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Rejected / Not Interested</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalRejected)}</p>
-              </div>
-              <div className="rounded-lg bg-rose-50 p-2 text-rose-600"><XCircle size={18} /></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Visits</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalVisits)}</p>
-              </div>
-              <div className="rounded-lg bg-cyan-50 p-2 text-cyan-600"><BarChart3 size={18} /></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Calls</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalCallVisits)}</p>
-              </div>
-              <div className="rounded-lg bg-pink-50 p-2 text-pink-600"><FileText size={18} /></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Follow-ups</p>
-                <p className="text-2xl font-bold text-slate-800">{formatNumber(totalFollowUps)}</p>
-              </div>
-              <div className="rounded-lg bg-orange-50 p-2 text-orange-600"><FileText size={18} /></div>
-            </div>
-          </div>
+          ))}
         </div>
 
         <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

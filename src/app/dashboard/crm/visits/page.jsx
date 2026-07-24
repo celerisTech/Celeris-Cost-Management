@@ -14,6 +14,7 @@ import { useAuthStore } from "../../../store/useAuthScreenStore";
 import toast from "react-hot-toast";
 import VisitStatusMasterPage from "../master/visit-status/page";
 import VisitProductsMasterPage from "../master/visit-products/page";
+import VisitFormModal from "../components/VisitFormModal";
 
 function VisitsContent() {
   const { user } = useAuthStore();
@@ -73,6 +74,34 @@ function VisitsContent() {
   const [isManageProductModalOpen, setIsManageProductModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewMode, setViewMode] = useState("table"); // table or timeline
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
+
+  // Custom Confirmation Modal State
+  const [confirmConfig, setConfirmConfig] = useState({
+    show: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'danger',
+    onConfirm: null
+  });
+
+  const showConfirm = ({ title, message, confirmText = 'Yes, Delete', cancelText = 'Cancel', type = 'danger', onConfirm }) => {
+    setConfirmConfig({
+      show: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      type,
+      onConfirm
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, show: false }));
+  };
 
   const [leadSearchText, setLeadSearchText] = useState("");
   const [showLeadSuggestions, setShowLeadSuggestions] = useState(false);
@@ -318,21 +347,28 @@ function VisitsContent() {
     }
   };
 
-  const handleDelete = async (visitId) => {
-    if (!confirm("Are you sure?")) return;
-    try {
-      const res = await fetch(`/api/sales-visits?_method=DELETE`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ CM_Visit_ID: visitId, CM_Updated_By: user?.id })
-      });
-      if (res.ok) {
-        toast.success("Visit deleted");
-        fetchVisits();
+  const handleDelete = (visitId) => {
+    showConfirm({
+      title: "Delete Visit Entry?",
+      message: "Are you sure you want to delete this visit entry? This action cannot be undone.",
+      confirmText: "Yes, Delete Visit",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/sales-visits?_method=DELETE`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ CM_Visit_ID: visitId, CM_Updated_By: user?.id })
+          });
+          if (res.ok) {
+            toast.success("Visit deleted");
+            fetchVisits();
+          }
+        } catch (error) {
+          toast.error("Delete failed");
+        }
       }
-    } catch (error) {
-      toast.error("Delete failed");
-    }
+    });
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -394,8 +430,8 @@ function VisitsContent() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 items-end text-gray-800 w-full overflow-visible pb-3 pt-2 sticky top-0 z-20 shadow-sm border-b px-2">
-        <div className="col-span-2 md:col-span-3 xl:col-span-1 w-full">
+      <div className="bg-white grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-end text-gray-800 w-full overflow-visible pb-3 pt-2 sticky top-0 z-20 shadow-sm border-b px-2">
+        <div className="w-full">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -445,120 +481,141 @@ function VisitsContent() {
           </select>
         </div>
 
+        {/* Compact Toggle Button */}
         <div className="w-full">
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Industrial</label>
-          <select
-            value={industrialFilter}
-            onChange={(e) => {
-              setIndustrialFilter(e.target.value);
-              setCategoryFilter("");
-              setPage(1);
-            }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+          <button
+            type="button"
+            onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-all font-semibold h-[42px] text-xs"
           >
-            <option value="">All Industrials</option>
-            {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
-          </select>
+            <Filter className="h-3.5 w-3.5" />
+            {isFiltersExpanded ? "Less" : "More"}
+          </button>
         </div>
 
-        <div className="w-full">
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Category</label>
-          <select
-            value={categoryFilter}
-            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
-          >
-            <option value="">All Categories</option>
-            {filterCategories.map(c => (
-              <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
-            ))}
-          </select>
-        </div>
+        {isFiltersExpanded && (
+          <>
+            <div className="w-full">
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Industrial</label>
+              <select
+                value={industrialFilter}
+                onChange={(e) => {
+                  setIndustrialFilter(e.target.value);
+                  setCategoryFilter("");
+                  setPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+              >
+                <option value="">All Industrials</option>
+                {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
+              </select>
+            </div>
 
-        {/* Today / Yesterday Quick Filters */}
-        <div className="flex flex-col gap-1 w-full">
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
-          <div className="grid grid-cols-2 gap-2 w-full">
-            <button
-              type="button"
-              onClick={() => {
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
-                setFromDate(todayStr);
-                setToDate(todayStr);
-                setDateQuickFilter('today');
-                setPage(1);
-              }}
-              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'today'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
-                }`}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = yesterday.toISOString().split('T')[0];
-                setFromDate(yesterdayStr);
-                setToDate(yesterdayStr);
-                setDateQuickFilter('yesterday');
-                setPage(1);
-              }}
-              className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'yesterday'
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
-                }`}
-            >
-              Yesterday
-            </button>
-          </div>
-        </div>
+            <div className="w-full">
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Category</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+              >
+                <option value="">All Categories</option>
+                {filterCategories.map(c => (
+                  <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
+                ))}
+              </select>
+            </div>
 
-        <div className="w-full">
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">
-            {pendingOnly ? "Followup From" : "From Date"}
-          </label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
-          />
-        </div>
+            {/* Today / Yesterday Quick Filters */}
+            <div className="flex flex-col gap-1 w-full">
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
+              <div className="grid grid-cols-2 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    const todayStr = today.toISOString().split('T')[0];
+                    setFromDate(todayStr);
+                    setToDate(todayStr);
+                    setDateQuickFilter('today');
+                    setPage(1);
+                  }}
+                  className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'today'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
+                    }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toISOString().split('T')[0];
+                    setFromDate(yesterdayStr);
+                    setToDate(yesterdayStr);
+                    setDateQuickFilter('yesterday');
+                    setPage(1);
+                  }}
+                  className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'yesterday'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
+                    }`}
+                >
+                  Yesterday
+                </button>
+              </div>
+            </div>
 
-        <div className="w-full">
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">
-            {pendingOnly ? "Followup To" : "To Date"}
-          </label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => { setToDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
-          />
-        </div>
+            <div className="w-full">
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">
+                {pendingOnly ? "Followup From" : "From Date"}
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
+              />
+            </div>
 
-        <button
-          onClick={() => {
-            setSearch("");
-            setStatusFilter("");
-            setProductFilter("");
-            setExecFilter("");
-            setIndustrialFilter("");
-            setCategoryFilter("");
-            setDateQuickFilter("");
-            setFromDate("");
-            setToDate("");
-            setPage(1);
-          }}
-          className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all"
-          title="Reset Filters"
-        >
-          <FiRotateCcw size={18} />
-        </button>
+            <div className="flex items-end gap-2 w-full">
+              {/* To Date */}
+              <div className="flex-1">
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">
+                  {pendingOnly ? "Followup To" : "To Date"}
+                </label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => { setToDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
+                />
+              </div>
+
+              {/* Reset Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("");
+                  setProductFilter("");
+                  setExecFilter("");
+                  setIndustrialFilter("");
+                  setCategoryFilter("");
+                  setDateQuickFilter("");
+                  setFromDate("");
+                  setToDate("");
+                  setPage(1);
+                }}
+                className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
+                title="Reset Filters"
+              >
+                <FiRotateCcw size={18} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Content Area */}
@@ -777,202 +834,14 @@ function VisitsContent() {
         </div>
       )}
 
-      {/* Visit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm text-gray-800">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-500 text-white">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                {selectedVisit ? "Update Visit Log" : "Log New Client Visit"}
-              </h2>
-              <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1 relative">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Select Lead *</label>
-                <div className="relative">
-                  <input
-                    required
-                    type="text"
-                    placeholder="Search or enter company/client name..."
-                    value={leadSearchText}
-                    onFocus={() => setShowLeadSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowLeadSuggestions(false), 250)}
-                    onChange={(e) => {
-                      setLeadSearchText(e.target.value);
-                      setShowLeadSuggestions(true);
-                      // Clear the selected lead ID if they type something new
-                      if (formData.CM_Lead_ID) {
-                        setFormData(prev => ({ ...prev, CM_Lead_ID: "" }));
-                      }
-                    }}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none pr-10"
-                  />
-                  {formData.CM_Lead_ID && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 font-extrabold text-sm">✓</span>
-                  )}
-                </div>
-
-                {/* Suggestions List Dropdown */}
-                {showLeadSuggestions && leadSearchText.trim() !== "" && (
-                  <div className="absolute z-[70] left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl divide-y divide-gray-50">
-                    {filteredLeads.length === 0 ? (
-                      <div className="p-3 text-xs text-gray-500 italic">No matching leads found</div>
-                    ) : (
-                      filteredLeads.map((l) => (
-                        <button
-                          key={l.CM_Lead_ID}
-                          type="button"
-                          onMouseDown={() => {
-                            setFormData(prev => ({ ...prev, CM_Lead_ID: l.CM_Lead_ID }));
-                            setLeadSearchText(`${l.CM_Client_Name} - ${l.CM_Company_Name || "Individual"}`);
-                            setShowLeadSuggestions(false);
-                          }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-xs font-medium flex flex-col gap-0.5"
-                        >
-                          <span className="font-bold text-gray-900">{l.CM_Client_Name}</span>
-                          <span className="text-[10px] text-gray-500">{l.CM_Company_Name || "Individual"}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-                {/* Hidden input to enforce html5 required field validation on the selected ID */}
-                <input
-                  type="hidden"
-                  name="CM_Lead_ID"
-                  value={formData.CM_Lead_ID || ""}
-                  required
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visit Date *</label>
-                <input
-                  required
-                  type="date"
-                  value={formData.CM_Visit_Date || ""}
-                  onChange={(e) => setFormData({ ...formData, CM_Visit_Date: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Purpose of Visit *</label>
-                <input
-                  required
-                  type="text"
-                  value={formData.CM_Purpose || ""}
-                  onChange={(e) => setFormData({ ...formData, CM_Purpose: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                  placeholder="e.g. Site Survey, Product Demo, Negotiation..."
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Sales Executive</label>
-                <select
-                  value={formData.CM_Sales_Executive_ID || ""}
-                  onChange={(e) => setFormData({ ...formData, CM_Sales_Executive_ID: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
-                >
-                  <option value="">Select Executive</option>
-                  {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Date</label>
-                <input
-                  type="date"
-                  value={formData.CM_Next_Followup_Date || ""}
-                  onChange={(e) => setFormData({ ...formData, CM_Next_Followup_Date: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Next Follow-up Time</label>
-                <input
-                  type="time"
-                  value={formData.CM_Next_Followup_Time || ""}
-                  onChange={(e) => setFormData({ ...formData, CM_Next_Followup_Time: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 md:col-span-2">
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-600">Demo Given?</span>
-                  <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-inner">
-                    {['Yes', 'No'].map(opt => (
-                      <button key={opt} type="button" onClick={() => setFormData({ ...formData, CM_Demo_Given: opt })} className={`px-4 py-1 text-[10px] font-bold rounded-md transition-all ${formData.CM_Demo_Given === opt ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600'}`}>{opt}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-600">Handed Over?</span>
-                  <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-inner">
-                    {['Yes', 'No'].map(opt => (
-                      <button key={opt} type="button" onClick={() => setFormData({ ...formData, CM_Project_Handed_Over: opt })} className={`px-4 py-1 text-[10px] font-bold rounded-md transition-all ${formData.CM_Project_Handed_Over === opt ? 'bg-emerald-600 text-white shadow-md' : 'text-gray-600'}`}>{opt}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Status</label>
-                  <button type="button" onClick={() => setIsManageStatusModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
-                    <Settings size={12} /> Manage Options
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {statusOptions.map(s => (
-                    <button key={s} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Status: s })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Status === s ? `${statusColorsMap[s] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 space-y-1 mt-2">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-0">Visit Product</label>
-                  <button type="button" onClick={() => setIsManageProductModalOpen(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 hover:bg-indigo-100">
-                    <Settings size={12} /> Manage Options
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setFormData({ ...formData, CM_Visit_Products: "" })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!formData.CM_Visit_Products ? `bg-gray-100 text-gray-700 border-gray-300 shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>None</button>
-                  {productOptions.map(p => (
-                    <button key={p} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Products: p })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Products === p ? `${productColorsMap[p] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{p}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Detailed Remarks & Issues</label>
-                <textarea
-                  rows="3"
-                  value={formData.CM_Remarks || ""}
-                  onChange={(e) => setFormData({ ...formData, CM_Remarks: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring focus:ring-blue-500 outline-none resize-none"
-                  placeholder="Record what was discussed, any issues raised, scope changes..."
-                />
-              </div>
-
-              <div className="md:col-span-2 py-4 flex gap-3 sticky bottom-0 bg-white border-t border-gray-50 mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-3 text-gray-500 font-bold rounded-2xl hover:bg-gray-100 transition-all">Cancel</button>
-                <button type="submit" disabled={isSubmitting} className="flex-[2] px-6 py-3 bg-blue-500 text-white font-bold rounded-2xl hover:bg-blue-600 shadow-xl shadow-blue-100 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                  {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
-                  {selectedVisit ? "Update Log Entry" : "Save Visit Entry"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <VisitFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        selectedVisit={selectedVisit}
+        preselectedLeadId={null}
+        user={user}
+        onSuccess={() => fetchVisits()}
+      />
 
       {/* Manage Statuses Modal */}
       {isManageStatusModalOpen && (
@@ -991,6 +860,75 @@ function VisitsContent() {
           <div className="bg-slate-50 min-h-[80vh] rounded-2xl shadow-2xl relative max-w-5xl mx-auto">
             <div className="pt-2 pb-6">
               <VisitProductsMasterPage onClose={() => { setIsManageProductModalOpen(false); fetchProducts(); }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Alert Modal */}
+      {confirmConfig.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all scale-100">
+            {/* Top Indicator Bar */}
+            <div className={`h-2.5 w-full ${
+              confirmConfig.type === 'danger'
+                ? 'bg-gradient-to-r from-rose-500 to-red-600'
+                : 'bg-gradient-to-r from-amber-400 to-orange-500'
+            }`} />
+
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                  confirmConfig.type === 'danger'
+                    ? 'bg-rose-100 text-rose-600'
+                    : 'bg-amber-100 text-amber-600'
+                }`}>
+                  <AlertCircle size={26} />
+                </div>
+
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {confirmConfig.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {confirmConfig.message}
+                  </p>
+                </div>
+
+                <button
+                  onClick={closeConfirm}
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeConfirm}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-all"
+                >
+                  {confirmConfig.cancelText || "Cancel"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const action = confirmConfig.onConfirm;
+                    closeConfirm();
+                    if (action) action();
+                  }}
+                  className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 text-white ${
+                    confirmConfig.type === 'danger'
+                      ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                      : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
+                  }`}
+                >
+                  {confirmConfig.confirmText || "Confirm"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
