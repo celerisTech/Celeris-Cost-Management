@@ -59,49 +59,73 @@ export default function VisitFormModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      if (selectedVisit) {
-        setFormData({ ...selectedVisit });
-        const matchingLead = leads.find(l => l.CM_Lead_ID == selectedVisit.CM_Lead_ID);
+    if (!isOpen) {
+      setLeadSearchText("");
+      setShowLeadSuggestions(false);
+      return;
+    }
+
+    if (selectedVisit) {
+      setFormData({ ...selectedVisit });
+      const matchingLead = leads.find(l => String(l.CM_Lead_ID) === String(selectedVisit.CM_Lead_ID));
+      if (matchingLead) {
+        setLeadSearchText(`${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}`);
+      } else {
+        setLeadSearchText("");
+      }
+    } else {
+      const initialLeadId = preselectedLeadId || "";
+      setFormData({
+        CM_Lead_ID: initialLeadId,
+        CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) || "",
+        CM_Visit_Date: new Date().toISOString().split('T')[0],
+        CM_Purpose: "",
+        CM_Product_Discussed: "",
+        CM_Scope_Given: "",
+        CM_Demo_Given: "No",
+        CM_Proposal_Value: "",
+        CM_GST_Type: "Exclusive",
+        CM_Scope_Alteration: "",
+        CM_Value_Alteration: "",
+        CM_Further_Enhancement: "",
+        CM_Issues_Raised: "",
+        CM_Project_Handed_Over: "No",
+        CM_Trial_Version_Given: "No",
+        CM_Next_Followup_Date: "",
+        CM_Next_Followup_Time: "",
+        CM_Visit_Status: "Follow-up Needed",
+        CM_Visit_Products: "",
+        CM_Remarks: "",
+        CM_Images: []
+      });
+
+      if (initialLeadId && leads.length > 0) {
+        const matchingLead = leads.find(l => String(l.CM_Lead_ID) === String(initialLeadId));
         if (matchingLead) {
           setLeadSearchText(`${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}`);
         }
       } else {
-        setFormData(prev => {
-          if (prev.CM_Lead_ID === (preselectedLeadId || "")) return prev;
-          return {
-            CM_Lead_ID: preselectedLeadId || "",
-            CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) || "",
-            CM_Visit_Date: new Date().toISOString().split('T')[0],
-            CM_Purpose: "",
-            CM_Product_Discussed: "",
-            CM_Scope_Given: "",
-            CM_Demo_Given: "No",
-            CM_Proposal_Value: "",
-            CM_GST_Type: "Exclusive",
-            CM_Scope_Alteration: "",
-            CM_Value_Alteration: "",
-            CM_Further_Enhancement: "",
-            CM_Issues_Raised: "",
-            CM_Project_Handed_Over: "No",
-            CM_Trial_Version_Given: "No",
-            CM_Next_Followup_Date: "",
-            CM_Next_Followup_Time: "",
-            CM_Visit_Status: "Follow-up Needed",
-            CM_Visit_Products: "",
-            CM_Remarks: "",
-            CM_Images: []
-          };
-        });
-        if (preselectedLeadId && leads.length > 0) {
-          const matchingLead = leads.find(l => l.CM_Lead_ID == preselectedLeadId);
-          if (matchingLead) {
-            setLeadSearchText(`${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}`);
-          }
-        }
+        setLeadSearchText("");
       }
     }
-  }, [isOpen, selectedVisit, preselectedLeadId, leads]);
+  }, [isOpen, selectedVisit, preselectedLeadId]);
+
+  useEffect(() => {
+    if (isOpen && formData.CM_Lead_ID && leads.length > 0 && !leadSearchText) {
+      const matchingLead = leads.find(l => String(l.CM_Lead_ID) === String(formData.CM_Lead_ID));
+      if (matchingLead) {
+        setLeadSearchText(`${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}`);
+      }
+    }
+  }, [isOpen, formData.CM_Lead_ID, leads, leadSearchText]);
+
+  useEffect(() => {
+    if (!isOpen || !leadSearchText.trim() || formData.CM_Lead_ID) return;
+    const timer = setTimeout(() => {
+      fetchLeads(leadSearchText.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [leadSearchText, isOpen, formData.CM_Lead_ID]);
 
   const fetchLeads = async (searchQuery = "") => {
     try {
@@ -125,14 +149,6 @@ export default function VisitFormModal({
       console.error(error);
     }
   };
-
-  useEffect(() => {
-    if (!isOpen || !leadSearchText.trim()) return;
-    const timer = setTimeout(() => {
-      fetchLeads(leadSearchText.trim());
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [leadSearchText, isOpen]);
 
   const fetchExecutives = async () => {
     try {
@@ -280,7 +296,10 @@ export default function VisitFormModal({
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none pr-10"
               />
               {formData.CM_Lead_ID && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 font-extrabold text-sm">✓</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 font-extrabold text-xs flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 pointer-events-none">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span className="text-[10px] font-bold">SELECTED</span>
+                </span>
               )}
             </div>
 
@@ -293,7 +312,8 @@ export default function VisitFormModal({
                     <button
                       key={l.CM_Lead_ID}
                       type="button"
-                      onMouseDown={() => {
+                      onMouseDown={(e) => {
+                        e.preventDefault();
                         setFormData(prev => ({ ...prev, CM_Lead_ID: l.CM_Lead_ID }));
                         setLeadSearchText(`${l.CM_Client_Name} - ${l.CM_Company_Name || "Individual"}`);
                         setShowLeadSuggestions(false);

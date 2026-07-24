@@ -836,7 +836,7 @@ function VisitsContent() {
 
       <VisitFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setSelectedVisit(null); }}
         selectedVisit={selectedVisit}
         preselectedLeadId={null}
         user={user}

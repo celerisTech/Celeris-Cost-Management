@@ -1594,7 +1594,7 @@ export default function LeadsPage() {
       {/* Add/Edit Modal */}
       <LeadFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setSelectedLead(null); }}
         selectedLead={selectedLead}
         user={user}
         onSuccess={() => fetchLeads()}
@@ -1605,7 +1605,7 @@ export default function LeadsPage() {
       {/* Visit Add/Edit Modal */}
       <VisitFormModal
         isOpen={isVisitModalOpen}
-        onClose={() => setIsVisitModalOpen(false)}
+        onClose={() => { setIsVisitModalOpen(false); setSelectedVisit(null); }}
         selectedVisit={selectedVisit}
         preselectedLeadId={selectedLead?.CM_Lead_ID}
         user={user}

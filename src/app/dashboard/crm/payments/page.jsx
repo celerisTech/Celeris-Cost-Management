@@ -526,7 +526,7 @@ export default function PaymentsPage() {
                 <Receipt className="h-5 w-5" />
                 {selectedPayment ? "Update Payment Record" : "Record New Payment"}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
+              <button onClick={() => { setIsModalOpen(false); setSelectedPayment(null); }} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
             </div>
 
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -686,7 +686,7 @@ export default function PaymentsPage() {
               </div>
 
               <div className="py-4 flex gap-3 sticky bottom-0 bg-white border-t border-gray-50 mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-3 text-gray-500 font-bold rounded-2xl hover:bg-gray-100 transition-all">Cancel</button>
+                <button type="button" onClick={() => { setIsModalOpen(false); setSelectedPayment(null); }} className="flex-1 px-6 py-3 text-gray-500 font-bold rounded-2xl hover:bg-gray-100 transition-all">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="flex-[2] px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-100 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
                   {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
                   {selectedPayment ? "Update Payment" : "Save Payment"}

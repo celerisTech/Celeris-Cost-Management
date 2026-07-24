@@ -64,42 +64,53 @@ export default function LeadFormModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      if (selectedLead) {
-        setFormData({ ...selectedLead });
-        if (selectedLead.CM_Industrial_ID) {
-          fetchCategories(selectedLead.CM_Industrial_ID);
-        }
-        if (selectedLead.CM_Category_ID) {
-          fetchSubcategories(selectedLead.CM_Category_ID);
-        }
-      } else {
-        setFormData({
-          CM_Client_Name: "",
-          CM_Company_Name: "",
-          CM_Industrial_ID: "",
-          CM_Category_ID: "",
-          CM_Subcategory_ID: "",
-          CM_Phone: "",
-          CM_Alt_Phone: "",
-          CM_Email: "",
-          CM_City: "",
-          CM_Address: "",
-          CM_Lead_Source: "Cold Call",
-          CM_Product_Required: "",
-          CM_Expected_Budget: "",
-          CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) || "",
-          CM_Lead_Status: "New Lead",
-          CM_Followup_Status: "Follow Up",
-          CM_Next_Follow_Up_Date: "",
-          CM_Next_Follow_Up_Time: "",
-          CM_Remarks: ""
-        });
-        setCategories([]);
-        setSubcategories([]);
-      }
+    if (!isOpen) {
+      setIndustrialInput("");
+      setCategoryInput("");
+      setSubcategoryInput("");
+      setIsAddingIndustrial(false);
+      setIsEditingIndustrial(false);
+      setIsAddingCategory(false);
+      setIsEditingCategory(false);
+      setIsAddingSubcategory(false);
+      setIsEditingSubcategory(false);
+      return;
     }
-  }, [isOpen, selectedLead]);
+
+    if (selectedLead) {
+      setFormData({ ...selectedLead });
+      if (selectedLead.CM_Industrial_ID) {
+        fetchCategories(selectedLead.CM_Industrial_ID);
+      }
+      if (selectedLead.CM_Category_ID) {
+        fetchSubcategories(selectedLead.CM_Category_ID);
+      }
+    } else {
+      setFormData({
+        CM_Client_Name: "",
+        CM_Company_Name: "",
+        CM_Industrial_ID: "",
+        CM_Category_ID: "",
+        CM_Subcategory_ID: "",
+        CM_Phone: "",
+        CM_Alt_Phone: "",
+        CM_Email: "",
+        CM_City: "",
+        CM_Address: "",
+        CM_Lead_Source: "Cold Call",
+        CM_Product_Required: "",
+        CM_Expected_Budget: "",
+        CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) || "",
+        CM_Lead_Status: "New Lead",
+        CM_Followup_Status: "Follow Up",
+        CM_Next_Follow_Up_Date: "",
+        CM_Next_Follow_Up_Time: "",
+        CM_Remarks: ""
+      });
+      setCategories([]);
+      setSubcategories([]);
+    }
+  }, [isOpen, selectedLead, user]);
 
   const fetchExecutives = async () => {
     try {
