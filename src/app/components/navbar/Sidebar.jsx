@@ -188,9 +188,9 @@ const Sidebar = ({
           background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
         }}
       >
-        <div className="flex flex-col h-full border-r border-gray-200/50 relative overflow-hidden">
+        <div className="flex flex-col h-full border-r border-gray-200/50 relative overflow-visible">
           {/* Animated background elements */}
-          <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0 opacity-5 overflow-hidden pointer-events-none">
             <div className="absolute top-0 left-0 w-32 h-32 bg-purple-400 rounded-full blur-xl"></div>
             <div className="absolute bottom-0 right-0 w-24 h-24 bg-indigo-400 rounded-full blur-lg"></div>
           </div>

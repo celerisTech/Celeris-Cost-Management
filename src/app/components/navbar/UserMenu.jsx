@@ -1,37 +1,45 @@
 // src/app/components/navbar/UserMenu.jsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronDown, 
   User, 
   LogOut, 
-  Settings, 
-  UserCircle,
-  Sparkles,
-  Award,
-  Bell,
-  Moon,
-  Sun,
-  Crown
+  UserCircle, 
+  Sparkles, 
+  Moon, 
+  Sun, 
+  Crown,
+  Shield,
+  Building,
+  CheckCircle2,
+  ChevronRight
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/app/store/useAuthScreenStore";
 
-const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen }) => {
+const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut }) => {
   const { user, clearAuth } = useAuthStore();
   const router = useRouter();
+  const menuRef = useRef(null);
+
   const [userInfo, setUserInfo] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // Sync dark mode state on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    }
+  }, []);
+
+  // Fetch full user details
   useEffect(() => {
     const fetchUserInfo = async () => {
-      if (!user?.CM_User_ID) {
-        console.log("No CM_User_ID found in Zustand user:", user);
-        return;
-      }
+      if (!user?.CM_User_ID) return;
       try {
         const res = await fetch(`/api/users/${user.CM_User_ID}`);
         const data = await res.json();
@@ -43,237 +51,274 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen }) => {
     fetchUserInfo();
   }, [user]);
 
+  // Click outside listener for smooth dropdown behavior
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isUserMenuOpen, setIsUserMenuOpen]);
+
   const handleSignOut = async () => {
     try {
-      await fetch("/api/logout", { method: "GET" });
-      clearAuth();
-      router.push("/");
+      setIsUserMenuOpen(false);
+      if (onSignOut) {
+        await onSignOut();
+      } else {
+        await fetch("/api/logout", { method: "GET" });
+        clearAuth();
+        router.push("/");
+      }
     } catch (err) {
       console.error("Logout failed", err);
     }
   };
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle('dark');
+  const toggleTheme = (e) => {
+    e.stopPropagation();
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      if (next) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      return next;
+    });
   };
 
-  // Premium animation variants
+  // User details fallback
+  const displayName = userInfo?.CM_Full_Name || user?.CM_Full_Name || user?.name || "User";
+  const displayEmail = userInfo?.CM_Email || user?.CM_Email || user?.email || "user@celeris.com";
+  const photoUrl = userInfo?.CM_Photo_URL || user?.CM_Photo_URL || user?.photoUrl;
+  const companyName = user?.CM_Company_Name || user?.company_name || "Celeris Cost Management";
+
+  // Derive user role badge details
+  const getRoleInfo = () => {
+    const roleStr = (userInfo?.CM_Role || user?.CM_Role || user?.role || "").toLowerCase();
+    if (roleStr.includes("admin")) {
+      return { 
+        label: "Administrator", 
+        badgeBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30", 
+        Icon: Crown 
+      };
+    }
+    if (roleStr.includes("manager") || roleStr.includes("lead")) {
+      return { 
+        label: "Manager", 
+        badgeBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30", 
+        Icon: Shield 
+      };
+    }
+    return { 
+      label: roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1) : "Member", 
+      badgeBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30", 
+      Icon: User 
+    };
+  };
+
+  const roleInfo = getRoleInfo();
+  const RoleIcon = roleInfo.Icon;
+
+  // Extract initials for fallback avatar
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  };
+
+  // Animation variants
   const dropdownVariants = {
-    hidden: {
-      opacity: 0,
-      y: -20,
-      scale: 0.95,
-      transition: {
-        duration: 0.2,
-        ease: "easeInOut"
-      }
-    },
+    hidden: isSidebarOpen 
+      ? { opacity: 0, y: 12, scale: 0.96 }
+      : { opacity: 0, x: -12, scale: 0.96 },
     visible: {
       opacity: 1,
       y: 0,
-      scale: 1,
-      transition: {
-        duration: 0.3,
-        ease: [0.34, 1.56, 0.64, 1], // Custom spring-like easing
-      }
-    }
-  };
-
-  const menuItemVariants = {
-    hidden: { opacity: 0, x: -20, scale: 0.95 },
-    visible: (i) => ({
-      opacity: 1,
       x: 0,
       scale: 1,
       transition: {
-        delay: i * 0.04,
-        duration: 0.3,
-        ease: [0.34, 1.56, 0.64, 1]
+        duration: 0.25,
+        ease: [0.16, 1, 0.3, 1],
       }
-    }),
-    hover: {
-      backgroundColor: "rgba(99, 102, 241, 0.08)",
-      x: 8,
-      scale: 1.02,
-      transition: { duration: 0.2 }
     },
-    tap: { scale: 0.97 }
+    exit: isSidebarOpen
+      ? { opacity: 0, y: 8, scale: 0.96, transition: { duration: 0.15 } }
+      : { opacity: 0, x: -8, scale: 0.96, transition: { duration: 0.15 } }
   };
 
-  const glowVariants = {
-    initial: { opacity: 0.5, scale: 1 },
-    animate: {
-      opacity: [0.5, 1, 0.5],
-      scale: [1, 1.05, 1],
-      transition: {
-        duration: 3,
-        repeat: Infinity,
-        ease: "easeInOut"
-      }
-    }
-  };
-
-  // Get user initials for avatar
-  const getInitials = (name) => {
-    if (!name) return "G";
-    const names = name.split(" ");
-    return names.map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const itemVariants = {
+    hidden: { opacity: 0, x: -8 },
+    visible: (i) => ({
+      opacity: 1,
+      x: 0,
+      transition: { delay: i * 0.04, duration: 0.2 }
+    })
   };
 
   return (
-    <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-b from-transparent to-gray-50/50 dark:to-gray-800/20">
-      <div className="relative">
+    <div className="p-3 border-t border-slate-200/60 dark:border-slate-800/60">
+      <div className="relative" ref={menuRef}>
+        {/* User Menu Trigger Button */}
         <motion.button
+          type="button"
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-          onBlur={() => setTimeout(() => setIsUserMenuOpen(false), 200)}
-          className={`flex items-center w-full ${isSidebarOpen ? "justify-between" : "justify-center"
-            } p-3 rounded-2xl hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-purple-50/50 dark:hover:from-indigo-900/20 dark:hover:to-purple-900/20 transition-all duration-300 group`}
-          whileHover={{ 
-            scale: 1.02,
-            boxShadow: "0 4px 12px rgba(99, 102, 241, 0.15)"
-          }}
+          className={`flex items-center w-full ${
+            isSidebarOpen ? "justify-between px-3 py-2.5" : "justify-center p-2"
+          } rounded-2xl border border-transparent`}
+          whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
+          aria-expanded={isUserMenuOpen}
+          aria-label="User Account Menu"
         >
-          <div className="flex items-center">
-            {/* Premium Profile Avatar with Glow */}
-            <motion.div
-              className="relative"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {/* Glow effect */}
-              <motion.div
-                className="absolute -inset-1 bg-blue-500 rounded-full opacity-50 blur-md"
-                variants={glowVariants}
-                initial="initial"
-                animate="animate"
-              />
-              
-              <div className="relative h-10 w-10 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                {userInfo?.CM_Photo_URL ? (
-                  <motion.img
-                    src={userInfo.CM_Photo_URL}
-                    alt="Profile"
-                    className="h-full w-full object-cover"
-                    initial={{ filter: "grayscale(0%)" }}
-                    whileHover={{ filter: "grayscale(20%)" }}
+          <div className="flex items-center min-w-0">
+            {/* Avatar with Status Badge */}
+            <div className="relative flex-shrink-0">
+              <div className="h-10 w-10 rounded-full ring-2 ring-gray-500/20 dark:ring-gray-400/30 overflow-hidden bg-gray-500 flex items-center justify-center shadow-sm group-hover:ring-indigo-500/50 transition-all">
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={displayName}
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
-                  <span className="text-white font-semibold text-sm">
-                    {getInitials(userInfo?.CM_Full_Name)}
+                  <span className="text-white font-bold text-sm tracking-wider">
+                    {getInitials(displayName)}
                   </span>
                 )}
-                
-                {/* Online status indicator */}
-                <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-400 border-2 border-white dark:border-gray-800 rounded-full"></div>
               </div>
-            </motion.div>
+              
+              {/* Active Online Indicator */}
+              <span className="absolute bottom-0 right-0 h-3 w-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full">
+                <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75"></span>
+              </span>
+            </div>
 
-            {/* User info with premium styling */}
+            {/* User details (Visible when sidebar is open) */}
             {isSidebarOpen && (
-              <motion.div
-                className="ml-3 text-left"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.1 }}
-              >
-                <motion.p
-                  className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center gap-1"
-                  whileHover={{ x: 3 }}
-                >
-                  {userInfo?.CM_Full_Name || "Guest"}
-                  {userInfo?.CM_Role === "admin" && (
-                    <Crown className="h-3 w-3 text-yellow-500" />
+              <div className="ml-3 text-left min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    {displayName}
+                  </p>
+                  {roleInfo.label === "Administrator" && (
+                    <Crown className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
                   )}
-                </motion.p>
-                <motion.p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-1.5 bg-green-400 rounded-full"></span>
-                  {userInfo?.CM_Email || "guest@example.com"}
-                </motion.p>
-              </motion.div>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  {displayEmail}
+                </p>
+              </div>
             )}
           </div>
 
-          {/* Dropdown Arrow with premium animation */}
+          {/* Chevron Dropdown Arrow (Visible when sidebar is open) */}
           {isSidebarOpen && (
             <motion.div
-              animate={{ 
-                rotate: isUserMenuOpen ? 180 : 0,
-                scale: isUserMenuOpen ? 1.1 : 1
-              }}
-              transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
-              className="p-1.5 rounded-lg bg-gray-100/50 dark:bg-gray-700/50 group-hover:bg-gray-200/50 dark:group-hover:bg-gray-600/50 transition-colors"
+              animate={{ rotate: isUserMenuOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 group-hover:bg-indigo-100/70 dark:group-hover:bg-indigo-900/50 transition-colors ml-2 flex-shrink-0"
             >
-              <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
             </motion.div>
           )}
         </motion.button>
 
-        {/* Premium Dropdown Menu */}
+        {/* Dropdown Menu Popover */}
         <AnimatePresence>
-          {isUserMenuOpen && isSidebarOpen && (
+          {isUserMenuOpen && (
             <motion.div
-              className="absolute bottom-full left-0 mb-3 w-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl shadow-2xl py-2 border border-gray-200/50 dark:border-gray-700/50 z-50 overflow-hidden"
+              className={`absolute z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden ${
+                isSidebarOpen 
+                  ? "bottom-full left-0 right-0 mb-3 w-full min-w-[260px]" 
+                  : "left-full bottom-0 ml-3 w-72 min-w-[280px]"
+              }`}
               variants={dropdownVariants}
               initial="hidden"
               animate="visible"
-              exit="hidden"
+              exit="exit"
             >
-              {/* Decorative gradient top border */}
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500 to-transparent"></div>
-              
-              {/* User stats preview */}
-              {isSidebarOpen && (
-                <div className="px-4 py-2 mb-2">
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <Award className="h-3 w-3 text-indigo-500" />
-                        <span>Celeris Solutions</span>
+              {/* Vibrant Top Accent Line */}
+              <div className="h-1 w-full bg-gray-400"></div>
+
+              {/* Profile Card Header in Popover */}
+              <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 rounded-full ring-2 ring-gray-500/20 dark:ring-gray-400/30 overflow-hidden bg-gray-500 flex items-center justify-center shadow-md flex-shrink-0">
+                    {photoUrl ? (
+                      <img src={photoUrl} alt={displayName} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-white font-bold text-base">
+                        {getInitials(displayName)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                      {displayName}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {displayEmail}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu Navigation Links */}
+              <div className="p-2 space-y-1">
+                {/* Profile Link */}
+                <motion.div custom={0} variants={itemVariants} initial="hidden" animate="visible">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center justify-between p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-gray-50/80 dark:hover:bg-gray-950/50 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200 group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40 group-hover:bg-gray-100 dark:group-hover:bg-gray-900/80 transition-colors">
+                        <UserCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold">My Profile</p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">Account settings & information</p>
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                    <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+                </motion.div>
+              </div>
 
-              <div className="border-t border-gray-200/50 dark:border-gray-700/50 my-1"></div>
-
-              <motion.div
-                custom={0}
-                variants={menuItemVariants}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <Link
-                  href="/profile"
-                  className="flex items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group"
-                  onClick={() => setIsUserMenuOpen(false)}
-                >
-                  <div className="mr-3 p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-colors">
-                    <UserCircle className="h-4 w-4 text-indigo-500 group-hover:text-indigo-600 transition-colors" />
-                  </div>
-                  <span className="font-medium">My Profile</span>
-                </Link>
-              </motion.div>
-
-
-              <div className="border-t border-gray-200/50 dark:border-gray-700/50 my-1"></div>
-
-              <motion.button
-                custom={3}
-                variants={menuItemVariants}
-                whileHover="hover"
-                whileTap="tap"
-                onClick={handleSignOut}
-                className="flex w-full items-center px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors group"
-              >
-                <div className="mr-3 p-1.5 rounded-lg bg-red-50 dark:bg-red-900/30 group-hover:bg-red-100 dark:group-hover:bg-red-900/50 transition-colors">
-                  <LogOut className="h-4 w-4 text-red-500 group-hover:text-red-600 transition-colors" />
-                </div>
-                <span className="font-medium">Sign Out</span>
-              </motion.button>
-
+              {/* Sign Out Section */}
+              <div className="p-2 border-t border-slate-100 dark:border-slate-800">
+                <motion.div custom={2} variants={itemVariants} initial="hidden" animate="visible">
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all duration-200 group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/50 group-hover:bg-red-100 dark:group-hover:bg-red-900/60 transition-colors">
+                        <LogOut className="h-4 w-4 text-red-500 group-hover:scale-110 transition-transform" />
+                      </div>
+                      <span className="text-xs font-semibold">Sign Out</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-red-400 group-hover:translate-x-0.5 transition-all" />
+                  </button>
+                </motion.div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
