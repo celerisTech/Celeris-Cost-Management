@@ -726,9 +726,12 @@ export async function GET(request: NextRequest) {
     if (toDate) { whereClause += ' AND DATE(sl.CM_Created_At) <= ?'; params.push(formatDbDate(toDate)); }
     const cleanSearch = search ? String(search).trim() : '';
     if (cleanSearch) {
-      whereClause += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ?)';
-      const s = `%${cleanSearch}%`;
-      params.push(s, s, s, s, s);
+      const tokens = cleanSearch.split(/\s+/).filter(Boolean);
+      tokens.forEach((token) => {
+        whereClause += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Alt_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ? OR sl.CM_City LIKE ? OR sl.CM_Address LIKE ?)';
+        const s = `%${token}%`;
+        params.push(s, s, s, s, s, s, s, s);
+      });
     }
 
     // Count total
@@ -747,9 +750,12 @@ export async function GET(request: NextRequest) {
     if (toDate) { statsWhere += ' AND DATE(sl.CM_Created_At) <= ?'; statsParams.push(formatDbDate(toDate)); }
     const cleanSearchForStats = search ? String(search).trim() : '';
     if (cleanSearchForStats) {
-      statsWhere += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ?)';
-      const s = `%${cleanSearchForStats}%`;
-      statsParams.push(s, s, s, s, s);
+      const tokens = cleanSearchForStats.split(/\s+/).filter(Boolean);
+      tokens.forEach((token) => {
+        statsWhere += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Alt_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ? OR sl.CM_City LIKE ? OR sl.CM_Address LIKE ?)';
+        const s = `%${token}%`;
+        statsParams.push(s, s, s, s, s, s, s, s);
+      });
     }
 
     const [statsResult]: any = await db.query(`

@@ -63,50 +63,76 @@ export default function VisitFormModal({
       if (selectedVisit) {
         setFormData({ ...selectedVisit });
         const matchingLead = leads.find(l => l.CM_Lead_ID == selectedVisit.CM_Lead_ID);
-        setLeadSearchText(matchingLead ? `${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}` : "");
+        if (matchingLead) {
+          setLeadSearchText(`${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}`);
+        }
       } else {
-        setFormData({
-          CM_Lead_ID: preselectedLeadId || "",
-          CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) || "",
-          CM_Visit_Date: new Date().toISOString().split('T')[0],
-          CM_Purpose: "",
-          CM_Product_Discussed: "",
-          CM_Scope_Given: "",
-          CM_Demo_Given: "No",
-          CM_Proposal_Value: "",
-          CM_GST_Type: "Exclusive",
-          CM_Scope_Alteration: "",
-          CM_Value_Alteration: "",
-          CM_Further_Enhancement: "",
-          CM_Issues_Raised: "",
-          CM_Project_Handed_Over: "No",
-          CM_Trial_Version_Given: "No",
-          CM_Next_Followup_Date: "",
-          CM_Next_Followup_Time: "",
-          CM_Visit_Status: "Follow-up Needed",
-          CM_Visit_Products: "",
-          CM_Remarks: "",
-          CM_Images: []
+        setFormData(prev => {
+          if (prev.CM_Lead_ID === (preselectedLeadId || "")) return prev;
+          return {
+            CM_Lead_ID: preselectedLeadId || "",
+            CM_Sales_Executive_ID: (user?.CM_User_ID || user?.id) || "",
+            CM_Visit_Date: new Date().toISOString().split('T')[0],
+            CM_Purpose: "",
+            CM_Product_Discussed: "",
+            CM_Scope_Given: "",
+            CM_Demo_Given: "No",
+            CM_Proposal_Value: "",
+            CM_GST_Type: "Exclusive",
+            CM_Scope_Alteration: "",
+            CM_Value_Alteration: "",
+            CM_Further_Enhancement: "",
+            CM_Issues_Raised: "",
+            CM_Project_Handed_Over: "No",
+            CM_Trial_Version_Given: "No",
+            CM_Next_Followup_Date: "",
+            CM_Next_Followup_Time: "",
+            CM_Visit_Status: "Follow-up Needed",
+            CM_Visit_Products: "",
+            CM_Remarks: "",
+            CM_Images: []
+          };
         });
         if (preselectedLeadId && leads.length > 0) {
           const matchingLead = leads.find(l => l.CM_Lead_ID == preselectedLeadId);
-          setLeadSearchText(matchingLead ? `${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}` : "");
-        } else {
-          setLeadSearchText("");
+          if (matchingLead) {
+            setLeadSearchText(`${matchingLead.CM_Client_Name} - ${matchingLead.CM_Company_Name || "Individual"}`);
+          }
         }
       }
     }
   }, [isOpen, selectedVisit, preselectedLeadId, leads]);
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (searchQuery = "") => {
     try {
-      const res = await fetch("/api/sales-leads?limit=1000");
+      const url = searchQuery
+        ? `/api/sales-leads?limit=100&search=${encodeURIComponent(searchQuery)}`
+        : "/api/sales-leads?limit=10000";
+      const res = await fetch(url);
       const data = await res.json();
-      if (res.ok) setLeads(data.leads || []);
+      if (res.ok) {
+        if (searchQuery) {
+          setLeads(prev => {
+            const existingIds = new Set(prev.map(l => l.CM_Lead_ID));
+            const newLeads = (data.leads || []).filter(l => !existingIds.has(l.CM_Lead_ID));
+            return [...prev, ...newLeads];
+          });
+        } else {
+          setLeads(data.leads || []);
+        }
+      }
     } catch (error) {
       console.error(error);
     }
   };
+
+  useEffect(() => {
+    if (!isOpen || !leadSearchText.trim()) return;
+    const timer = setTimeout(() => {
+      fetchLeads(leadSearchText.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [leadSearchText, isOpen]);
 
   const fetchExecutives = async () => {
     try {
@@ -155,13 +181,35 @@ export default function VisitFormModal({
   const filteredLeads = useMemo(() => {
     const query = leadSearchText.trim().toLowerCase();
     if (!query) return [];
-    const tokens = query.split(/[^a-z0-9]+/).filter(Boolean);
+    const tokens = query.split(/\s+/).filter(Boolean);
     if (tokens.length === 0) return [];
     return leads.filter(l => {
-      const clientName = (l.CM_Client_Name || "").toLowerCase();
-      const companyName = (l.CM_Company_Name || "").toLowerCase();
-      const targetText = `${clientName} ${companyName}`;
-      return tokens.every(token => targetText.includes(token));
+      const rawPhone = (l.CM_Phone || "").replace(/\D/g, "");
+      const rawAltPhone = (l.CM_Alt_Phone || "").replace(/\D/g, "");
+      const searchFields = [
+        l.CM_Lead_ID,
+        l.CM_Client_Name,
+        l.CM_Company_Name,
+        l.CM_Phone,
+        rawPhone,
+        l.CM_Alt_Phone,
+        rawAltPhone,
+        l.CM_Email,
+        l.CM_City,
+        l.CM_Address,
+        l.CM_Product_Required,
+        l.CM_Lead_Source,
+        l.CM_Lead_Status,
+        l.CM_Followup_Status,
+        l.Executive_Name,
+        l.CM_Industrial_Name,
+        l.CM_Category_Name,
+        l.CM_Subcategory_Name,
+        l.CM_Remarks
+      ].map(val => (val || "").toString().toLowerCase());
+
+      const combinedText = searchFields.join(" ");
+      return tokens.every(token => combinedText.includes(token));
     });
   }, [leads, leadSearchText]);
 
@@ -218,7 +266,7 @@ export default function VisitFormModal({
               <input
                 required
                 type="text"
-                placeholder="Search or enter company/client name..."
+                placeholder="Search lead by name, company, phone, email, status, city..."
                 value={leadSearchText}
                 onFocus={() => setShowLeadSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowLeadSuggestions(false), 250)}
@@ -252,8 +300,14 @@ export default function VisitFormModal({
                       }}
                       className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-xs font-medium flex flex-col gap-0.5"
                     >
-                      <span className="font-bold text-gray-900">{l.CM_Client_Name}</span>
-                      <span className="text-[10px] text-gray-500">{l.CM_Company_Name || "Individual"}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-gray-900">{l.CM_Client_Name}</span>
+                        {l.CM_Phone && <span className="text-[10px] text-gray-400 font-mono">{l.CM_Phone}</span>}
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-gray-500">
+                        <span>{l.CM_Company_Name || "Individual"}{l.CM_City ? ` (${l.CM_City})` : ""}</span>
+                        {l.CM_Lead_Status && <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 font-medium text-gray-600">{l.CM_Lead_Status}</span>}
+                      </div>
                     </button>
                   ))
                 )}
