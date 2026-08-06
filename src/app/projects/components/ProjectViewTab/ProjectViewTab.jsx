@@ -1707,7 +1707,7 @@ export default function ProjectViewTab({
                 </svg>
 
                 {/* Name */}
-                <span className="hidden sm:inline">{tab.name}</span>
+                <span className="text-xs sm:text-sm font-medium">{tab.name}</span>
 
                 {/* Active Indicator */}
                 {activeSection === tab.id && (

@@ -56,7 +56,7 @@ export const useAuthStore = create(
         if (!force && !state.areNavLinksStale()) return;
 
         try {
-          const res = await fetch(`/api/nav-links?userId=${state.user.id}&_t=${Date.now()}`, {
+          const res = await fetch(`/api/nav-links?userId=${userId}&_t=${Date.now()}`, {
             headers: {
               'Cache-Control': 'max-age=0, no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache',

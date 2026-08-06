@@ -1001,7 +1001,7 @@ export default function ProjectViewTab({
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
                 </svg>
-                <span className="hidden xs:inline">{tab.name}</span>
+                <span className="text-xs sm:text-sm font-medium">{tab.name}</span>
               </button>
             ))}
           </div>

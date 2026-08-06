@@ -260,209 +260,373 @@ export default function Milestones({
           <p className="ml-3 text-gray-500 text-sm sm:text-base">Loading milestones...</p>
         </div>
       ) : milestones.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-4/12">
-                  Milestone Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-3/12">
-                  Start Date
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-3/12">
-                  End Date
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/12">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200 text-black">
-              {milestones.map((milestone) => (
-                <React.Fragment key={milestone.CM_Milestone_ID}>
-                  <tr
-                    className={`hover:bg-gray-50 cursor-pointer ${selectedMilestone === milestone.CM_Milestone_ID ? 'bg-blue-50' : ''}`}
-                    onClick={() => !isEditingMilestone && handleMilestoneSelect(milestone.CM_Milestone_ID)}
-                  >
-                    {/* Milestone Name */}
-                    <td className="px-4 py-4">
-                      {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            name="CM_Milestone_Name"
-                            value={ensureString(editMilestone?.CM_Milestone_Name)}
-                            onChange={handleEditMilestoneChange}
-                            className="w-full p-1 border rounded text-sm"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <textarea
-                            name="CM_Description"
-                            value={ensureString(editMilestone?.CM_Description)}
-                            onChange={handleEditMilestoneChange}
-                            className="w-full p-1 border rounded text-sm"
-                            placeholder="Description"
-                            rows="2"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm sm:text-base">
-                            {milestone.CM_Milestone_Name}
-                          </p>
-                          {milestone.CM_Description && (
-                            <p className="text-gray-500 text-xs mt-1 line-clamp-2">
-                              {milestone.CM_Description}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Start Date */}
-                    <td className="px-4 py-4">
-                      {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
+        <div className="w-full">
+          {/* MOBILE CARD VIEW (NO SIDE SCROLL AT ALL) */}
+          <div className="block sm:hidden space-y-3 p-3">
+            {milestones.map((milestone) => (
+              <div 
+                key={milestone.CM_Milestone_ID}
+                onClick={() => !isEditingMilestone && handleMilestoneSelect(milestone.CM_Milestone_ID)}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                  selectedMilestone === milestone.CM_Milestone_ID
+                    ? 'bg-blue-50/70 border-blue-300 shadow-sm'
+                    : 'bg-white border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
+                  <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Milestone Name</label>
+                      <input
+                        type="text"
+                        name="CM_Milestone_Name"
+                        value={ensureString(editMilestone?.CM_Milestone_Name)}
+                        onChange={handleEditMilestoneChange}
+                        className="w-full p-2 border rounded-lg text-sm text-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                      <textarea
+                        name="CM_Description"
+                        value={ensureString(editMilestone?.CM_Description)}
+                        onChange={handleEditMilestoneChange}
+                        rows="2"
+                        className="w-full p-2 border rounded-lg text-sm text-black"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
                         <input
                           type="date"
                           name="CM_Planned_Start_Date"
                           value={toDateInputValue(editMilestone?.CM_Planned_Start_Date)}
                           onChange={handleEditMilestoneChange}
-                          className="w-full p-1 border rounded text-sm"
-                          onClick={(e) => e.stopPropagation()}
+                          className="w-full p-1.5 border rounded-lg text-xs text-black"
                         />
-                      ) : (
-                        <div className="text-sm text-gray-900">
-                          {formatDate(milestone.CM_Planned_Start_Date)}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* End Date */}
-                    <td className="px-4 py-4">
-                      {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">End Date</label>
                         <input
                           type="date"
                           name="CM_Planned_End_Date"
                           value={toDateInputValue(editMilestone?.CM_Planned_End_Date)}
                           onChange={handleEditMilestoneChange}
-                          className="w-full p-1 border rounded text-sm"
-                          onClick={(e) => e.stopPropagation()}
+                          className="w-full p-1.5 border rounded-lg text-xs text-black"
                         />
-                      ) : (
-                        <div className="text-sm text-gray-900">
-                          {formatDate(milestone.CM_Planned_End_Date)}
-                        </div>
-                      )}
-                    </td>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUpdateMilestone();
+                        }}
+                        className="px-3.5 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 active:scale-95"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsEditingMilestone(false);
+                          setEditMilestone(null);
+                        }}
+                        className="px-3.5 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 active:scale-95"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-gray-900 text-sm truncate">
+                          {milestone.CM_Milestone_Name}
+                        </h4>
+                        {milestone.CM_Description && (
+                          <p className="text-gray-500 text-xs mt-0.5 line-clamp-2">
+                            {milestone.CM_Description}
+                          </p>
+                        )}
+                      </div>
 
-                    {/* Actions */}
-                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
-                      {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
-                        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateMilestone();
-                            }}
-                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsEditingMilestone(false);
-                              setEditMilestone(null);
-                            }}
-                            className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditMilestone({
-                                ...milestone,
-                                CM_Planned_Start_Date: toDateInputValue(milestone.CM_Planned_Start_Date),
-                                CM_Planned_End_Date: toDateInputValue(milestone.CM_Planned_End_Date),
-                              });
-                              setIsEditingMilestone(true);
-                            }}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteMilestone(milestone.CM_Milestone_ID);
-                            }}
-                            className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                      {/* Side-by-side action buttons */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditMilestone({
+                              ...milestone,
+                              CM_Planned_Start_Date: toDateInputValue(milestone.CM_Planned_Start_Date),
+                              CM_Planned_End_Date: toDateInputValue(milestone.CM_Planned_End_Date),
+                            });
+                            setIsEditingMilestone(true);
+                          }}
+                          className="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 active:scale-95 transition-all"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMilestone(milestone.CM_Milestone_ID);
+                          }}
+                          className="px-2.5 py-1 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 active:scale-95 transition-all"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
 
-                  {/* Milestone Details Panel - Shows when milestone is selected */}
-                  {selectedMilestone === milestone.CM_Milestone_ID && (
-                    <tr>
-                      <td colSpan="4" className="p-0">
-                        <div className="bg-gray-50 border-t border-b border-gray-200 p-4">
-                          {milestoneLoading ? (
-                            <div className="flex justify-center items-center p-8 text-gray-600">
-                              <Loader2 className="animate-spin mr-2 h-5 w-5" /> Loading milestone details...
+                    {/* Date Range */}
+                    <div className="flex items-center text-xs text-gray-500 gap-1 mt-2 pt-2 border-t border-gray-100">
+                      <span>📅</span>
+                      <span className="font-medium text-gray-700">{formatDate(milestone.CM_Planned_Start_Date)}</span>
+                      <span className="text-gray-400">→</span>
+                      <span className="font-medium text-gray-700">{formatDate(milestone.CM_Planned_End_Date)}</span>
+                    </div>
+
+                    {/* Milestone Details Panel on Mobile */}
+                    {selectedMilestone === milestone.CM_Milestone_ID && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-black" onClick={(e) => e.stopPropagation()}>
+                        {milestoneLoading ? (
+                          <div className="flex items-center justify-center py-4 text-gray-500">
+                            <Loader2 className="animate-spin mr-2 h-4 w-4" /> Loading details...
+                          </div>
+                        ) : milestoneData ? (
+                          <div className="space-y-2 bg-gray-50 p-2.5 rounded-lg border border-gray-200">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500 font-medium">Tasks:</span>
+                              <span className="font-semibold">{milestoneData.completed_tasks || 0} / {milestoneData.total_tasks || 0}</span>
                             </div>
-                          ) : milestoneData ? (
-                            <div className="grid md:grid-cols-2 gap-6">
-                              {/* Dates and Progress */}
-                              <div className="bg-white rounded-lg shadow p-4 border border-gray-100">
-                                <h3 className="text-md font-semibold mb-3 text-gray-700">Dates & Progress</h3>
-                                <div className="space-y-2 text-sm text-gray-600">
-                                  <p>
-                                    <span className="inline-block w-20 font-medium">Planned:</span>
-                                    {formatDate(milestoneData.CM_Planned_Start_Date)} → {formatDate(milestoneData.CM_Planned_End_Date)}
-                                  </p>
-                                  <p>
-                                    <span className="inline-block w-20 font-medium">Tasks:</span>
-                                    {milestoneData.completed_tasks || 0} / {milestoneData.total_tasks || 0}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Cost Summary */}
-                              <div className="bg-white rounded-lg shadow p-4 border border-gray-100">
-                                <h3 className="text-md font-semibold mb-3 text-gray-700">Cost Summary</h3>
-                                <div className="space-y-2 text-sm text-gray-600">
-                                  <p>
-                                    <span className="inline-block w-28 font-medium">Total Labour:</span>
-                                    {formatCurrency(milestoneData.total_labor_cost)}
-                                  </p>
-                                  <p>
-                                    <span className="inline-block w-28 font-medium">Total Cost:</span>
-                                    {formatCurrency(milestoneData.total_project_cost)}
-                                  </p>
-                                </div>
-                              </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500 font-medium">Labour Cost:</span>
+                              <span className="font-semibold">{formatCurrency(milestoneData.total_labor_cost)}</span>
                             </div>
-                          ) : (
-                            <div className="text-center p-4 text-gray-500">No detailed data available for this milestone.</div>
-                          )}
-                        </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500 font-medium">Total Cost:</span>
+                              <span className="font-semibold text-blue-700">{formatCurrency(milestoneData.total_project_cost)}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-gray-400 text-center py-2">No extra data available</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* DESKTOP TABLE VIEW (HIDDEN ON MOBILE, NO SIDE SCROLL ON DESKTOP) */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Milestone Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Start Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    End Date
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200 text-black">
+                {milestones.map((milestone) => (
+                  <React.Fragment key={milestone.CM_Milestone_ID}>
+                    <tr
+                      className={`hover:bg-gray-50 cursor-pointer ${selectedMilestone === milestone.CM_Milestone_ID ? 'bg-blue-50' : ''}`}
+                      onClick={() => !isEditingMilestone && handleMilestoneSelect(milestone.CM_Milestone_ID)}
+                    >
+                      {/* Milestone Name */}
+                      <td className="px-4 py-4">
+                        {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              name="CM_Milestone_Name"
+                              value={ensureString(editMilestone?.CM_Milestone_Name)}
+                              onChange={handleEditMilestoneChange}
+                              className="w-full p-1 border rounded text-sm"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <textarea
+                              name="CM_Description"
+                              value={ensureString(editMilestone?.CM_Description)}
+                              onChange={handleEditMilestoneChange}
+                              className="w-full p-1 border rounded text-sm"
+                              placeholder="Description"
+                              rows="2"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm sm:text-base">
+                              {milestone.CM_Milestone_Name}
+                            </p>
+                            {milestone.CM_Description && (
+                              <p className="text-gray-500 text-xs mt-1 line-clamp-2">
+                                {milestone.CM_Description}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Start Date */}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
+                          <input
+                            type="date"
+                            name="CM_Planned_Start_Date"
+                            value={toDateInputValue(editMilestone?.CM_Planned_Start_Date)}
+                            onChange={handleEditMilestoneChange}
+                            className="w-full p-1 border rounded text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-900">
+                            {formatDate(milestone.CM_Planned_Start_Date)}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* End Date */}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
+                          <input
+                            type="date"
+                            name="CM_Planned_End_Date"
+                            value={toDateInputValue(editMilestone?.CM_Planned_End_Date)}
+                            onChange={handleEditMilestoneChange}
+                            className="w-full p-1 border rounded text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-900">
+                            {formatDate(milestone.CM_Planned_End_Date)}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
+                        {isEditingMilestone && editMilestone?.CM_Milestone_ID === milestone.CM_Milestone_ID ? (
+                          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateMilestone();
+                              }}
+                              className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors flex-shrink-0"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsEditingMilestone(false);
+                                setEditMilestone(null);
+                              }}
+                              className="px-3 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-300 transition-colors flex-shrink-0"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditMilestone({
+                                  ...milestone,
+                                  CM_Planned_Start_Date: toDateInputValue(milestone.CM_Planned_Start_Date),
+                                  CM_Planned_End_Date: toDateInputValue(milestone.CM_Planned_End_Date),
+                                });
+                                setIsEditingMilestone(true);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors flex-shrink-0"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteMilestone(milestone.CM_Milestone_ID);
+                              }}
+                              className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+
+                    {/* Milestone Details Panel - Shows when milestone is selected */}
+                    {selectedMilestone === milestone.CM_Milestone_ID && (
+                      <tr>
+                        <td colSpan="4" className="p-0">
+                          <div className="bg-gray-50 border-t border-b border-gray-200 p-4">
+                            {milestoneLoading ? (
+                              <div className="flex justify-center items-center p-8 text-gray-600">
+                                <Loader2 className="animate-spin mr-2 h-5 w-5" /> Loading milestone details...
+                              </div>
+                            ) : milestoneData ? (
+                              <div className="grid md:grid-cols-2 gap-6">
+                                {/* Dates and Progress */}
+                                <div className="bg-white rounded-lg shadow p-4 border border-gray-100">
+                                  <h3 className="text-md font-semibold mb-3 text-gray-700">Dates & Progress</h3>
+                                  <div className="space-y-2 text-sm text-gray-600">
+                                    <p>
+                                      <span className="inline-block w-20 font-medium">Planned:</span>
+                                      {formatDate(milestoneData.CM_Planned_Start_Date)} → {formatDate(milestoneData.CM_Planned_End_Date)}
+                                    </p>
+                                    <p>
+                                      <span className="inline-block w-20 font-medium">Tasks:</span>
+                                      {milestoneData.completed_tasks || 0} / {milestoneData.total_tasks || 0}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Cost Summary */}
+                                <div className="bg-white rounded-lg shadow p-4 border border-gray-100">
+                                  <h3 className="text-md font-semibold mb-3 text-gray-700">Cost Summary</h3>
+                                  <div className="space-y-2 text-sm text-gray-600">
+                                    <p>
+                                      <span className="inline-block w-28 font-medium">Total Labour:</span>
+                                      {formatCurrency(milestoneData.total_labor_cost)}
+                                    </p>
+                                    <p>
+                                      <span className="inline-block w-28 font-medium">Total Cost:</span>
+                                      {formatCurrency(milestoneData.total_project_cost)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center p-4 text-gray-500">No detailed data available for this milestone.</div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-8 sm:py-12">

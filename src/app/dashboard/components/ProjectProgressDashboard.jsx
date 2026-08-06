@@ -112,6 +112,30 @@ export default function ProjectProgressDashboard() {
   const completedCount = projects.filter(p => getStatus(p) === "Completed").length;
   const activeCount = projects.length - completedCount;
 
+  // Helper to determine smart tooltip positioning (prevents overlapping sidebar or screen overflow)
+  const getTooltipPositionClass = (index, total) => {
+    // Assume ~4 cards per row on typical desktop grids
+    const itemsPerRow = 4;
+    const col = index % itemsPerRow;
+
+    let horizontalClass = "left-1/2 -translate-x-1/2";
+    if (col === 0) {
+      // First column: align to left edge so popover extends right into main canvas
+      horizontalClass = "left-0 translate-x-0";
+    } else if (col === itemsPerRow - 1 || index === total - 1) {
+      // Last column: align to right edge so popover extends left into main canvas
+      horizontalClass = "right-0 left-auto translate-x-0";
+    }
+
+    // Items on row 2 or lower pop upwards to avoid overflow at bottom of container
+    let verticalClass = "top-full mt-3";
+    if (index >= 4) {
+      verticalClass = "bottom-full mb-3";
+    }
+
+    return `${horizontalClass} ${verticalClass}`;
+  };
+
   if (loading)
     return (
       <div className="flex justify-center items-center h-64">
@@ -256,7 +280,7 @@ export default function ProjectProgressDashboard() {
                   <div className={`
                     relative w-20 h-20 xs:w-24 xs:h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 transition-all duration-500 ease-out
                     ${loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}
-                    ${isHovered && !isMobile ? 'scale-110 z-10' : 'scale-100'}
+                    ${isHovered && !isMobile ? 'scale-110 z-30' : 'scale-100 z-0'}
                   `} style={{ transitionDelay: `${index * 100}ms` }}>
 
                     {/* Hexagon Shape */}
@@ -322,10 +346,10 @@ export default function ProjectProgressDashboard() {
                   {/* Hover Card - Only show on non-mobile */}
                   {!isMobile && (
                     <div className={`
-                      absolute top-full left-1/2 transform -translate-x-1/2 mt-4
-                      w-64 bg-white/95 backdrop-blur-md rounded-xl shadow-xl border border-slate-200
-                      transition-all duration-300 z-20
-                      ${isHovered ? 'opacity-100 translate-y-0 visible' : 'opacity-0 translate-y-3 invisible'}
+                      absolute w-64 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200
+                      transition-all duration-300 pointer-events-none z-40
+                      ${getTooltipPositionClass(index, filteredProjects.length)}
+                      ${isHovered ? 'opacity-100 translate-y-0 visible' : 'opacity-0 translate-y-2 invisible'}
                     `}>
                       <div className="p-4">
                         {/* Header */}

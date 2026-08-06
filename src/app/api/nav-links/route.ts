@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     const userId = url.searchParams.get("userId");
 
     // 3. Security check: only allow the logged-in user's ID
-    if (!userId || userId !== decoded.id) {
+    const tokenUserId = decoded?.CM_User_ID || decoded?.id || decoded?.userId || decoded?.user_id;
+    if (!userId || (tokenUserId && userId !== tokenUserId)) {
       const res = NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 }

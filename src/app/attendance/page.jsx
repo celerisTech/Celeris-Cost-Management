@@ -97,9 +97,9 @@ export default function AttendancePage() {
                         </div>
 
                         {/* ---------- EXCEL SHEET TABS BAR ---------- */}
-                        <div className="bg-blue-50/70 border-b border-blue-200 px-3 sm:px-3 py-2">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
+                        <div className="bg-blue-50/70 border-b border-blue-200 px-1.5 sm:px-3 py-2">
+                            <div className="w-full">
+                                <div className="grid grid-cols-5 gap-1 sm:flex sm:items-center sm:gap-1.5">
                                     {tabs.map((tab) => {
                                         const IconComponent = tab.icon;
                                         const isActive = activeTab === tab.id;
@@ -109,17 +109,17 @@ export default function AttendancePage() {
                                                 key={tab.id}
                                                 onClick={() => setActiveTab(tab.id)}
                                                 className={`
-                                                    flex items-center gap-2
-                                                    px-4 py-2 text-xs sm:text-sm font-bold rounded-lg
-                                                    whitespace-nowrap transition-all duration-200 border
+                                                    flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2
+                                                    px-1 sm:px-4 py-1.5 sm:py-2 text-[10px] min-[380px]:text-xs sm:text-sm font-bold rounded-lg
+                                                    transition-all duration-200 border text-center w-full sm:w-auto
                                                     ${isActive
-                                                        ? "bg-blue-400 text-white border-blue-400 shadow-md transform -translate-y-0.5"
+                                                        ? "bg-blue-500 text-white border-blue-500 shadow-sm"
                                                         : "bg-white text-slate-700 border-blue-200 hover:bg-blue-100/60 hover:text-blue-800"
                                                     }
                                                 `}
                                             >
-                                                <IconComponent className={`text-base ${isActive ? 'text-blue-200' : 'text-blue-600'}`} />
-                                                <span>{tab.label}</span>
+                                                <IconComponent className={`text-xs sm:text-base flex-shrink-0 ${isActive ? 'text-white' : 'text-blue-600'}`} />
+                                                <span className="truncate max-w-full leading-tight">{tab.label}</span>
                                             </button>
                                         );
                                     })}

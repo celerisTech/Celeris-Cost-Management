@@ -4,14 +4,14 @@
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ChevronDown, 
-  User, 
-  LogOut, 
-  UserCircle, 
-  Sparkles, 
-  Moon, 
-  Sun, 
+import {
+  ChevronDown,
+  User,
+  LogOut,
+  UserCircle,
+  Sparkles,
+  Moon,
+  Sun,
   Crown,
   Shield,
   Building,
@@ -28,6 +28,11 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
 
   const [userInfo, setUserInfo] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.CM_Photo_URL, userInfo?.CM_Photo_URL]);
 
   // Sync dark mode state on mount
   useEffect(() => {
@@ -101,30 +106,47 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
   // User details fallback
   const displayName = userInfo?.CM_Full_Name || user?.CM_Full_Name || user?.name || "User";
   const displayEmail = userInfo?.CM_Email || user?.CM_Email || user?.email || "user@celeris.com";
-  const photoUrl = userInfo?.CM_Photo_URL || user?.CM_Photo_URL || user?.photoUrl;
+  const getValidPhotoUrl = (url) => {
+    if (!url || typeof url !== "string") return null;
+    const trimmed = url.trim();
+    if (
+      !trimmed ||
+      trimmed === "photo1.jpg" ||
+      trimmed === "photo.jpg" ||
+      trimmed === "null" ||
+      trimmed === "undefined" ||
+      (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/") && !trimmed.startsWith("data:"))
+    ) {
+      return null;
+    }
+    return trimmed;
+  };
+
+  const rawPhotoUrl = userInfo?.CM_Photo_URL || user?.CM_Photo_URL || user?.photoUrl;
+  const photoUrl = !imgError ? getValidPhotoUrl(rawPhotoUrl) : null;
   const companyName = user?.CM_Company_Name || user?.company_name || "Celeris Cost Management";
 
   // Derive user role badge details
   const getRoleInfo = () => {
     const roleStr = (userInfo?.CM_Role || user?.CM_Role || user?.role || "").toLowerCase();
     if (roleStr.includes("admin")) {
-      return { 
-        label: "Administrator", 
-        badgeBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30", 
-        Icon: Crown 
+      return {
+        label: "Administrator",
+        badgeBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+        Icon: Crown
       };
     }
     if (roleStr.includes("manager") || roleStr.includes("lead")) {
-      return { 
-        label: "Manager", 
-        badgeBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30", 
-        Icon: Shield 
+      return {
+        label: "Manager",
+        badgeBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
+        Icon: Shield
       };
     }
-    return { 
-      label: roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1) : "Member", 
-      badgeBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30", 
-      Icon: User 
+    return {
+      label: roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1) : "Member",
+      badgeBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+      Icon: User
     };
   };
 
@@ -143,7 +165,7 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
 
   // Animation variants
   const dropdownVariants = {
-    hidden: isSidebarOpen 
+    hidden: isSidebarOpen
       ? { opacity: 0, y: 12, scale: 0.96 }
       : { opacity: 0, x: -12, scale: 0.96 },
     visible: {
@@ -177,9 +199,8 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
         <motion.button
           type="button"
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-          className={`flex items-center w-full ${
-            isSidebarOpen ? "justify-between px-3 py-2.5" : "justify-center p-2"
-          } rounded-2xl border border-transparent`}
+          className={`flex items-center w-full ${isSidebarOpen ? "justify-between px-3 py-2.5" : "justify-center p-2"
+            } rounded-2xl border border-transparent`}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
           aria-expanded={isUserMenuOpen}
@@ -194,14 +215,13 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
                     src={photoUrl}
                     alt={displayName}
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={() => setImgError(true)}
                   />
                 ) : (
-                  <span className="text-white font-bold text-sm tracking-wider">
-                    {getInitials(displayName)}
-                  </span>
+                  <User className="h-5 w-5 text-white" />
                 )}
               </div>
-              
+
               {/* Active Online Indicator */}
               <span className="absolute bottom-0 right-0 h-3 w-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full">
                 <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75"></span>
@@ -242,11 +262,10 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
         <AnimatePresence>
           {isUserMenuOpen && (
             <motion.div
-              className={`absolute z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden ${
-                isSidebarOpen 
-                  ? "bottom-full left-0 right-0 mb-3 w-full min-w-[260px]" 
+              className={`absolute z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden ${isSidebarOpen
+                  ? "bottom-full left-0 right-0 mb-3 w-full min-w-[260px]"
                   : "left-full bottom-0 ml-3 w-72 min-w-[280px]"
-              }`}
+                }`}
               variants={dropdownVariants}
               initial="hidden"
               animate="visible"
@@ -260,11 +279,9 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
                 <div className="flex items-center space-x-3">
                   <div className="h-12 w-12 rounded-full ring-2 ring-gray-500/20 dark:ring-gray-400/30 overflow-hidden bg-gray-500 flex items-center justify-center shadow-md flex-shrink-0">
                     {photoUrl ? (
-                      <img src={photoUrl} alt={displayName} className="h-full w-full object-cover" />
+                      <img src={photoUrl} alt={displayName} className="h-full w-full object-cover" onError={() => setImgError(true)} />
                     ) : (
-                      <span className="text-white font-bold text-base">
-                        {getInitials(displayName)}
-                      </span>
+                      <User className="h-6 w-6 text-white" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
     Calendar as CalendarIcon,
@@ -9,7 +9,8 @@ import {
     Loader2,
     Projector,
     User,
-    ArrowLeft
+    LayoutGrid,
+    List
 } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -24,6 +25,7 @@ export default function TaskReports() {
     const [filterProject, setFilterProject] = useState("All");
     const [filterEngineer, setFilterEngineer] = useState("All");
     const [previewImage, setPreviewImage] = useState(null);
+    const [viewMode, setViewMode] = useState("status"); // 'status' (default) or 'list'
 
     useEffect(() => {
         fetchData();
@@ -65,6 +67,39 @@ export default function TaskReports() {
         return matchesSearch && matchesProject && matchesEngineer;
     });
 
+    // Group task updates by status for Side-by-Side Status View (In Progress, Completed, Delayed)
+    const tasksByStatus = useMemo(() => {
+        const grouped = {
+            "In Progress": [],
+            Completed: [],
+            Delayed: []
+        };
+
+        filteredData.forEach(item => {
+            const status = item.CM_Status || "In Progress";
+            const dueDate = item.CM_Due_Date ? new Date(item.CM_Due_Date) : null;
+            if (dueDate) dueDate.setHours(0, 0, 0, 0);
+
+            const updateDate = item.CM_Update_Date ? new Date(item.CM_Update_Date) : new Date();
+            updateDate.setHours(0, 0, 0, 0);
+
+            let isDelayed = false;
+            if (dueDate && dueDate < updateDate && status !== "Completed") {
+                isDelayed = true;
+            }
+
+            if (status === "Completed") {
+                grouped.Completed.push({ ...item, isDelayed: false });
+            } else if (isDelayed) {
+                grouped.Delayed.push({ ...item, isDelayed: true });
+            } else {
+                grouped["In Progress"].push({ ...item, isDelayed: false });
+            }
+        });
+
+        return grouped;
+    }, [filteredData]);
+
     const uniqueProjects = ["All", ...new Set(displayedData.map(t => t.CM_Project_Name).filter(Boolean))];
     const uniqueEngineers = ["All", ...new Set(displayedData.map(t => t.Engineer_Name).filter(Boolean))];
 
@@ -72,9 +107,37 @@ export default function TaskReports() {
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden border border-slate-200 shadow-sm">
             {/* Header & Date Filters */}
             <div className="bg-white border-b border-slate-200 px-4 py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800">Task Reports</h2>
-                    <p className="text-slate-600 text-sm">View and filter daily task updates</p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-800">Task Reports</h2>
+                        <p className="text-slate-600 text-sm">View and filter daily task updates</p>
+                    </div>
+
+                    {/* View Switcher Toggle */}
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("status")}
+                            className={`px-3 py-1.5 font-semibold rounded-md transition-all flex items-center gap-1.5 ${viewMode === "status"
+                                ? "bg-white text-blue-600 shadow-sm border border-slate-200"
+                                : "text-slate-600 hover:text-slate-800"
+                                }`}
+                        >
+                            <LayoutGrid size={14} />
+                            <span>📊 Status Board (Side-by-Side)</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("list")}
+                            className={`px-3 py-1.5 font-semibold rounded-md transition-all flex items-center gap-1.5 ${viewMode === "list"
+                                ? "bg-white text-blue-600 shadow-sm border border-slate-200"
+                                : "text-slate-600 hover:text-slate-800"
+                                }`}
+                        >
+                            <List size={14} />
+                            <span>📋 Report List</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar sm:flex-wrap w-full lg:w-auto">
@@ -206,71 +269,186 @@ export default function TaskReports() {
                         <p className="text-slate-600 font-medium">Fetching Task Reports...</p>
                     </div>
                 ) : filteredData.length > 0 ? (
-                    <div className="flex flex-col gap-4">
-                        {filteredData.map((item, idx) => (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.2, delay: Math.min(idx * 0.05, 0.5) }}
-                                key={item.CM_Update_ID || idx}
-                                className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                            >
-                                {/* Header: Engineer Name & Project */}
-                                <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <User size={16} className="text-blue-600" />
-                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Engineer:</span>
-                                        <span className="text-sm font-bold text-slate-800">{item.Engineer_Name || "-"}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Projector size={16} className="text-indigo-600" />
-                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Project:</span>
-                                        <span className="text-sm font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-100">{item.CM_Project_Name || "-"}</span>
-                                    </div>
-                                </div>
-
-                                <div className="p-2 space-y-3">
-                                    {/* Task & Dates */}
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                                        <div>
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Task Name</span>
-                                            <span className="text-sm font-semibold text-slate-900">{item.CM_Task_Name || "-"}</span>
-                                        </div>
-                                        <div className="sm:text-right">
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Task Dates</span>
-                                            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 inline-block">
-                                                {item.CM_Assign_Date ? format(new Date(item.CM_Assign_Date), "MMM d, yyyy") : "-"} to {item.CM_Due_Date ? format(new Date(item.CM_Due_Date), "MMM d, yyyy") : "-"}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Update Remark & Update Date */}
-                                    <div>
-                                        <div className="flex items-center justify-between gap-2 mb-1">
-                                            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Update</span>
-                                            <span className="text-xs text-slate-500 font-medium">
-                                                Update Date: {item.CM_Uploaded_At ? format(new Date(item.CM_Uploaded_At), "MMM d, yyyy h:mm a") : (item.CM_Update_Date ? format(new Date(item.CM_Update_Date), "MMM d, yyyy h:mm a") : "-")}
-                                            </span>
-                                        </div>
-                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm text-slate-800 leading-relaxed">
-                                            {item.CM_Remarks || "No remarks provided."}
-                                        </div>
-                                        {(item.CM_Image_URL || item.Task_Image_URL) && (
-                                            <div className="mt-2.5">
-                                                <button
-                                                    onClick={() => setPreviewImage(item.CM_Image_URL || item.Task_Image_URL)}
-                                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
-                                                >
-                                                    <Projector size={14} />
-                                                    View Attached Image
-                                                </button>
+                    viewMode === "status" ? (
+                        /* SIDE-BY-SIDE STATUS BOARD VIEW */
+                        <div className="overflow-x-auto h-full pb-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-[850px] items-start">
+                                {[
+                                    { key: "In Progress", title: "In Progress", headerBg: "bg-blue-50 text-blue-800 border-blue-500", badgeBg: "bg-blue-600" },
+                                    { key: "Completed", title: "Completed", headerBg: "bg-emerald-50 text-emerald-800 border-emerald-500", badgeBg: "bg-emerald-600" },
+                                    { key: "Delayed", title: "Delayed", headerBg: "bg-rose-50 text-rose-800 border-rose-500", badgeBg: "bg-rose-600" },
+                                ].map(col => {
+                                    const colItems = tasksByStatus[col.key] || [];
+                                    return (
+                                        <div key={col.key} className="bg-slate-100/80 rounded-xl border border-slate-200 p-3 flex flex-col min-h-[450px]">
+                                            {/* Column Header */}
+                                            <div className={`p-2.5 rounded-lg border-l-4 shadow-sm flex items-center justify-between mb-3 ${col.headerBg}`}>
+                                                <h4 className="font-bold text-xs uppercase tracking-wider">{col.title}</h4>
+                                                <span className={`text-white text-[11px] font-bold px-2 py-0.5 rounded-full ${col.badgeBg}`}>
+                                                    {colItems.length}
+                                                </span>
                                             </div>
-                                        )}
+
+                                            {/* Cards List Container */}
+                                            <div className="flex-1 space-y-3 overflow-y-auto max-h-[720px] pr-1">
+                                                {colItems.length > 0 ? (
+                                                    colItems.map((item, idx) => (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: 8 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            transition={{ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) }}
+                                                            key={item.CM_Update_ID || idx}
+                                                            className="bg-white rounded-xl border border-slate-200 shadow-sm p-3.5 flex flex-col justify-between space-y-2.5 hover:shadow-md transition-all"
+                                                        >
+                                                            <div>
+                                                                {/* Task Name & Delay */}
+                                                                <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                                                                    <h5 className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">
+                                                                        {item.CM_Task_Name || "Task"}
+                                                                    </h5>
+                                                                    {item.isDelayed && (
+                                                                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-semibold rounded-full flex-shrink-0">
+                                                                            Delayed
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Project Name */}
+                                                                <div className="mb-1.5">
+                                                                    <span className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-indigo-100 truncate max-w-full">
+                                                                        📁 {item.CM_Project_Name || "Project"}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Engineer */}
+                                                                <div className="flex items-center text-[11px] text-slate-600 gap-1 mb-2">
+                                                                    <span className="font-semibold text-slate-400">Engineer:</span>
+                                                                    <span className="font-medium text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] truncate max-w-[140px]">
+                                                                        {item.Engineer_Name || "-"}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Task Dates */}
+                                                                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500 pt-1.5 border-t border-slate-100">
+                                                                    <div>
+                                                                        <span className="text-slate-400 block font-semibold uppercase">Assign</span>
+                                                                        <span className="font-medium text-slate-800">
+                                                                            {item.CM_Assign_Date ? format(new Date(item.CM_Assign_Date), "MMM d, yyyy") : "-"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-slate-400 block font-semibold uppercase">Due</span>
+                                                                        <span className="font-medium text-slate-800">
+                                                                            {item.CM_Due_Date ? format(new Date(item.CM_Due_Date), "MMM d, yyyy") : "-"}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Update Remarks */}
+                                                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                                                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                                                                        <span className="font-bold text-blue-600">Remarks ({item.CM_Work_Hours || 0}h)</span>
+                                                                        <span>{item.CM_Uploaded_At ? format(new Date(item.CM_Uploaded_At), "MMM d, h:mm a") : ""}</span>
+                                                                    </div>
+                                                                    <p className="text-[11px] text-slate-700 bg-slate-50 p-2 rounded border border-slate-200 leading-relaxed line-clamp-3">
+                                                                        {item.CM_Remarks || "No remarks provided"}
+                                                                    </p>
+                                                                </div>
+
+                                                                {/* Attachment Preview Button */}
+                                                                {(item.CM_Image_URL || item.Task_Image_URL) && (
+                                                                    <div className="mt-2 pt-1.5 border-t border-slate-100">
+                                                                        <button
+                                                                            onClick={() => setPreviewImage(item.CM_Image_URL || item.Task_Image_URL)}
+                                                                            className="w-full inline-flex items-center justify-center gap-1 text-[10px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 py-1 rounded border border-blue-200 transition-colors"
+                                                                        >
+                                                                            <Projector size={12} />
+                                                                            View Attached Image
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </motion.div>
+                                                    ))
+                                                ) : (
+                                                    <div className="p-4 text-center text-slate-400 text-xs italic bg-white/60 rounded-lg border border-dashed border-slate-200">
+                                                        No {col.title.toLowerCase()} task reports
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : (
+                        /* STANDARD REPORT LIST VIEW */
+                        <div className="flex flex-col gap-4">
+                            {filteredData.map((item, idx) => (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: Math.min(idx * 0.05, 0.5) }}
+                                    key={item.CM_Update_ID || idx}
+                                    className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                                >
+                                    {/* Header: Engineer Name & Project */}
+                                    <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <User size={16} className="text-blue-600" />
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Engineer:</span>
+                                            <span className="text-sm font-bold text-slate-800">{item.Engineer_Name || "-"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Projector size={16} className="text-indigo-600" />
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Project:</span>
+                                            <span className="text-sm font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-100">{item.CM_Project_Name || "-"}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
+
+                                    <div className="p-3 space-y-3">
+                                        {/* Task & Dates */}
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                                            <div>
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Task Name</span>
+                                                <span className="text-sm font-semibold text-slate-900">{item.CM_Task_Name || "-"}</span>
+                                            </div>
+                                            <div className="sm:text-right">
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Task Dates</span>
+                                                <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 inline-block">
+                                                    {item.CM_Assign_Date ? format(new Date(item.CM_Assign_Date), "MMM d, yyyy") : "-"} to {item.CM_Due_Date ? format(new Date(item.CM_Due_Date), "MMM d, yyyy") : "-"}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Update Remark & Update Date */}
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Update ({item.CM_Work_Hours || 0}h)</span>
+                                                <span className="text-xs text-slate-500 font-medium">
+                                                    Update Date: {item.CM_Uploaded_At ? format(new Date(item.CM_Uploaded_At), "MMM d, yyyy h:mm a") : (item.CM_Update_Date ? format(new Date(item.CM_Update_Date), "MMM d, yyyy h:mm a") : "-")}
+                                                </span>
+                                            </div>
+                                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm text-slate-800 leading-relaxed">
+                                                {item.CM_Remarks || "No remarks provided."}
+                                            </div>
+                                            {(item.CM_Image_URL || item.Task_Image_URL) && (
+                                                <div className="mt-2.5">
+                                                    <button
+                                                        onClick={() => setPreviewImage(item.CM_Image_URL || item.Task_Image_URL)}
+                                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
+                                                    >
+                                                        <Projector size={14} />
+                                                        View Attached Image
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center gap-2 py-16 text-slate-500">
                         <Search size={36} className="text-slate-300" />

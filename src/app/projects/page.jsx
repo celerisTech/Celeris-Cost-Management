@@ -427,7 +427,7 @@ export default function ProjectPage() {
             )}
           </div>
 
-          <GlobalNewTaskModal 
+          <GlobalNewTaskModal
             isOpen={isNewTaskModalOpen}
             onClose={() => setIsNewTaskModalOpen(false)}
             projects={projects}
