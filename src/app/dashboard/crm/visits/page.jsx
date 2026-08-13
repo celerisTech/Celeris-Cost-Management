@@ -834,14 +834,16 @@ function VisitsContent() {
         </div>
       )}
 
-      <VisitFormModal
-        isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setSelectedVisit(null); }}
-        selectedVisit={selectedVisit}
-        preselectedLeadId={null}
-        user={user}
-        onSuccess={() => fetchVisits()}
-      />
+      {isModalOpen && (
+        <VisitFormModal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setSelectedVisit(null); }}
+          selectedVisit={selectedVisit}
+          preselectedLeadId={null}
+          user={user}
+          onSuccess={() => fetchVisits()}
+        />
+      )}
 
       {/* Manage Statuses Modal */}
       {isManageStatusModalOpen && (

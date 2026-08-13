@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Target, Plus, Search, Filter, Download, MoreVertical,
@@ -73,6 +73,7 @@ export default function LeadsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(10000);
+  const abortControllerRef = useRef(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -219,13 +220,20 @@ export default function LeadsPage() {
     fetchFilterCategories(industrialFilter);
   }, [industrialFilter]);
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (searchOverride) => {
     try {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       setLoading(true);
+      const currentSearch = searchOverride !== undefined ? searchOverride : debouncedSearch;
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
-        search: debouncedSearch,
+        search: currentSearch,
         status: statusFilter,
         executiveId: execFilter,
         industrialId: industrialFilter,
@@ -233,23 +241,27 @@ export default function LeadsPage() {
         fromDate,
         toDate
       });
-      const res = await fetch(`/api/sales-leads?${params}`);
+      const res = await fetch(`/api/sales-leads?${params}`, {
+        signal: controller.signal
+      });
       const data = await res.json();
       if (res.ok) {
-        setLeads(data.leads);
-        setTotal(data.total);
+        setLeads(data.leads || []);
+        setTotal(data.total || 0);
         if (data.stats) {
           setSummaryStats(data.stats);
         }
         if (selectedLead) {
-          const updated = data.leads.find(l => l.CM_Lead_ID == selectedLead.CM_Lead_ID);
+          const updated = (data.leads || []).find(l => l.CM_Lead_ID == selectedLead.CM_Lead_ID);
           if (updated) {
             setSelectedLead(updated);
           }
         }
       }
     } catch (error) {
-      toast.error("Failed to fetch leads");
+      if (error?.name !== 'AbortError') {
+        toast.error("Failed to fetch leads");
+      }
     } finally {
       setLoading(false);
     }
@@ -333,7 +345,12 @@ export default function LeadsPage() {
 
   const handleSearch = (e) => {
     if (e) e.preventDefault();
-    setPage(1);
+    setDebouncedSearch(search);
+    if (page !== 1) {
+      setPage(1);
+    } else {
+      fetchLeads(search);
+    }
   };
 
   const openAddModal = () => {
@@ -1329,41 +1346,46 @@ export default function LeadsPage() {
               />
             </div>
 
-              {/* To Date */}
-              <div className="flex-1">
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-                  To Date
-                </label>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => {
-                    setToDate(e.target.value);
-                    setDateQuickFilter("");
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
-                />
-              </div>
-
-              {/* Reset Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setStatusFilter("");
-                  setExecFilter("");
-                  setIndustrialFilter("");
-                  setCategoryFilter("");
+            {/* To Date */}
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                To Date
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
                   setDateQuickFilter("");
-                  setFromDate("");
-                  setToDate("");
-                  setPage(1);
                 }}
-                className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
-                title="Reset Filters"
-              >
-                <FiRotateCcw size={18} />
-              </button>
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+              />
+            </div>
+
+            {/* Reset Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setDebouncedSearch("");
+                setStatusFilter("");
+                setExecFilter("");
+                setIndustrialFilter("");
+                setCategoryFilter("");
+                setDateQuickFilter("");
+                setFromDate("");
+                setToDate("");
+                if (page !== 1) {
+                  setPage(1);
+                } else {
+                  fetchLeads("");
+                }
+              }}
+              className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
+              title="Reset Filters"
+            >
+              <FiRotateCcw size={18} />
+            </button>
           </>
         )}
       </div>
@@ -1802,19 +1824,17 @@ export default function LeadsPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all scale-100">
             {/* Top Indicator Bar */}
-            <div className={`h-2.5 w-full ${
-              confirmConfig.type === 'danger'
+            <div className={`h-2.5 w-full ${confirmConfig.type === 'danger'
                 ? 'bg-gradient-to-r from-rose-500 to-red-600'
                 : 'bg-gradient-to-r from-amber-400 to-orange-500'
-            }`} />
+              }`} />
 
             <div className="p-6">
               <div className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
-                  confirmConfig.type === 'danger'
+                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${confirmConfig.type === 'danger'
                     ? 'bg-rose-100 text-rose-600'
                     : 'bg-amber-100 text-amber-600'
-                }`}>
+                  }`}>
                   <AlertCircle size={26} />
                 </div>
 
@@ -1852,11 +1872,10 @@ export default function LeadsPage() {
                     closeConfirm();
                     if (action) action();
                   }}
-                  className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 text-white ${
-                    confirmConfig.type === 'danger'
+                  className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 text-white ${confirmConfig.type === 'danger'
                       ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
                       : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
-                  }`}
+                    }`}
                 >
                   {confirmConfig.confirmText || "Confirm"}
                 </button>

@@ -454,29 +454,29 @@ export default function TaskDetails({
 
   return (
     <div className="bg-white">
-      <div className="p-2 sm:p-3 border-b border-gray-200">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
-            <h2 className="text-xl font-bold text-gray-900">
+      <div className="p-3 sm:p-4 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 w-full sm:w-auto">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
               Project Tasks
             </h2>
             {/* View Switcher Toggle */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setViewMode('status')}
-                className={`px-3 py-1.5 font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-initial px-2.5 py-1.5 font-semibold rounded-md transition-all flex items-center justify-center gap-1 text-center ${
                   viewMode === 'status'
                     ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>📊 Status Board (Side-by-Side)</span>
+                <span>📊 Status Board</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('milestone')}
-                className={`px-3 py-1.5 font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-initial px-2.5 py-1.5 font-semibold rounded-md transition-all flex items-center justify-center gap-1 text-center ${
                   viewMode === 'milestone'
                     ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
                     : 'text-slate-600 hover:text-slate-900'
@@ -488,33 +488,33 @@ export default function TaskDetails({
           </div>
           <button
             onClick={() => setIsAddingTask(!isAddingTask)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto text-sm sm:text-base font-medium shadow-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto text-xs sm:text-sm font-semibold shadow-sm"
           >
-            {isAddingTask ? 'Cancel' : 'Add Task'}
+            {isAddingTask ? 'Cancel' : '+ Add Task'}
           </button>
         </div>
 
         {/* Search and Filter */}
-        <div className="mt-4 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
+        <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <div className="flex-1 relative w-full">
             <input
               type="text"
               placeholder="Search tasks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black"
+              className="w-full pl-9 pr-4 py-2 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black text-xs sm:text-sm"
             />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
               </svg>
             </div>
           </div>
-          <div className="sm:w-48">
+          <div className="w-full sm:w-44">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full p-2.5 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black font-medium"
+              className="w-full p-2 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black font-medium text-xs sm:text-sm"
             >
               <option value="All">All Statuses</option>
               <option value="Completed">Completed</option>
@@ -523,11 +523,11 @@ export default function TaskDetails({
               <option value="Not Started">Not Started</option>
             </select>
           </div>
-          <div className="sm:w-48">
+          <div className="w-full sm:w-44">
             <select
               value={filterEngineer}
               onChange={(e) => setFilterEngineer(e.target.value)}
-              className="w-full p-2.5 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black font-medium"
+              className="w-full p-2 border rounded-lg focus:ring focus:ring-blue-500 focus:border-blue-500 text-black font-medium text-xs sm:text-sm"
             >
               <option value="All">All Engineers</option>
               {projectEngineers && projectEngineers.map((engineer) => (
@@ -760,8 +760,8 @@ export default function TaskDetails({
 
           {/* SIDE-BY-SIDE STATUS BOARD VIEW */}
           {viewMode === 'status' ? (
-            <div className="p-4 bg-slate-50 overflow-x-auto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-[850px]">
+            <div className="p-2 sm:p-4 bg-slate-50 overflow-x-auto">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full md:min-w-[850px]">
                 {[
                   { key: 'In Progress', title: 'In Progress', headerBg: 'bg-blue-50 text-blue-800 border-blue-500', badgeBg: 'bg-blue-600' },
                   { key: 'Completed', title: 'Completed', headerBg: 'bg-emerald-50 text-emerald-800 border-emerald-500', badgeBg: 'bg-emerald-600' },
@@ -769,7 +769,7 @@ export default function TaskDetails({
                 ].map(col => {
                   const colTasks = tasksByStatus[col.key] || [];
                   return (
-                    <div key={col.key} className="bg-slate-100/70 rounded-xl border border-slate-200 p-3 flex flex-col h-full min-h-[500px]">
+                    <div key={col.key} className="bg-slate-100/70 rounded-xl border border-slate-200 p-3 flex flex-col h-full min-h-[200px] md:min-h-[500px]">
                       {/* Column Header */}
                       <div className={`p-2.5 rounded-lg border-l-4 shadow-sm flex items-center justify-between mb-3 ${col.headerBg}`}>
                         <h4 className="font-bold text-xs uppercase tracking-wider">{col.title}</h4>
@@ -808,7 +808,7 @@ export default function TaskDetails({
                                 <div>
                                   {/* Title & Delay Badge */}
                                   <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                                    <h5 className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">
+                                    <h5 className="font-bold text-slate-900 text-xs sm:text-sm leading-snug line-clamp-2">
                                       {task.CM_Task_Name}
                                     </h5>
                                     {taskDelayInfo.isDelayed && (
@@ -862,7 +862,7 @@ export default function TaskDetails({
                                 </div>
 
                                 {/* Action Buttons */}
-                                <div className="pt-2 border-t border-slate-100 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -870,7 +870,7 @@ export default function TaskDetails({
                                       setAddUpdateData({ status: '', workHours: '', remarks: '', image: null });
                                       setShowAddUpdateModal(true);
                                     }}
-                                    className="flex-1 py-1 text-[10px] font-semibold text-white bg-emerald-600 rounded hover:bg-emerald-700 transition-colors text-center"
+                                    className="flex-1 py-1.5 text-[11px] sm:text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors text-center"
                                   >
                                     Update
                                   </button>
@@ -885,7 +885,7 @@ export default function TaskDetails({
                                       });
                                       setIsEditModalOpen(true);
                                     }}
-                                    className="flex-1 py-1 text-[10px] font-semibold text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors text-center"
+                                    className="flex-1 py-1.5 text-[11px] sm:text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors text-center"
                                   >
                                     Edit
                                   </button>
@@ -894,7 +894,7 @@ export default function TaskDetails({
                                       e.stopPropagation();
                                       handleDeleteTask(task.CM_Task_ID);
                                     }}
-                                    className="flex-1 py-1 text-[10px] font-semibold text-white bg-rose-600 rounded hover:bg-rose-700 transition-colors text-center"
+                                    className="flex-1 py-1.5 text-[11px] sm:text-xs font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition-colors text-center"
                                   >
                                     Delete
                                   </button>

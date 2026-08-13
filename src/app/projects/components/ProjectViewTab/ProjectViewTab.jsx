@@ -1649,8 +1649,8 @@ export default function ProjectViewTab({
               </span>
             </div>
 
-            {/* Statistics Cards - Single Row */}
-            <div className="flex gap-2 sm:gap-3">
+            {/* Statistics Cards - Responsive Grid/Row */}
+            <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-2 sm:gap-3 w-full sm:w-auto">
               <div className="bg-gradient-to-br from-green-50 to-green-100 px-3 sm:px-4 py-2 rounded-lg text-center border border-green-200 shadow-sm hover:shadow-md transition-all">
                 <div className="text-xs text-gray-600 font-medium">Completed</div>
                 <div className="text-base sm:text-lg font-bold text-green-600">{projectStats.completed}</div>

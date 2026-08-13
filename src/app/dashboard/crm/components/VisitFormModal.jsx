@@ -422,9 +422,9 @@ export default function VisitFormModal({
                 <Settings size={12} /> Manage Options
               </button>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
               {statusOptions.map(s => (
-                <button key={s} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Status: s })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Status === s ? `${statusColorsMap[s] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
+                <button key={s} type="button" title={s} onClick={() => setFormData({ ...formData, CM_Visit_Status: s })} className={`w-full truncate px-3 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Status === s ? `${statusColorsMap[s] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{s}</button>
               ))}
             </div>
           </div>
@@ -436,10 +436,10 @@ export default function VisitFormModal({
                 <Settings size={12} /> Manage Options
               </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setFormData({ ...formData, CM_Visit_Products: "" })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!formData.CM_Visit_Products ? `bg-gray-100 text-gray-700 border-gray-300 shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>None</button>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              <button type="button" onClick={() => setFormData({ ...formData, CM_Visit_Products: "" })} className={`w-full truncate px-3 py-2 rounded-xl text-xs font-bold border transition-all ${!formData.CM_Visit_Products ? `bg-gray-100 text-gray-700 border-gray-300 shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>None</button>
               {productOptions.map(p => (
-                <button key={p} type="button" onClick={() => setFormData({ ...formData, CM_Visit_Products: p })} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Products === p ? `${productColorsMap[p] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{p}</button>
+                <button key={p} type="button" title={p} onClick={() => setFormData({ ...formData, CM_Visit_Products: p })} className={`w-full truncate px-3 py-2 rounded-xl text-xs font-bold border transition-all ${formData.CM_Visit_Products === p ? `${productColorsMap[p] || "bg-blue-100 text-blue-700 border-blue-200"} shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{p}</button>
               ))}
             </div>
           </div>

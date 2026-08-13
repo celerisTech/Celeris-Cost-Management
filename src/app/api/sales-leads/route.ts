@@ -146,12 +146,13 @@ export async function GET(request: NextRequest) {
          ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
          ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS new_leads,
 
-      (SELECT COUNT(*) 
-       FROM ccms_sales_lead 
-       WHERE (CM_Lead_Status = 'Converted' OR CM_Followup_Status = 'Converted')
-         AND CM_Is_Deleted = 0
-         ${fDate ? "AND DATE(CM_Created_At) >= ?" : ""}
-         ${tDate ? "AND DATE(CM_Created_At) <= ?" : ""}) AS converted_leads,
+      (SELECT COUNT(DISTINCT sl.CM_Lead_ID) 
+       FROM ccms_sales_lead sl
+       LEFT JOIN ccms_sales_visit sv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = sv.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0
+       WHERE sl.CM_Is_Deleted = 0
+         AND (sl.CM_Lead_Status = 'Converted' OR sl.CM_Followup_Status = 'Converted' OR sv.CM_Visit_Status = 'Converted')
+         ${fDate ? "AND DATE(sl.CM_Created_At) >= ?" : ""}
+         ${tDate ? "AND DATE(sl.CM_Created_At) <= ?" : ""}) AS converted_leads,
 
       (SELECT COUNT(DISTINCT sl.CM_Lead_ID) 
        FROM ccms_sales_lead sl
@@ -310,7 +311,7 @@ export async function GET(request: NextRequest) {
       COUNT(sl.CM_Lead_ID) AS lead_count,
       SUM(
         CASE
-          WHEN sl.CM_Lead_Status = 'Converted'
+          WHEN sl.CM_Lead_Status = 'Converted' OR sl.CM_Followup_Status = 'Converted'
           THEN 1
           ELSE 0
         END
@@ -349,8 +350,8 @@ export async function GET(request: NextRequest) {
         SELECT 
           DATE(sl.CM_Created_At) as date,
           COUNT(*) as total_leads,
-          SUM(CASE WHEN cv.converted_count > 0 THEN 1 ELSE 0 END) as converted_leads,
-          SUM(COALESCE(pv.proposal_count, 0)) as proposal_sent
+          SUM(CASE WHEN sl.CM_Lead_Status = 'Converted' OR sl.CM_Followup_Status = 'Converted' OR COALESCE(cv.converted_count, 0) > 0 THEN 1 ELSE 0 END) as converted_leads,
+          SUM(CASE WHEN sl.CM_Lead_Status = 'Proposal Sent' OR sl.CM_Followup_Status = 'Proposal Sent' OR COALESCE(pv.proposal_count, 0) > 0 THEN 1 ELSE 0 END) as proposal_sent
         FROM ccms_sales_lead sl
         LEFT JOIN (
           SELECT 
@@ -483,7 +484,7 @@ export async function GET(request: NextRequest) {
       }
 
       const [leadRows]: any = await db.query(`
-        SELECT sl.CM_Lead_ID, sl.CM_Sales_Executive_ID, sl.CM_Lead_Status, sl.CM_Created_At
+        SELECT sl.CM_Lead_ID, sl.CM_Sales_Executive_ID, sl.CM_Lead_Status, sl.CM_Followup_Status, sl.CM_Next_Follow_Up_Date, sl.CM_Created_At
         FROM ccms_sales_lead sl
         ${leadWhere}
       `, leadParams);
@@ -510,7 +511,8 @@ export async function GET(request: NextRequest) {
 
       const executiveMap = new Map();
       users.forEach((user: any) => {
-        executiveMap.set(String(user.CM_User_ID), {
+        const key = String(user.CM_User_ID).trim();
+        executiveMap.set(key, {
           executive_id: user.CM_User_ID,
           executive_name: user.CM_Full_Name || 'Unassigned',
           total_leads: 0,
@@ -527,33 +529,41 @@ export async function GET(request: NextRequest) {
       const latestVisitMap = new Map();
       const proposalVisitMap = new Map();
       const demoVisitMap = new Map();
+      const convertedVisitMap = new Map();
+      const rejectedVisitMap = new Map();
 
       (visitRows || []).forEach((visit: any) => {
-        const leadKey = String(visit.CM_Lead_ID || '');
-        const current = latestVisitMap.get(leadKey);
-        if (!current) {
-          latestVisitMap.set(leadKey, visit);
-        } else {
-          const currentDate = current.CM_Visit_Date ? new Date(current.CM_Visit_Date) : new Date(0);
-          const visitDate = visit.CM_Visit_Date ? new Date(visit.CM_Visit_Date) : new Date(0);
-          if (visitDate > currentDate) {
+        const leadKey = String(visit.CM_Lead_ID || '').trim();
+        if (leadKey) {
+          const current = latestVisitMap.get(leadKey);
+          if (!current) {
             latestVisitMap.set(leadKey, visit);
+          } else {
+            const currentDate = current.CM_Visit_Date ? new Date(current.CM_Visit_Date) : new Date(0);
+            const visitDate = visit.CM_Visit_Date ? new Date(visit.CM_Visit_Date) : new Date(0);
+            if (visitDate > currentDate) {
+              latestVisitMap.set(leadKey, visit);
+            }
           }
-        }
 
-        const hasProposal = visit.CM_Visit_Status === 'Proposal Sent' || Number(visit.CM_Proposal_Value || 0) > 0;
-        if (hasProposal) {
-          proposalVisitMap.set(leadKey, true);
-        }
-
-        const hasDemo = visit.CM_Visit_Status === 'Demo Given' || String(visit.CM_Trial_Version_Given || '').toLowerCase() === 'yes';
-        if (hasDemo) {
-          demoVisitMap.set(leadKey, true);
+          const vStatus = visit.CM_Visit_Status;
+          if (vStatus === 'Proposal Sent' || Number(visit.CM_Proposal_Value || 0) > 0) {
+            proposalVisitMap.set(leadKey, true);
+          }
+          if (vStatus === 'Demo Given' || String(visit.CM_Trial_Version_Given || '').toLowerCase() === 'yes') {
+            demoVisitMap.set(leadKey, true);
+          }
+          if (vStatus === 'Converted') {
+            convertedVisitMap.set(leadKey, true);
+          }
+          if (vStatus === 'Rejected' || vStatus === 'Not Interested') {
+            rejectedVisitMap.set(leadKey, true);
+          }
         }
       });
 
       (visitRows || []).forEach((visit: any) => {
-        const execKey = String(visit.CM_Sales_Executive_ID || 'UNASSIGNED');
+        const execKey = visit.CM_Sales_Executive_ID ? String(visit.CM_Sales_Executive_ID).trim() : 'UNASSIGNED';
         if (!executiveMap.has(execKey)) {
           executiveMap.set(execKey, {
             executive_id: visit.CM_Sales_Executive_ID || null,
@@ -579,7 +589,7 @@ export async function GET(request: NextRequest) {
       });
 
       (leadRows || []).forEach((lead: any) => {
-        const execKey = String(lead.CM_Sales_Executive_ID || 'UNASSIGNED');
+        const execKey = lead.CM_Sales_Executive_ID ? String(lead.CM_Sales_Executive_ID).trim() : 'UNASSIGNED';
         if (!executiveMap.has(execKey)) {
           executiveMap.set(execKey, {
             executive_id: lead.CM_Sales_Executive_ID || null,
@@ -598,20 +608,34 @@ export async function GET(request: NextRequest) {
         const entry = executiveMap.get(execKey);
         entry.total_leads = Number(entry.total_leads || 0) + 1;
 
-        const leadKey = String(lead.CM_Lead_ID || '');
+        const leadKey = String(lead.CM_Lead_ID || '').trim();
         const latestVisit = latestVisitMap.get(leadKey);
-        const effectiveStatus = latestVisit?.CM_Visit_Status || lead.CM_Lead_Status;
-        if (effectiveStatus === 'Converted') {
+
+        const lStatus = lead.CM_Lead_Status;
+        const fStatus = lead.CM_Followup_Status;
+        const vStatus = latestVisit?.CM_Visit_Status;
+
+        const isConverted = lStatus === 'Converted' || fStatus === 'Converted' || vStatus === 'Converted' || convertedVisitMap.has(leadKey);
+        if (isConverted) {
           entry.converted_count = Number(entry.converted_count || 0) + 1;
-        } else if (effectiveStatus === 'Rejected' || effectiveStatus === 'Not Interested') {
-          entry.not_interested_count = Number(entry.not_interested_count || 0) + 1;
-        } else if (effectiveStatus === 'Proposal Sent') {
+        }
+
+        const isProposal = lStatus === 'Proposal Sent' || fStatus === 'Proposal Sent' || vStatus === 'Proposal Sent' || proposalVisitMap.has(leadKey);
+        if (isProposal) {
           entry.proposal_sent_count = Number(entry.proposal_sent_count || 0) + 1;
-        } else if (effectiveStatus === 'Demo Given') {
+        }
+
+        const isDemo = lStatus === 'Demo Given' || fStatus === 'Demo Given' || vStatus === 'Demo Given' || demoVisitMap.has(leadKey);
+        if (isDemo) {
           entry.demo_count = Number(entry.demo_count || 0) + 1;
         }
 
-        if (latestVisit?.CM_Next_Followup_Date) {
+        const isRejected = ['Rejected', 'Not Interested'].includes(lStatus) || ['Rejected', 'Not Interested'].includes(fStatus) || ['Rejected', 'Not Interested'].includes(vStatus) || rejectedVisitMap.has(leadKey);
+        if (isRejected) {
+          entry.not_interested_count = Number(entry.not_interested_count || 0) + 1;
+        }
+
+        if (latestVisit?.CM_Next_Followup_Date || lead.CM_Next_Follow_Up_Date) {
           entry.followup_count = Number(entry.followup_count || 0) + 1;
         }
       });
@@ -726,19 +750,30 @@ export async function GET(request: NextRequest) {
     if (toDate) { whereClause += ' AND DATE(sl.CM_Created_At) <= ?'; params.push(formatDbDate(toDate)); }
     const cleanSearch = search ? String(search).trim() : '';
     if (cleanSearch) {
-      const tokens = cleanSearch.split(/\s+/).filter(Boolean);
-      tokens.forEach((token) => {
-        whereClause += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Alt_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ? OR sl.CM_City LIKE ? OR sl.CM_Address LIKE ?)';
-        const s = `%${token}%`;
-        params.push(s, s, s, s, s, s, s, s);
-      });
-    }
+      const s = `%${cleanSearch}%`;
+      const cleanPhone = cleanSearch.replace(/\s+/g, '');
+      const sPhone = `%${cleanPhone}%`;
 
-    // Count total
-    const [countResult]: any = await db.query(
-      `SELECT COUNT(*) AS total FROM ccms_sales_lead sl ${whereClause}`, params
-    );
-    const total = Number(countResult?.[0]?.total || 0);
+      whereClause += ` AND (
+        sl.CM_Client_Name LIKE ? 
+        OR sl.CM_Company_Name LIKE ? 
+        OR sl.CM_Phone LIKE ? 
+        OR REPLACE(sl.CM_Phone, ' ', '') LIKE ?
+        OR sl.CM_Alt_Phone LIKE ? 
+        OR REPLACE(sl.CM_Alt_Phone, ' ', '') LIKE ?
+        OR sl.CM_Email LIKE ? 
+        OR sl.CM_Lead_ID LIKE ? 
+        OR sl.CM_City LIKE ? 
+        OR sl.CM_Address LIKE ?
+        OR sl.CM_Product_Required LIKE ?
+        OR sl.CM_Remarks LIKE ?
+        OR u.CM_Full_Name LIKE ?
+        OR ind.CM_Industrial_Name LIKE ?
+        OR cat.CM_Category_Name LIKE ?
+        OR sub.CM_Subcategory_Name LIKE ?
+      )`;
+      params.push(s, s, s, sPhone, s, sPhone, s, s, s, s, s, s, s, s, s, s);
+    }
 
     // Count stats for overall query (without status filter restriction)
     const statsParams: any[] = [];
@@ -748,48 +783,110 @@ export async function GET(request: NextRequest) {
     if (categoryId) { statsWhere += ' AND sl.CM_Category_ID = ?'; statsParams.push(categoryId); }
     if (fromDate) { statsWhere += ' AND DATE(sl.CM_Created_At) >= ?'; statsParams.push(formatDbDate(fromDate)); }
     if (toDate) { statsWhere += ' AND DATE(sl.CM_Created_At) <= ?'; statsParams.push(formatDbDate(toDate)); }
-    const cleanSearchForStats = search ? String(search).trim() : '';
-    if (cleanSearchForStats) {
-      const tokens = cleanSearchForStats.split(/\s+/).filter(Boolean);
-      tokens.forEach((token) => {
-        statsWhere += ' AND (sl.CM_Client_Name LIKE ? OR sl.CM_Company_Name LIKE ? OR sl.CM_Phone LIKE ? OR sl.CM_Alt_Phone LIKE ? OR sl.CM_Email LIKE ? OR sl.CM_Lead_ID LIKE ? OR sl.CM_City LIKE ? OR sl.CM_Address LIKE ?)';
-        const s = `%${token}%`;
-        statsParams.push(s, s, s, s, s, s, s, s);
-      });
+    if (cleanSearch) {
+      const s = `%${cleanSearch}%`;
+      const cleanPhone = cleanSearch.replace(/\s+/g, '');
+      const sPhone = `%${cleanPhone}%`;
+
+      statsWhere += ` AND (
+        sl.CM_Client_Name LIKE ? 
+        OR sl.CM_Company_Name LIKE ? 
+        OR sl.CM_Phone LIKE ? 
+        OR REPLACE(sl.CM_Phone, ' ', '') LIKE ?
+        OR sl.CM_Alt_Phone LIKE ? 
+        OR REPLACE(sl.CM_Alt_Phone, ' ', '') LIKE ?
+        OR sl.CM_Email LIKE ? 
+        OR sl.CM_Lead_ID LIKE ? 
+        OR sl.CM_City LIKE ? 
+        OR sl.CM_Address LIKE ?
+        OR sl.CM_Product_Required LIKE ?
+        OR sl.CM_Remarks LIKE ?
+        OR u.CM_Full_Name LIKE ?
+        OR ind.CM_Industrial_Name LIKE ?
+        OR cat.CM_Category_Name LIKE ?
+        OR sub.CM_Subcategory_Name LIKE ?
+      )`;
+      statsParams.push(s, s, s, sPhone, s, sPhone, s, s, s, s, s, s, s, s, s, s);
     }
 
-    const [statsResult]: any = await db.query(`
-      SELECT 
-        COUNT(*) AS total,
-        SUM(CASE WHEN sl.CM_Lead_Status = 'New Lead' THEN 1 ELSE 0 END) AS newLead,
-        SUM(CASE WHEN sl.CM_Lead_Status = 'Converted' OR sl.CM_Followup_Status = 'Converted' OR lv.Last_Visit_Status = 'Converted' THEN 1 ELSE 0 END) AS converted,
-        SUM(CASE WHEN sl.CM_Lead_Status = 'Proposal Sent' OR sl.CM_Followup_Status = 'Proposal Sent' OR prop.has_prop = 1 OR lv.Last_Visit_Status = 'Proposal Sent' THEN 1 ELSE 0 END) AS proposalSent,
-        SUM(CASE WHEN sl.CM_Lead_Status IN ('Rejected', 'Not Interested') OR sl.CM_Followup_Status IN ('Rejected', 'Not Interested') OR ni.has_ni = 1 OR lv.Last_Visit_Status IN ('Rejected', 'Not Interested') THEN 1 ELSE 0 END) AS notInterested
-      FROM ccms_sales_lead sl
-      LEFT JOIN (
-        SELECT v1.CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, v1.CM_Visit_Status AS Last_Visit_Status
-        FROM ccms_sales_visit v1
-        INNER JOIN (
-          SELECT CM_Lead_ID, MAX(CM_Visit_ID) AS max_id
+    const queries: Promise<any>[] = [
+      db.query(`
+        SELECT 
+          COUNT(DISTINCT sl.CM_Lead_ID) AS total,
+          SUM(CASE WHEN sl.CM_Lead_Status = 'New Lead' THEN 1 ELSE 0 END) AS newLead,
+          SUM(CASE WHEN sl.CM_Lead_Status = 'Converted' OR sl.CM_Followup_Status = 'Converted' OR lv.Last_Visit_Status = 'Converted' THEN 1 ELSE 0 END) AS converted,
+          SUM(CASE WHEN sl.CM_Lead_Status = 'Proposal Sent' OR sl.CM_Followup_Status = 'Proposal Sent' OR prop.has_prop = 1 OR lv.Last_Visit_Status = 'Proposal Sent' THEN 1 ELSE 0 END) AS proposalSent,
+          SUM(CASE WHEN sl.CM_Lead_Status IN ('Rejected', 'Not Interested') OR sl.CM_Followup_Status IN ('Rejected', 'Not Interested') OR ni.has_ni = 1 OR lv.Last_Visit_Status IN ('Rejected', 'Not Interested') THEN 1 ELSE 0 END) AS notInterested
+        FROM ccms_sales_lead sl
+        LEFT JOIN ccms_users u ON sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
+        LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+        LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
+        LEFT JOIN ccms_sales_subcategory sub ON sl.CM_Subcategory_ID = sub.CM_Subcategory_ID
+        LEFT JOIN (
+          SELECT v1.CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, v1.CM_Visit_Status AS Last_Visit_Status
+          FROM ccms_sales_visit v1
+          INNER JOIN (
+            SELECT CM_Lead_ID, MAX(CM_Visit_ID) AS max_id
+            FROM ccms_sales_visit
+            WHERE CM_Is_Deleted = 0
+            GROUP BY CM_Lead_ID
+          ) v2 ON v1.CM_Lead_ID = v2.CM_Lead_ID AND v1.CM_Visit_ID = v2.max_id
+        ) lv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = lv.CM_Lead_ID
+        LEFT JOIN (
+          SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_prop
           FROM ccms_sales_visit
-          WHERE CM_Is_Deleted = 0
+          WHERE CM_Is_Deleted = 0 AND CM_Visit_Status = 'Proposal Sent'
           GROUP BY CM_Lead_ID
-        ) v2 ON v1.CM_Lead_ID = v2.CM_Lead_ID AND v1.CM_Visit_ID = v2.max_id
-      ) lv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = lv.CM_Lead_ID
-      LEFT JOIN (
-        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_prop
-        FROM ccms_sales_visit
-        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status = 'Proposal Sent'
-        GROUP BY CM_Lead_ID
-      ) prop ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = prop.CM_Lead_ID
-      LEFT JOIN (
-        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_ni
-        FROM ccms_sales_visit
-        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status IN ('Rejected', 'Not Interested')
-        GROUP BY CM_Lead_ID
-      ) ni ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = ni.CM_Lead_ID
-      ${statsWhere}
-    `, statsParams);
+        ) prop ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = prop.CM_Lead_ID
+        LEFT JOIN (
+          SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_ni
+          FROM ccms_sales_visit
+          WHERE CM_Is_Deleted = 0 AND CM_Visit_Status IN ('Rejected', 'Not Interested')
+          GROUP BY CM_Lead_ID
+        ) ni ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = ni.CM_Lead_ID
+        ${statsWhere}
+      `, statsParams),
+
+      db.query(`
+        SELECT sl.*, u.CM_Full_Name AS Executive_Name,
+          ind.CM_Industrial_Name, cat.CM_Category_Name, sub.CM_Subcategory_Name,
+          (SELECT COUNT(*) FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0) AS visit_count,
+          (SELECT COALESCE(SUM(CM_Amount), 0) FROM ccms_sales_payment sp WHERE sp.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sp.CM_Payment_Status = 'Paid' AND sp.CM_Payment_Type != 'Domain Payment' AND sp.CM_Is_Deleted = 0) AS total_paid,
+          (SELECT sv.CM_Visit_Status FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0 ORDER BY sv.CM_Visit_Date DESC, sv.CM_Visit_ID DESC LIMIT 1) AS Last_Visit_Status,
+          (SELECT 1 FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0 AND sv.CM_Visit_Status = 'Proposal Sent' LIMIT 1) AS Had_Proposal_Sent,
+          (SELECT 1 FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0 AND sv.CM_Visit_Status IN ('Rejected', 'Not Interested') LIMIT 1) AS Had_Not_Interested
+
+        FROM ccms_sales_lead sl
+        LEFT JOIN ccms_users u ON sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
+        LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+        LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
+        LEFT JOIN ccms_sales_subcategory sub ON sl.CM_Subcategory_ID = sub.CM_Subcategory_ID
+        ${whereClause}
+        ORDER BY sl.CM_Created_At DESC, sl.CM_Lead_ID DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `, params)
+    ];
+
+    if (status) {
+      queries.push(
+        db.query(
+          `SELECT COUNT(DISTINCT sl.CM_Lead_ID) AS total 
+           FROM ccms_sales_lead sl
+           LEFT JOIN ccms_users u ON sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
+           LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+           LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
+           LEFT JOIN ccms_sales_subcategory sub ON sl.CM_Subcategory_ID = sub.CM_Subcategory_ID
+           ${whereClause}`, params
+        )
+      );
+    }
+
+    const results = await Promise.all(queries);
+    const statsResult = results[0][0];
+    const leadsRows = results[1][0];
+    const countResult = status ? results[2][0] : null;
+
+    const total = status ? Number(countResult?.[0]?.total || 0) : Number(statsResult?.[0]?.total || 0);
 
     const stats = {
       total: Number(statsResult?.[0]?.total || 0),
@@ -799,62 +896,8 @@ export async function GET(request: NextRequest) {
       notInterested: Number(statsResult?.[0]?.notInterested || 0)
     };
 
-    // Fetch paginated leads with optimized joins
-    const [leads]: any = await db.query(`
-      SELECT sl.*, u.CM_Full_Name AS Executive_Name,
-        ind.CM_Industrial_Name, cat.CM_Category_Name, sub.CM_Subcategory_Name,
-        COALESCE(v.v_count, 0) AS visit_count,
-        COALESCE(p.p_sum, 0) AS total_paid,
-        lv.Last_Visit_Status,
-        COALESCE(prop.has_prop, 0) AS Had_Proposal_Sent,
-        COALESCE(ni.has_ni, 0) AS Had_Not_Interested
-
-      FROM ccms_sales_lead sl
-      LEFT JOIN ccms_users u ON sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
-      LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
-      LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
-      LEFT JOIN ccms_sales_subcategory sub ON sl.CM_Subcategory_ID = sub.CM_Subcategory_ID
-      LEFT JOIN (
-        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, COUNT(*) AS v_count 
-        FROM ccms_sales_visit 
-        WHERE CM_Is_Deleted = 0 
-        GROUP BY CM_Lead_ID
-      ) v ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = v.CM_Lead_ID
-      LEFT JOIN (
-        SELECT v1.CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, v1.CM_Visit_Status AS Last_Visit_Status
-        FROM ccms_sales_visit v1
-        INNER JOIN (
-          SELECT CM_Lead_ID, MAX(CM_Visit_ID) AS max_id
-          FROM ccms_sales_visit
-          WHERE CM_Is_Deleted = 0
-          GROUP BY CM_Lead_ID
-        ) v2 ON v1.CM_Lead_ID = v2.CM_Lead_ID AND v1.CM_Visit_ID = v2.max_id
-      ) lv ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = lv.CM_Lead_ID
-      LEFT JOIN (
-        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, SUM(CM_Amount) AS p_sum 
-        FROM ccms_sales_payment 
-        WHERE CM_Payment_Status = 'Paid' AND CM_Payment_Type != 'Domain Payment' AND CM_Is_Deleted = 0 
-        GROUP BY CM_Lead_ID
-      ) p ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = p.CM_Lead_ID
-      LEFT JOIN (
-        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_prop
-        FROM ccms_sales_visit
-        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status = 'Proposal Sent'
-        GROUP BY CM_Lead_ID
-      ) prop ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = prop.CM_Lead_ID
-      LEFT JOIN (
-        SELECT CM_Lead_ID COLLATE utf8mb4_general_ci AS CM_Lead_ID, 1 AS has_ni
-        FROM ccms_sales_visit
-        WHERE CM_Is_Deleted = 0 AND CM_Visit_Status IN ('Rejected', 'Not Interested')
-        GROUP BY CM_Lead_ID
-      ) ni ON sl.CM_Lead_ID COLLATE utf8mb4_general_ci = ni.CM_Lead_ID
-      ${whereClause}
-      ORDER BY sl.CM_Created_At DESC, sl.CM_Lead_ID DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `, params);
-
     return safeJsonResponse({
-      leads: leads || [],
+      leads: leadsRows || [],
       total,
       stats,
       page,
