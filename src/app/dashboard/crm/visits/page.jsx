@@ -28,7 +28,7 @@ function VisitsContent() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(10000);
+  const [limit, setLimit] = useState(50);
   const [leadFilter, setLeadFilter] = useState("");
   const [execFilter, setExecFilter] = useState("");
   const searchParams = useSearchParams();
@@ -164,7 +164,7 @@ function VisitsContent() {
     } else {
       fetchVisits();
     }
-  }, [leadFilter, execFilter, statusFilter, productFilter, fromDate, toDate, debouncedSearch, industrialFilter, categoryFilter, pendingOnly]);
+  }, [leadFilter, execFilter, statusFilter, productFilter, fromDate, toDate, debouncedSearch, industrialFilter, categoryFilter, pendingOnly, limit]);
 
   // Fetch visits when page changes
   useEffect(() => {
@@ -374,7 +374,7 @@ function VisitsContent() {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="p-4 md:p-4 min-h-screen space-y-6">
+    <div className="p-4 md:p-4 min-h-screen space-y-3">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -440,7 +440,7 @@ function VisitsContent() {
               placeholder="Search purpose, client, remarks..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+              className="w-full pl-10 pr-4 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9 text-sm font-medium"
             />
           </div>
         </div>
@@ -450,7 +450,7 @@ function VisitsContent() {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9 text-sm font-medium"
           >
             <option value="">All Statuses</option>
             {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
@@ -462,7 +462,7 @@ function VisitsContent() {
           <select
             value={productFilter}
             onChange={(e) => { setProductFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9 text-sm font-medium"
           >
             <option value="">All Products</option>
             {productOptions.map(p => <option key={p} value={p}>{p}</option>)}
@@ -474,7 +474,7 @@ function VisitsContent() {
           <select
             value={execFilter}
             onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9 text-sm font-medium"
           >
             <option value="">All Executives</option>
             {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
@@ -486,7 +486,7 @@ function VisitsContent() {
           <button
             type="button"
             onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
-            className="w-full flex items-center justify-center gap-1.5 px-2 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-all font-semibold h-[42px] text-xs"
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-all font-semibold h-9 text-xs"
           >
             <Filter className="h-3.5 w-3.5" />
             {isFiltersExpanded ? "Less" : "More"}
@@ -504,7 +504,7 @@ function VisitsContent() {
                   setCategoryFilter("");
                   setPage(1);
                 }}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9 text-sm font-medium"
               >
                 <option value="">All Industrials</option>
                 {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
@@ -516,7 +516,7 @@ function VisitsContent() {
               <select
                 value={categoryFilter}
                 onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px] text-sm font-medium"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9 text-sm font-medium"
               >
                 <option value="">All Categories</option>
                 {filterCategories.map(c => (
@@ -539,7 +539,7 @@ function VisitsContent() {
                     setDateQuickFilter('today');
                     setPage(1);
                   }}
-                  className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'today'
+                  className={`px-1 py-1.5 text-[11px] font-bold rounded-lg border transition-all h-9 w-full ${dateQuickFilter === 'today'
                     ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
                     : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
                     }`}
@@ -557,7 +557,7 @@ function VisitsContent() {
                     setDateQuickFilter('yesterday');
                     setPage(1);
                   }}
-                  className={`px-1 py-2 text-[11px] font-bold rounded-lg border transition-all h-[42px] w-full ${dateQuickFilter === 'yesterday'
+                  className={`px-1 py-1.5 text-[11px] font-bold rounded-lg border transition-all h-9 w-full ${dateQuickFilter === 'yesterday'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
                     : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
                     }`}
@@ -575,7 +575,7 @@ function VisitsContent() {
                 type="date"
                 value={fromDate}
                 onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-9"
               />
             </div>
 
@@ -589,7 +589,7 @@ function VisitsContent() {
                   type="date"
                   value={toDate}
                   onChange={(e) => { setToDate(e.target.value); setDateQuickFilter(""); setPage(1); }}
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-[42px]"
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm font-medium h-9"
                 />
               </div>
 
@@ -608,7 +608,7 @@ function VisitsContent() {
                   setToDate("");
                   setPage(1);
                 }}
-                className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
+                className="flex items-center justify-center w-9 h-9 text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
                 title="Reset Filters"
               >
                 <FiRotateCcw size={18} />
@@ -620,20 +620,20 @@ function VisitsContent() {
 
       {/* Content Area */}
       {viewMode === "table" ? (
-        <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg">
-          <div className="overflow-x-auto">
+        <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg flex flex-col">
+          <div className="overflow-auto h-[calc(100vh-240px)]">
             <table className="w-full text-left border-collapse table-fixed">
-              <thead>
+              <thead className="sticky top-0 z-10 shadow-sm">
                 <tr className="bg-gray-200 text-gray-700">
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-10 text-center border border-gray-300">#</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-25 border border-gray-300">Visit Date</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-48 border border-gray-300">Client / Company</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-64 border border-gray-300">Purpose & Description</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-25 border border-gray-300">Next Followup</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-20 border border-gray-300">Type</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-28 border border-gray-300">Product</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-10 text-center border border-gray-300">#</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-25 border border-gray-300">Visit Date</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-48 border border-gray-300">Client / Company</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-64 border border-gray-300">Purpose & Description</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-25 border border-gray-300">Next Followup</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-20 border border-gray-300">Type</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-28 border border-gray-300">Product</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -734,7 +734,7 @@ function VisitsContent() {
           </div>
         </div>
       ) : (
-        <div className="space-y-4 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-0.5 before:bg-blue-100 pl-10">
+        <div className="space-y-4 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-0.5 before:bg-blue-100 pl-10 overflow-auto h-[calc(100vh-240px)] pr-2">
           {visits.map((v) => (
             <div key={v.CM_Visit_ID} className="relative group">
               <div className="absolute -left-[35px] top-4 w-8 h-8 rounded-full bg-blue-600 border-4 border-white shadow-sm flex items-center justify-center z-10 transition-transform group-hover:scale-110">
@@ -831,6 +831,46 @@ function VisitsContent() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {total > 0 && (
+        <div className="flex flex-wrap items-center justify-between px-4 py-1 bg-white shadow-sm rounded-lg border border-gray-200 gap-4 !mt-0 mb-0">
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-gray-500 font-medium">
+              Showing <span className="font-bold text-gray-900">{Math.min((page - 1) * limit + 1, total)}</span> to <span className="font-bold text-gray-900">{Math.min(page * limit, total)}</span> of <span className="font-bold text-gray-900">{total}</span> visits
+            </span>
+            <select 
+              value={limit} 
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              className="text-[11px] font-medium text-gray-800 bg-white border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 py-1 pl-2 pr-6 h-7"
+            >
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+              <option value={500}>500 per page</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button 
+              onClick={() => setPage(p => Math.max(1, p - 1))} 
+              disabled={page === 1}
+              className="p-1 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-[11px] font-bold text-gray-700 px-2 bg-gray-50 border border-gray-200 py-1 rounded-md shadow-sm">
+              Page {page} of {totalPages || 1}
+            </span>
+            <button 
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+              disabled={page === totalPages || totalPages === 0}
+              className="p-1 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 

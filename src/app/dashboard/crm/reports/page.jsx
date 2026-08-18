@@ -20,6 +20,9 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [executiveFilter, setExecutiveFilter] = useState("All");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+
   const [detailModalConfig, setDetailModalConfig] = useState({ isOpen: false, title: "", type: "", value: "" });
   const [detailVisits, setDetailVisits] = useState([]);
   const [loadingDetailVisits, setLoadingDetailVisits] = useState(false);
@@ -60,6 +63,10 @@ export default function ReportsPage() {
   useEffect(() => {
     fetchReport();
   }, [activeTab, dateRange]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, executiveFilter, activeTab]);
 
   const fetchReport = async () => {
     try {
@@ -247,6 +254,10 @@ export default function ReportsPage() {
     ...(detailVisits || [])
   ].map(r => r.executive_name).filter(Boolean))).sort();
 
+  const filteredReports = filterData(reportData?.Reports);
+  const totalPages = Math.ceil((filteredReports?.length || 0) / itemsPerPage);
+  const currentItems = filteredReports?.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <div className="flex flex-col h-[100dvh] bg-white overflow-hidden">
       {/* Ribbon / Top Toolbar */}
@@ -355,8 +366,8 @@ export default function ReportsPage() {
       </div>
 
       {/* Main Content Area (Spreadsheet Grid) */}
-      <div className="flex-1 overflow-auto p-2 pb-0">
-        <div className="h-full bg-white border border-slate-300 shadow-sm flex flex-col overflow-auto">
+      <div className="flex-1 overflow-hidden p-2 pb-0">
+        <div className="h-full bg-white border border-slate-300 shadow-sm flex flex-col overflow-hidden">
           {loading ? (
             <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-2" />
@@ -368,9 +379,11 @@ export default function ReportsPage() {
               <p className="font-bold text-xs">No data available for the selected criteria</p>
             </div>
           ) : (
-            <div className="flex-1 w-full min-w-full">
+            <div className="flex-1 w-full min-w-full flex flex-col overflow-hidden">
               {activeTab === "Reports" && (
-                <table className="w-full text-left border-collapse">
+                <>
+                  <div className="flex-1 overflow-auto">
+                    <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-20 bg-slate-100 shadow-[0_1px_0_0_#cbd5e1] ring-1 ring-slate-300">
                     <tr>
                       <th className="px-2 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300 text-center w-10">#</th>
@@ -385,9 +398,9 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {filterData(reportData?.Reports)?.map((row, i) => (
+                    {currentItems?.map((row, i) => (
                       <tr key={i} className="hover:bg-blue-50/50 even:bg-slate-50 group">
-                        <td className="px-2 py-1 text-[11px] font-mono text-slate-400 border border-slate-300 text-center">{i + 1}</td>
+                        <td className="px-2 py-1 text-[11px] font-mono text-slate-400 border border-slate-300 text-center">{(currentPage - 1) * itemsPerPage + i + 1}</td>
                         <td className="px-2 py-1 text-[11px] font-medium text-slate-700 border border-slate-300">
                           {row.visit_date ? new Date(row.visit_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}
                         </td>
@@ -432,6 +445,48 @@ export default function ReportsPage() {
                     ))}
                   </tbody>
                 </table>
+                  </div>
+                  {filteredReports?.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-300 shrink-0">
+                      <div className="flex items-center gap-4">
+                        <div className="text-[11px] text-slate-600">
+                          Showing <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold">{Math.min(currentPage * itemsPerPage, filteredReports?.length)}</span> of <span className="font-bold">{filteredReports?.length}</span> entries
+                        </div>
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="text-[11px] border border-slate-300 rounded px-2 py-0.5 bg-white outline-none focus:border-blue-500 font-medium text-slate-700 cursor-pointer"
+                        >
+                          <option value={10}>10 per page</option>
+                          <option value={20}>20 per page</option>
+                          <option value={50}>50 per page</option>
+                          <option value={100}>100 per page</option>
+                          <option value={500}>500 per page</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-2 py-1 bg-white border border-slate-300 text-slate-700 text-[11px] font-bold rounded hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Prev
+                        </button>
+                        <span className="text-slate-700 text-[11px] font-bold px-2">Page {currentPage} of {totalPages}</span>
+                        <button 
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-2 py-1 bg-white border border-slate-300 text-slate-700 text-[11px] font-bold rounded hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {activeTab === "monthWise" && (

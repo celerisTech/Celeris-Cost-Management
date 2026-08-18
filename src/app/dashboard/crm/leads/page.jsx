@@ -72,7 +72,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(10000);
+  const [limit, setLimit] = useState(50);
   const abortControllerRef = useRef(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -648,22 +648,22 @@ export default function LeadsPage() {
                       <tbody className="divide-y divide-gray-100">
                         {leadVisits.map((v, idx) => (
                           <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="px-3 py-2 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <p className="text-xs font-bold text-gray-700">
                                 {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                               </p>
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p>
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{v.CM_Remarks || "No remarks recorded"}</p>
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
+                            <td className="px-3 py-1.5 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
                               {v.Executive_Name || "Unassigned"}
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               {v.CM_Next_Followup_Date ? (
                                 <div className="flex flex-col gap-0.5">
                                   <p className="text-xs font-bold text-amber-600">
@@ -672,12 +672,12 @@ export default function LeadsPage() {
                                 </div>
                               ) : <span className="text-gray-300">—</span>}
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitStatusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
                                 {v.CM_Visit_Status}
                               </span>
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               {v.CM_Visit_Products ? (
                                 <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitProductColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
                                   {v.CM_Visit_Products}
@@ -738,16 +738,16 @@ export default function LeadsPage() {
                       <tbody className="divide-y divide-gray-100">
                         {leadPayments.map((p, idx) => (
                           <tr key={p.CM_Payment_ID} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="px-3 py-2 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <p className="text-xs font-bold text-gray-700">
                                 {new Date(p.CM_Payment_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                               </p>
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <p className="text-sm font-extrabold text-gray-900">₹{Number(p.CM_Amount).toLocaleString()}</p>
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
                                 p.CM_Payment_Type === "Partial Payment" ? "bg-purple-100 text-purple-700 border-purple-200" :
                                   p.CM_Payment_Type === "Final Payment" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
@@ -757,10 +757,10 @@ export default function LeadsPage() {
                                 {p.CM_Payment_Type}
                               </span>
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100 text-xs font-medium text-gray-700">
+                            <td className="px-3 py-1.5 border-r border-gray-100 text-xs font-medium text-gray-700">
                               {p.CM_Payment_Mode}
                             </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border-r border-gray-100">
                               <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Status === "Pending" ? "bg-amber-100 text-amber-700 border-amber-200" :
                                 p.CM_Payment_Status === "Paid" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
                                   "bg-red-100 text-red-700 border-red-200"
@@ -1144,7 +1144,7 @@ export default function LeadsPage() {
       </div>
 
       {/* Stats Cards for Leads */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 !-mt-2">
         {[
           {
             label: "Total Leads",
@@ -1200,18 +1200,18 @@ export default function LeadsPage() {
             onClick: () => { setStatusFilter("Not Interested"); setPage(1); }
           },
         ].map((s, i) => (
-          <div key={i} onClick={s.onClick} className={`p-2 rounded-xl text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02] cursor-pointer`}>
-            <p className="text-[11px] font-bold text-gray-700 uppercase tracking-widest mb-1">{s.label}</p>
+          <div key={i} onClick={s.onClick} className={`px-2 py-1.5 rounded-xl text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02] cursor-pointer`}>
+            <p className="text-[10px] font-bold text-gray-700 uppercase tracking-widest mb-0.5">{s.label}</p>
             <div className="flex items-center justify-between">
-              <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
-              <s.icon className={`h-5 w-5 ${s.color} opacity-40`} />
+              <p className={`text-lg font-black ${s.color}`}>{s.value}</p>
+              <s.icon className={`h-4 w-4 ${s.color} opacity-40`} />
             </div>
           </div>
         ))}
       </div>
 
       {/* Filters Card */}
-      <div className="bg-white grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2">
+      <div className="bg-white grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2 !-mt-3">
         <form onSubmit={handleSearch} className="w-full">
           <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
           <div className="relative">
@@ -1221,7 +1221,7 @@ export default function LeadsPage() {
               placeholder="Name, company, phone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 focus:border-transparent transition-all outline-none h-[42px]"
+              className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 focus:border-transparent transition-all outline-none h-9"
             />
           </div>
         </form>
@@ -1231,7 +1231,7 @@ export default function LeadsPage() {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
           >
             <option value="">All Statuses</option>
             {visitStatusOptions.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1243,7 +1243,7 @@ export default function LeadsPage() {
           <select
             value={execFilter}
             onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
           >
             <option value="">All Executives</option>
             {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
@@ -1264,7 +1264,7 @@ export default function LeadsPage() {
                 setDateQuickFilter('today');
                 setPage(1);
               }}
-              className={`px-2 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
+              className={`px-2 py-1.5 text-xs font-bold rounded-lg border transition-all h-9 flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
                 ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
                 : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
                 }`}
@@ -1282,7 +1282,7 @@ export default function LeadsPage() {
                 setDateQuickFilter('yesterday');
                 setPage(1);
               }}
-              className={`px-2 py-2 text-xs font-bold rounded-lg border transition-all h-[42px] flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
+              className={`px-2 py-1.5 text-xs font-bold rounded-lg border transition-all h-9 flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
                 : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
                 }`}
@@ -1297,7 +1297,7 @@ export default function LeadsPage() {
           <button
             type="button"
             onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
-            className="w-full flex items-center justify-center gap-1.5 px-2 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-all font-semibold h-[42px] text-xs"
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-all font-semibold h-9 text-xs"
           >
             <Filter className="h-3.5 w-3.5" />
             {isFiltersExpanded ? "Less" : "More"}
@@ -1315,7 +1315,7 @@ export default function LeadsPage() {
                   setCategoryFilter("");
                   setPage(1);
                 }}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
               >
                 <option value="">All Industrials</option>
                 {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
@@ -1327,7 +1327,7 @@ export default function LeadsPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-[42px]"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
               >
                 <option value="">All Categories</option>
                 {filterCategories.map(c => (
@@ -1342,7 +1342,7 @@ export default function LeadsPage() {
                 type="date"
                 value={fromDate}
                 onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-9"
               />
             </div>
 
@@ -1358,7 +1358,7 @@ export default function LeadsPage() {
                   setToDate(e.target.value);
                   setDateQuickFilter("");
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-[42px]"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-9"
               />
             </div>
 
@@ -1381,7 +1381,7 @@ export default function LeadsPage() {
                   fetchLeads("");
                 }
               }}
-              className="flex items-center justify-center w-[42px] h-[42px] text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
+              className="flex items-center justify-center w-9 h-9 text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
               title="Reset Filters"
             >
               <FiRotateCcw size={18} />
@@ -1391,22 +1391,22 @@ export default function LeadsPage() {
       </div>
 
       {/* Content Section: Table (Desktop) & Grid (Mobile) */}
-      <div className="space-y-4">
+      <div className="space-y-4 !-mt-3">
         {/* Desktop View (Table) */}
-        <div className="hidden lg:block bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg">
-          <div className="overflow-x-auto">
+        <div className="hidden lg:block bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg flex flex-col">
+          <div className="overflow-auto h-[calc(100vh-325px)]">
             <table className="w-full text-left border-collapse table-fixed">
-              <thead>
+              <thead className="sticky top-0 z-10 shadow-sm">
                 <tr className="bg-gray-200 text-gray-700">
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-10 text-center border border-gray-300">#</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-30 border border-gray-300">Client / Company</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-20 border border-gray-300">Contact No</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-32 border border-gray-300">Industrial </th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-30 border border-gray-300">Requirement</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-18 border border-gray-300">Next Follow-up</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 border border-gray-300">Follow-up Status</th>
-                  <th className="px-2 py-2 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-10 text-center border border-gray-300">#</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-30 border border-gray-300">Client / Company</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-20 border border-gray-300">Contact No</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-32 border border-gray-300">Industrial </th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-30 border border-gray-300">Requirement</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-18 border border-gray-300">Next Follow-up</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 border border-gray-300">Follow-up Status</th>
+                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1577,35 +1577,40 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination Controls */}
       {total > 0 && (
-        <div className="px-6 py-4 border-t border-gray-50 flex items-center justify-between bg-gray-50/30">
-          <p className="text-sm text-gray-500">
-            Showing <span className="font-bold text-gray-700">{Math.min((page - 1) * limit + 1, total)}</span> to <span className="font-bold text-gray-700">{Math.min(page * limit, total)}</span> of <span className="font-bold text-gray-700">{total}</span> leads
-          </p>
+        <div className="flex flex-wrap items-center justify-between px-4 py-1.5 bg-white shadow-sm rounded-lg border border-gray-200 gap-4 !-mt-2 mb-0">
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-gray-500 font-medium">
+              Showing <span className="font-bold text-gray-900">{Math.min((page - 1) * limit + 1, total)}</span> to <span className="font-bold text-gray-900">{Math.min(page * limit, total)}</span> of <span className="font-bold text-gray-900">{total}</span> leads
+            </span>
+            <select
+              value={limit}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              className="text-[11px] font-medium text-gray-800 bg-white border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 py-1 pl-2 pr-6 h-7"
+            >
+              <option value={10}>10 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+              <option value={500}>500 per page</option>
+              <option value={1000}>1000 per page</option>
+            </select>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-gray-600"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <div className="flex gap-1">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPage(i + 1)}
-                  className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${page === i + 1 ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-gray-500 hover:bg-white border border-transparent hover:border-gray-200"}`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+            <div className="flex items-center px-3 h-7 rounded-md border border-gray-300 bg-gray-50 text-[11px] font-medium text-gray-700">
+              Page <span className="font-bold text-blue-600 mx-1">{page}</span> of <span className="font-bold text-gray-900 ml-1">{totalPages}</span>
             </div>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-gray-600"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -1658,7 +1663,7 @@ export default function LeadsPage() {
                   type="text"
                   readOnly
                   value={selectedLead?.CM_Client_Name || ""}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none text-gray-500"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl bg-gray-50 outline-none text-gray-500"
                 />
               </div>
 
@@ -1669,7 +1674,7 @@ export default function LeadsPage() {
                   type="date"
                   value={paymentFormData.CM_Payment_Date || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Date: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 />
               </div>
 
@@ -1680,7 +1685,7 @@ export default function LeadsPage() {
                   type="number"
                   value={paymentFormData.CM_Amount || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Amount: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                   placeholder="e.g. 50000"
                 />
               </div>
@@ -1690,7 +1695,7 @@ export default function LeadsPage() {
                 <select
                   value={paymentFormData.CM_Payment_Type || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Type: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 >
                   <option value="Advance">Advance</option>
                   <option value="Partial Payment">Partial Payment</option>
@@ -1705,7 +1710,7 @@ export default function LeadsPage() {
                 <select
                   value={paymentFormData.CM_Payment_Mode || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Mode: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 >
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cash">Cash</option>
@@ -1720,7 +1725,7 @@ export default function LeadsPage() {
                 <select
                   value={paymentFormData.CM_Payment_Status || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Status: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
                 >
                   <option value="Paid">Paid</option>
                   <option value="Pending">Pending</option>
@@ -1734,13 +1739,13 @@ export default function LeadsPage() {
                   rows="2"
                   value={paymentFormData.CM_Remarks || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Remarks: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none resize-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none resize-none"
                   placeholder="Transaction ID or notes..."
                 />
               </div>
 
               <div className="md:col-span-2 flex gap-3 mt-4">
-                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-bold transition-colors">
+                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="flex-1 px-4 py-1.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-bold transition-colors">
                   Cancel
                 </button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50">

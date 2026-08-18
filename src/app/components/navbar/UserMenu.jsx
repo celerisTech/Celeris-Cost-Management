@@ -232,14 +232,14 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
             {isSidebarOpen && (
               <div className="ml-3 text-left min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <p className="text-sm font-semibold text-slate-800 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     {displayName}
                   </p>
                   {roleInfo.label === "Administrator" && (
                     <Crown className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
                   )}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                <p className="text-xs text-slate-500 truncate mt-0.5">
                   {displayEmail}
                 </p>
               </div>
@@ -253,7 +253,7 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
               transition={{ duration: 0.2 }}
               className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 group-hover:bg-indigo-100/70 dark:group-hover:bg-indigo-900/50 transition-colors ml-2 flex-shrink-0"
             >
-              <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
+              <ChevronDown className="h-4 w-4 text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
             </motion.div>
           )}
         </motion.button>
@@ -309,7 +309,7 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
                         <UserCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                       </div>
                       <div>
-                        <p className="text-xs font-semibold">My Profile</p>
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">My Profile</p>
                         <p className="text-[11px] text-slate-400 dark:text-slate-500">Account settings & information</p>
                       </div>
                     </div>
@@ -330,7 +330,7 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
                       <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/50 group-hover:bg-red-100 dark:group-hover:bg-red-900/60 transition-colors">
                         <LogOut className="h-4 w-4 text-red-500 group-hover:scale-110 transition-transform" />
                       </div>
-                      <span className="text-xs font-semibold">Sign Out</span>
+                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">Sign Out</span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-red-400 group-hover:translate-x-0.5 transition-all" />
                   </button>
