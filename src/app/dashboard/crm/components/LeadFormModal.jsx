@@ -21,6 +21,7 @@ const SearchableSelect = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [dropdownPosition, setDropdownPosition] = useState("bottom");
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -33,6 +34,21 @@ const SearchableSelect = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      // Position on top if space below is insufficient (< 250px) and there's more space above
+      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+        setDropdownPosition("top");
+      } else {
+        setDropdownPosition("bottom");
+      }
+    }
+  }, [isOpen]);
 
   const selectedOption = options.find((opt) => opt.value === value);
   const displayLabel = selectedOption ? selectedOption.label : "";
@@ -74,7 +90,9 @@ const SearchableSelect = ({
       </div>
 
       {isOpen && !disabled && (
-        <ul className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-sm shadow-lg">
+        <ul className={`absolute z-50 left-0 right-0 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-sm shadow-lg ${
+          dropdownPosition === "top" ? "bottom-full mb-1" : "top-full mt-1"
+        }`}>
           {filteredOptions.length === 0 ? (
             <li className="px-4 py-2 text-sm text-gray-700">No options found</li>
           ) : (
@@ -591,7 +609,7 @@ export default function LeadFormModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 pb-12">
           {/* ---------- 3‑column Grid Form ---------- */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {/* 1. Client Name */}
