@@ -21,7 +21,7 @@ export default async function DashboardLayout({ children }) {
     <div className="h-screen bg-white">
       <div className="flex h-screen">
         <Navbar />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-w-0">
           {/* Page container */}
           <div className="mx-auto ">{children}</div> 
         </main>

@@ -126,7 +126,7 @@ export async function POST(req: Request) {
       'CM_First_Name', 'CM_Last_Name', 'CM_Labor_Type', 'CM_Labor_Roll',
       'CM_Wage_Type', 'CM_Wage_Amount', 'CM_Date_Of_Birth', 'CM_Postal_Code',
       'CM_Address', 'CM_District', 'CM_State', 'CM_Country',
-      'CM_Phone_Number', 'CM_Email', 'CM_Alternate_Phone', 'CM_Is_Status'
+      'CM_Phone_Number', 'CM_Email', 'CM_Alternate_Phone', 'CM_Is_Status', 'CM_Status'
     ];
 
     const fields = Object.keys(data).filter(key => allowedFields.includes(key));
@@ -170,6 +170,32 @@ export async function POST(req: Request) {
       error: 'Failed to update labor details',
       details: (error as Error).message
     }, { status: 500 });
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
+  }
+}
+
+export async function DELETE(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const laborId = searchParams.get('laborId');
+
+  if (!laborId) {
+    return NextResponse.json({ error: 'laborId is required' }, { status: 400 });
+  }
+
+  try {
+    const db = await getDb();
+    await db.query(
+      'DELETE FROM ccms_labor WHERE CM_Labor_Type_ID = ?',
+      [laborId]
+    );
+
+    const res = NextResponse.json({ success: true, message: 'Employee deleted successfully' }, { status: 200 });
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
+  } catch (error: any) {
+    console.error('Error deleting employee:', error);
+    const res = NextResponse.json({ error: 'Failed to delete employee', details: error.message }, { status: 500 });
     res.headers.set('Cache-Control', 'no-store');
     return res;
   }

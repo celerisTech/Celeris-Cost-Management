@@ -49,38 +49,6 @@ const Logo = ({ companyName, companyLogo, companyInitials, isSidebarOpen }) => {
           <span className="text-xl font-bold bg-pink-800 bg-clip-text text-transparent">
             {companyName || user?.CM_Company_Name}
           </span>
-
-          {/* 📅 Day & Date — now localized */}
-          <span
-            className="
-              inline-flex items-center gap-1
-              mt-2 px-3 py-1
-              text-xs sm:text-xs
-              font-medium text-yellow-800
-              bg-yellow-100/10
-              border border-yellow-300/50
-              rounded-full
-              shadow-sm
-              whitespace-nowrap
-            "
-            aria-label={`Today is ${day}, ${date}`}
-          >
-            <svg
-              className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-700"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"
-              />
-            </svg>
-            <span>{`${day}, ${date}`}</span>
-          </span>
         </div>
       )}
     </>

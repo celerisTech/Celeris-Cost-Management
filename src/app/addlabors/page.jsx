@@ -328,7 +328,7 @@ export default function AddLaborPage() {
   const inputClasses = "w-full h-full px-3 py-2.5 text-sm text-gray-800 bg-transparent focus:outline-none focus:bg-blue-50 focus:ring-inset focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-50";
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex h-screen bg-gray-50">
       <Navbar />
       <div className="flex-1 overflow-y-auto p-4 md:p-8 min-h-screen">
         <div className="max-w-6xl mx-auto">

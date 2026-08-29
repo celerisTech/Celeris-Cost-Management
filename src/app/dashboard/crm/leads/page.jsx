@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Target, Plus, Search, Filter, Download, MoreVertical,
+  Target, Plus, Search, Filter, Download, MoreVertical, FileText,
   Edit2, Trash2, Eye, Phone, Mail, MapPin, Building2,
   Calendar, User, ChevronLeft, ChevronRight, X, Check,
   ExternalLink, ArrowRight, Loader2, AlertCircle, Star,
@@ -17,6 +17,7 @@ import VisitStatusMasterPage from "../master/visit-status/page";
 import VisitProductsMasterPage from "../master/visit-products/page";
 import VisitFormModal from "../components/VisitFormModal";
 import LeadFormModal from "../components/LeadFormModal";
+import LeadProjectFormModal from "../components/LeadProjectFormModal";
 
 const STATUS_OPTIONS = [
   "New Lead", "Follow-up Call", "Visited", "Demo Given", "Proposal Sent",
@@ -112,6 +113,10 @@ export default function LeadsPage() {
   const [loadingVisits, setLoadingVisits] = useState(false);
   const [leadPayments, setLeadPayments] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [leadProjects, setLeadProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [isLeadProjectModalOpen, setIsLeadProjectModalOpen] = useState(false);
+  const [selectedLeadProject, setSelectedLeadProject] = useState(null);
 
   // Custom Confirmation Modal State
   const [confirmConfig, setConfirmConfig] = useState({
@@ -443,251 +448,529 @@ export default function LeadsPage() {
       setSelectedLead(lead);
       setLeadVisits([]);
       setLeadPayments([]);
+      setLeadProjects([]);
       setIsDetailOpen(true);
       setActiveTab("history");
       fetchLeadVisits(lead.CM_Lead_ID);
       fetchLeadPayments(lead.CM_Lead_ID);
+      fetchLeadProjects(lead.CM_Lead_ID);
     }
+  };
+
+  const fetchLeadProjects = async (leadId) => {
+    setLoadingProjects(true);
+    try {
+      const res = await fetch(`/api/sales-leads/projects?leadId=${leadId}`);
+      const data = await res.json();
+      if (res.ok) {
+        setLeadProjects(data || []);
+      } else {
+        setLeadProjects([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch lead projects", error);
+      setLeadProjects([]);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const handleDeleteLeadProject = (project) => {
+    showConfirm({
+      title: "Delete Project/Product?",
+      message: `Are you sure you want to delete "${project.CM_Product_Name}"?`,
+      confirmText: "Yes, Delete",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch("/api/sales-leads/projects?_method=DELETE", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              CM_Lead_Project_ID: project.CM_Lead_Project_ID,
+              CM_Lead_ID: selectedLead.CM_Lead_ID,
+              CM_Updated_By: user?.CM_User_ID || user?.id
+            })
+          });
+          if (res.ok) {
+            toast.success("Project/Product deleted successfully");
+            fetchLeadProjects(selectedLead.CM_Lead_ID);
+            fetchLeads();
+          } else {
+            toast.error("Failed to delete project/product");
+          }
+        } catch (error) {
+          toast.error("An error occurred");
+        }
+      }
+    });
   };
 
   const renderDetailTabs = (lead) => {
     return (
-      <div className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-left" onClick={(e) => e.stopPropagation()}>
-        <div className="flex gap-6 border-b border-gray-200 mb-4 bg-white p-2 rounded-t-lg">
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`text-sm font-bold pb-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-          >
-            History
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadVisits.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('payments')}
-            className={`text-sm font-bold pb-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'payments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-          >
-            Payments
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{leadPayments.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('details')}
-            className={`text-sm font-bold pb-2 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-          >
-            Details
-          </button>
+      <div className="bg-gray-50 border border-gray-200 rounded-sm text-left" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center border-b border-gray-200 mb-4 bg-white p-2 rounded-t-lg">
+          <div className="flex gap-6">
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`text-sm font-bold pb-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Visit History
+              <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[12px]">{leadVisits.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`text-sm font-bold pb-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'projects' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Products
+              <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[12px]">{leadProjects.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('payments')}
+              className={`text-sm font-bold pb-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'payments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Payments
+              <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[12px]">{leadPayments.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('details')}
+              className={`text-sm font-bold pb-2 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Details
+            </button>
+          </div>
+
+          <div>
+            {activeTab === 'history' && (
+              <button
+                onClick={() => openAddVisitModal()}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition-all shadow-md font-medium text-sm"
+              >
+                <Plus className="h-3 w-3" /> Add Visit
+              </button>
+            )}
+            {activeTab === 'projects' && (
+              <button
+                onClick={() => {
+                  setSelectedLeadProject(null);
+                  setIsLeadProjectModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition-all shadow-md font-medium text-sm animate-[pulse_3s_infinite]"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Product
+              </button>
+            )}
+            {activeTab === 'payments' && (
+              <button
+                onClick={() => openAddPaymentModal()}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition-all shadow-md font-medium text-sm"
+              >
+                <Plus className="h-3 w-3" /> Add Payment
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="p-2">
+        <div className="p-1 !-mt-3">
+          {activeTab === 'projects' && (
+            <div className="space-y-4">
+
+              {loadingProjects ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                  <p className="text-sm text-gray-500 font-medium">Loading products/projects...</p>
+                </div>
+              ) : leadProjects.length === 0 ? (
+                <div className="text-center py-10 bg-white rounded-sm border border-dashed border-gray-200">
+                  <ClipboardList className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 font-bold">No products or projects logged yet</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse table-fixed">
+                      <thead>
+                        <tr className="bg-[#eef2ff] text-blue-700">
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-12 text-center border border-slate-200">#</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-56 border border-slate-200">Product/Project</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-32 border border-slate-200">Amount</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-28 border border-slate-200">Status</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-32 border border-slate-200">Proposal</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-24 text-center border border-slate-200">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leadProjects.map((p, idx) => (
+                          <tr
+                            key={p.CM_Lead_Project_ID}
+                            className={`hover:bg-blue-50/30 transition-colors ${idx % 2 === 0 ? 'bg-[#f4f7ff]/50' : 'bg-white'}`}
+                          >
+                            <td className="px-3 py-2 text-sm text-gray-500 text-center border border-slate-200 font-medium">{idx + 1}</td>
+                            <td className="px-3 py-2 border border-slate-200 text-sm font-semibold text-gray-900">
+                              {p.CM_Product_Name}
+                            </td>
+                            <td className="px-3 py-2 border border-slate-200">
+                              <p className="text-sm font-extrabold text-indigo-600">
+                                {p.CM_Amount ? `₹${Number(p.CM_Amount).toLocaleString()}` : "—"}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 border border-slate-200">
+                              <span className={`px-2 py-0.5 rounded text-[12px] font-bold border whitespace-nowrap ${STATUS_COLORS[p.CM_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                {p.CM_Status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 border border-slate-200">
+                              {p.CM_Proposal_Doc ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const link = document.createElement("a");
+                                    link.href = p.CM_Proposal_Doc;
+                                    link.download = `${p.CM_Product_Name}_Proposal.pdf`;
+                                    link.click();
+                                  }}
+                                  className="flex items-center gap-1 text-[12px] text-blue-600 hover:underline font-semibold"
+                                >
+                                  <Download className="h-3 w-3" /> Download PDF
+                                </button>
+                              ) : (
+                                <span className="text-sm text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 border border-slate-200" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-center gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setSelectedLeadProject(p);
+                                    setIsLeadProjectModalOpen(true);
+                                  }}
+                                  className="w-7 h-7 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                  title="Edit"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteLeadProject(p)}
+                                  className="w-7 h-7 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'details' && (
             <div className="space-y-6">
               {/* Quick Status Bar */}
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between p-3 bg-white rounded-sm border border-gray-100 shadow-sm">
                 <div className="flex gap-8">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pipeline Status</p>
+                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Pipeline Status</p>
                     <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-0.5 rounded text-xs font-bold border ${STATUS_COLORS[lead.CM_Lead_Status]}`}>
+                      <span className={`px-2.5 py-0.5 rounded text-sm font-bold border ${STATUS_COLORS[lead.CM_Lead_Status]}`}>
                         {lead.CM_Lead_Status}
                       </span>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Follow-up Status</p>
+                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Follow-up Status</p>
                     <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-0.5 rounded text-xs font-bold border ${STATUS_COLORS[lead.CM_Followup_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      <span className={`px-2.5 py-0.5 rounded text-sm font-bold border ${STATUS_COLORS[lead.CM_Followup_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
                         {lead.CM_Followup_Status || 'Follow Up'}
                       </span>
                     </div>
                   </div>
                 </div>
-                {lead.CM_Lead_Status !== "Converted" && (
+                <div className="flex items-center gap-3">
+                  {lead.CM_Lead_Status !== "Converted" && (
+                    <button
+                      onClick={() => setIsConvertModalOpen(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-sm font-bold rounded-sm hover:bg-emerald-700 transition-all shadow-md"
+                    >
+                      Convert to Project <ArrowRight className="h-3 w-3" />
+                    </button>
+                  )}
                   <button
-                    onClick={() => setIsConvertModalOpen(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-md"
+                    onClick={() => openEditModal(lead)}
+                    className="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all hover:scale-105 shadow-md"
+                    title="Edit Lead"
                   >
-                    Convert to Project <ArrowRight className="h-3 w-3" />
+                    <Edit2 className="h-4 w-4" />
                   </button>
-                )}
-              </div>
-
-              {/* Information Sections */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Company</p>
-                  <p className="text-sm font-bold text-gray-700">{lead.CM_Company_Name || "Not specified"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sales Executive</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <User className="h-4 w-4 text-indigo-500" /> {lead.Executive_Name || "Unassigned"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-emerald-500" /> {lead.CM_Phone}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alt Phone</p>
-                  <p className="text-sm font-bold text-gray-700">{lead.CM_Alt_Phone || "N/A"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-blue-500" /> {lead.CM_Email || "No email provided"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Address</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" /> {lead.CM_Address || "No address provided"}
-                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+              {/* Information Sections in 4-Column Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-6 bg-white p-6 rounded-sm border border-gray-200 shadow-sm">
+                {/* 1. Full Name */}
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</p>
-                  <p className="text-sm font-bold text-gray-700">{lead.CM_Product_Required || "Not specified"}</p>
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Full Name</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Client_Name || "—"}</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
-                  <p className="text-sm font-extrabold text-indigo-600">{lead.CM_Expected_Budget ? `₹${Number(lead.CM_Expected_Budget).toLocaleString()}` : "N/A"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
-                  <p className="text-sm font-bold text-gray-700">{lead.CM_Lead_Source || "Direct"}</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                {/* 2. Mobile Number */}
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Industrial</p>
-                  <p className="text-sm font-bold text-gray-700">{lead.CM_Industrial_Name || "Not specified"}</p>
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Mobile Number</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Phone || "—"}</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
-                  <p className="text-sm font-bold text-gray-700">{lead.CM_Category_Name || "Not specified"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subcategory</p>
-                  <p className="text-sm font-bold text-gray-700">{lead.CM_Subcategory_Name || "Not specified"}</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                {/* 3. Company Name */}
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Date</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-blue-500" /> {formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Company Name</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Company_Name || "—"}</p>
+                </div>
+
+                {/* 4. Sales Executive */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Sales Executive</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.Executive_Name || "—"}</p>
+                </div>
+
+                {/* 5. Email Address */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Email Address</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Email || "—"}</p>
+                </div>
+
+                {/* 6. Alt Phone */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Alt Phone</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Alt_Phone || "—"}</p>
+                </div>
+
+                {/* 7. City */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">City</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_City || "—"}</p>
+                </div>
+
+                {/* 8. Lead Source */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Lead Source</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Lead_Source || "—"}</p>
+                </div>
+
+                {/* 9. Industrial */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Industrial</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Industrial_Name || "—"}</p>
+                </div>
+
+                {/* 10. Category */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Category</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Category_Name || "—"}</p>
+                </div>
+
+                {/* 11. Subcategory */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Subcategory</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Subcategory_Name || "—"}</p>
+                </div>
+
+                {/* 12. Expected Budget */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Expected Budget</p>
+                  <p className="text-sm font-semibold text-gray-800">
+                    {lead.CM_Expected_Budget ? `₹${Number(lead.CM_Expected_Budget).toLocaleString()}` : "—"}
                   </p>
                 </div>
+
+                {/* 13. Next Follow-up Date */}
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Next Follow-up Time</p>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-amber-600" /> {formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}
-                  </p>
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Next Follow-up Date</p>
+                  <p className="text-sm font-semibold text-gray-800">{formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}</p>
+                </div>
+
+                {/* 14. Next Follow-up Time */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Next Follow-up Time</p>
+                  <p className="text-sm font-semibold text-gray-800">{formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}</p>
+                </div>
+
+                {/* 15. Pipeline Status */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Pipeline Status</p>
+                  <div>
+                    <span className={`inline-block px-2 py-0.5 rounded text-sm font-bold border ${STATUS_COLORS[lead.CM_Lead_Status]}`}>
+                      {lead.CM_Lead_Status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 16. Follow-up Status */}
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Follow-up Status</p>
+                  <div>
+                    <span className={`inline-block px-2 py-0.5 rounded text-sm font-bold border ${STATUS_COLORS[lead.CM_Followup_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      {lead.CM_Followup_Status || 'Follow Up'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 17. Product Required (spans 2 columns) */}
+                <div className="space-y-1 sm:col-span-2">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Product Required</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Product_Required || "—"}</p>
+                </div>
+
+                {/* 18. Full Address (spans 2 columns) */}
+                <div className="space-y-1 sm:col-span-2">
+                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Full Address</p>
+                  <p className="text-sm font-semibold text-gray-800">{lead.CM_Address || "—"}</p>
                 </div>
               </div>
 
-              <div className="space-y-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remarks</p>
-                <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-600 leading-relaxed italic">
+              <div className="space-y-1 bg-white p-4 rounded-sm border border-gray-100 shadow-sm">
+                <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Remarks</p>
+                <div className="p-3 bg-gray-50 rounded-sm text-sm text-gray-600 leading-relaxed italic">
                   "{lead.CM_Remarks || "No additional remarks recorded."}"
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => openEditModal(lead)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-all shadow-sm text-xs"
-                >
-                  <Edit2 className="h-4 w-4" /> Edit Details
-                </button>
-              </div>
+              {lead.CM_Proposal_Doc && (
+                <div className="space-y-1 bg-white p-4 rounded-sm border border-gray-100 shadow-sm">
+                  <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Proposal Document</p>
+                  <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-sm border border-blue-100">
+                    <div className="flex items-center gap-2">
+                      <span className="p-2 bg-red-100 text-red-700 rounded-sm font-bold text-sm">PDF</span>
+                      <div>
+                        <p className="text-sm font-bold text-gray-700">Proposal Document Attached</p>
+                        <p className="text-[12px] text-gray-400">Stored securely in database</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const link = document.createElement("a");
+                        link.href = lead.CM_Proposal_Doc;
+                        link.download = `${lead.CM_Client_Name || 'Lead'}_Proposal.pdf`;
+                        link.click();
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-sm hover:bg-blue-700 transition-all shadow-sm"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download Proposal
+                    </button>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
           {activeTab === 'history' && (
             <div className="space-y-4">
-              <div className="flex justify-end">
-                <button
-                  onClick={() => openAddVisitModal()}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-xs"
-                >
-                  <Plus className="h-3 w-3" /> Add Visit
-                </button>
-              </div>
               {loadingVisits ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-3">
                   <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                  <p className="text-xs text-gray-500 font-medium">Loading visit history...</p>
+                  <p className="text-sm text-gray-500 font-medium">Loading visit history...</p>
                 </div>
               ) : leadVisits.length === 0 ? (
-                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-200">
+                <div className="text-center py-10 bg-white rounded-sm border border-dashed border-gray-200">
                   <MessageSquare className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 font-bold">No visits recorded yet</p>
                 </div>
               ) : (
-                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg">
+                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse table-fixed">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-10 text-center border-r border-gray-200">#</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Visit Date</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-48 border-r border-gray-200">Purpose</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-48 border-r border-gray-200">Remarks</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-24 border-r border-gray-200">Executive</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Next Follow-up</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Status</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-24 border-r border-gray-200">Product</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-16 text-right">Actions</th>
+                        <tr className="bg-[#eef2ff] text-blue-700">
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-12 text-center border border-slate-200">#</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-28 border border-slate-200">Visit Date</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-48 border border-slate-200">Purpose</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-48 border border-slate-200">Remarks</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-24 border border-slate-200">Executive</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-28 border border-slate-200">Next Follow-up</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-28 border border-slate-200">Status</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-24 border border-slate-200">Product</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-24 text-center border border-slate-200">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody>
                         {leadVisits.map((v, idx) => (
-                          <tr key={v.CM_Visit_ID} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="px-3 py-1.5 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <p className="text-xs font-bold text-gray-700">
+                          <tr
+                            key={v.CM_Visit_ID}
+                            className={`hover:bg-blue-50/30 transition-colors ${idx % 2 === 0 ? 'bg-[#f4f7ff]/50' : 'bg-white'}`}
+                          >
+                            <td className="px-3 py-1.5 text-sm text-gray-500 text-center border border-slate-200 font-medium">{idx + 1}</td>
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <p className="font-bold text-gray-700">
                                 {new Date(v.CM_Visit_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                               </p>
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <p className="text-xs font-bold text-blue-700 truncate">{v.CM_Purpose}</p>
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <p className="font-bold text-blue-700 whitespace-normal break-words">{v.CM_Purpose}</p>
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{v.CM_Remarks || "No remarks recorded"}</p>
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <p className="text-[12px] text-gray-600 mt-0.5 whitespace-normal break-words">{v.CM_Remarks || "No remarks recorded"}</p>
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100 text-xs text-gray-600 font-semibold truncate">
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm text-gray-600 font-semibold whitespace-nowrap">
                               {v.Executive_Name || "Unassigned"}
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
                               {v.CM_Next_Followup_Date ? (
                                 <div className="flex flex-col gap-0.5">
-                                  <p className="text-xs font-bold text-amber-600">
+                                  <p className="font-bold text-amber-600">
                                     {new Date(v.CM_Next_Followup_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                                   </p>
                                 </div>
                               ) : <span className="text-gray-300">—</span>}
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitStatusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <span className={`px-2 py-0.5 rounded text-[12px] font-bold border whitespace-nowrap ${visitStatusColorsMap[v.CM_Visit_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
                                 {v.CM_Visit_Status}
                               </span>
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
                               {v.CM_Visit_Products ? (
-                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${visitProductColorsMap[v.CM_Visit_Products] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                  {v.CM_Visit_Products}
-                                </span>
-                              ) : <span className="text-gray-300">—</span>}
+                                <div className="flex flex-wrap gap-1">
+                                  {v.CM_Visit_Products
+                                    .split(",")
+                                    .map((product, index) => {
+                                      const name = product.trim();
+
+                                      return (
+                                        <span
+                                          key={index}
+                                          className={`px-2 py-0.5 rounded text-[12px] font-bold border whitespace-nowrap ${visitProductColorsMap[name] ||
+                                            "bg-gray-100 text-gray-600 border-gray-200"
+                                            }`}
+                                        >
+                                          {name}
+                                        </span>
+                                      );
+                                    })}
+                                </div>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
                             </td>
-                            <td className="px-3 py-2 text-right">
-                              <div className="flex justify-end gap-1">
-                                <button onClick={() => openEditVisitModal(v)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => handleDeleteVisit(v.CM_Visit_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <td className="px-3 py-1.5 border border-slate-200" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-center gap-1.5">
+                                <button
+                                  onClick={() => openEditVisitModal(v)}
+                                  className="w-7 h-7 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                  title="Edit"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteVisit(v.CM_Visit_ID)}
+                                  className="w-7 h-7 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -702,53 +985,48 @@ export default function LeadsPage() {
 
           {activeTab === 'payments' && (
             <div className="space-y-4">
-              <div className="flex justify-end">
-                <button
-                  onClick={() => openAddPaymentModal()}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-medium text-xs"
-                >
-                  <Plus className="h-3 w-3" /> Add Payment
-                </button>
-              </div>
               {loadingPayments ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-3">
                   <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                  <p className="text-xs text-gray-500 font-medium">Loading payment history...</p>
+                  <p className="text-sm text-gray-500 font-medium">Loading payment history...</p>
                 </div>
               ) : leadPayments.length === 0 ? (
-                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-200">
+                <div className="text-center py-10 bg-white rounded-sm border border-dashed border-gray-200">
                   <Receipt className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 font-bold">No payments recorded yet</p>
                 </div>
               ) : (
-                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg">
+                <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse table-fixed">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-10 text-center border-r border-gray-200">#</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Date</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Amount</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-32 border-r border-gray-200">Type</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-28 border-r border-gray-200">Mode</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-24 border-r border-gray-200">Status</th>
-                          <th className="px-3 py-2 text-[10px] font-bold text-gray-600 uppercase w-16 text-right">Actions</th>
+                        <tr className="bg-[#eef2ff] text-blue-700">
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-12 text-center border border-slate-200">#</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-28 border border-slate-200">Date</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-28 border border-slate-200">Amount</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-32 border border-slate-200">Type</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-28 border border-slate-200">Mode</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-24 border border-slate-200">Status</th>
+                          <th className="px-3 py-2.5 text-sm font-bold text-blue-700 uppercase w-24 text-center border border-slate-200">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody>
                         {leadPayments.map((p, idx) => (
-                          <tr key={p.CM_Payment_ID} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="px-3 py-1.5 text-xs text-gray-500 text-center border-r border-gray-100">{idx + 1}</td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <p className="text-xs font-bold text-gray-700">
+                          <tr
+                            key={p.CM_Payment_ID}
+                            className={`hover:bg-blue-50/30 transition-colors ${idx % 2 === 0 ? 'bg-[#f4f7ff]/50' : 'bg-white'}`}
+                          >
+                            <td className="px-3 py-1.5 text-sm text-gray-500 text-center border border-slate-200 font-medium">{idx + 1}</td>
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <p className="font-bold text-gray-700">
                                 {new Date(p.CM_Payment_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                               </p>
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <p className="text-sm font-extrabold text-gray-900">₹{Number(p.CM_Amount).toLocaleString()}</p>
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <p className="font-extrabold text-gray-900">₹{Number(p.CM_Amount).toLocaleString()}</p>
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <span className={`px-2 py-0.5 rounded text-[12px] font-bold border whitespace-nowrap ${p.CM_Payment_Type === "Advance" ? "bg-blue-100 text-blue-700 border-blue-200" :
                                 p.CM_Payment_Type === "Partial Payment" ? "bg-purple-100 text-purple-700 border-purple-200" :
                                   p.CM_Payment_Type === "Final Payment" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
                                     p.CM_Payment_Type === "Domain Payment" ? "bg-teal-100 text-teal-700 border-teal-200" :
@@ -757,21 +1035,33 @@ export default function LeadsPage() {
                                 {p.CM_Payment_Type}
                               </span>
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100 text-xs font-medium text-gray-700">
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm font-medium text-gray-700">
                               {p.CM_Payment_Mode}
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-100">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${p.CM_Payment_Status === "Pending" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                            <td className="px-3 py-1.5 border border-slate-200 text-sm">
+                              <span className={`px-2 py-0.5 rounded text-[12px] font-bold border whitespace-nowrap ${p.CM_Payment_Status === "Pending" ? "bg-amber-100 text-amber-700 border-amber-200" :
                                 p.CM_Payment_Status === "Paid" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
                                   "bg-red-100 text-red-700 border-red-200"
                                 }`}>
                                 {p.CM_Payment_Status}
                               </span>
                             </td>
-                            <td className="px-3 py-2 text-right">
-                              <div className="flex justify-end gap-1">
-                                <button onClick={() => openEditPaymentModal(p)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => handleDeletePayment(p.CM_Payment_ID)} className="p-1 text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <td className="px-3 py-1.5 border border-slate-200" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-center gap-1.5">
+                                <button
+                                  onClick={() => openEditPaymentModal(p)}
+                                  className="w-7 h-7 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                  title="Edit"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePayment(p.CM_Payment_ID)}
+                                  className="w-7 h-7 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -1117,477 +1407,514 @@ export default function LeadsPage() {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="p-4 md:p-6 min-h-screen space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Target className="h-7 w-7 text-indigo-600" />
-            Lead Management
-          </h1>
-          <p className="text-sm text-gray-500">Track and manage your sales pipeline efficiently</p>
+    <div className="p-2 md:p-2 h-[calc(100vh-16px)] flex flex-col justify-between space-y-3 overflow-hidden text-gray-800">
+      <div className="flex flex-col flex-1 min-h-0 space-y-3">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Target className="h-7 w-7 text-indigo-600" />
+              Lead Management
+            </h1>
+            <p className="text-sm text-gray-500">Track and manage your sales pipeline efficiently</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-2 px-4 py-1.5 bg-white border border-green-600 text-green-700 rounded-sm hover:bg-green-50 transition-all shadow-sm font-medium"
+            >
+              <Download className="h-4 w-4" /> Export
+            </button>
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-2 px-4 py-1.5 bg-gray-300 text-gray-800 rounded-sm hover:bg-gray-400 transition-all shadow-md font-medium"
+            >
+              <Plus className="h-4 w-4" /> Add Lead
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={exportToExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-all shadow-sm font-medium"
-          >
-            <Download className="h-4 w-4" /> Export
-          </button>
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-all shadow-md font-medium"
-          >
-            <Plus className="h-4 w-4" /> Add Lead
-          </button>
-        </div>
-      </div>
 
-      {/* Stats Cards for Leads */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 !-mt-2">
-        {[
-          {
-            label: "Total Leads",
-            value: statusFilter ? total : (summaryStats.total || total),
-            icon: Target,
-            color: "text-blue-600",
-            bg: "bg-blue-50",
-            border: "border-blue-500",
-            onClick: () => { setStatusFilter(""); setPage(1); }
-          },
-          {
-            label: "New Leads",
-            value: statusFilter === "New Lead"
-              ? total
-              : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "New Lead").length : (summaryStats.newLead ?? leads.filter(l => l.CM_Lead_Status === "New Lead").length)),
-            icon: Star,
-            color: "text-indigo-600",
-            bg: "bg-indigo-50",
-            border: "border-indigo-500",
-            onClick: () => { setStatusFilter("New Lead"); setPage(1); }
-          },
-          {
-            label: "Converted",
-            value: statusFilter === "Converted"
-              ? total
-              : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "Converted" || l.CM_Followup_Status === "Converted" || l.Last_Visit_Status === "Converted").length : (summaryStats.converted ?? leads.filter(l => l.CM_Lead_Status === "Converted" || l.CM_Followup_Status === "Converted" || l.Last_Visit_Status === "Converted").length)),
-            icon: CheckCircle2,
-            color: "text-emerald-600",
-            bg: "bg-emerald-50",
-            border: "border-emerald-500",
-            onClick: () => { setStatusFilter("Converted"); setPage(1); }
-          },
-          {
-            label: "Proposal Sent",
-            value: statusFilter === "Proposal Sent"
-              ? total
-              : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "Proposal Sent" || l.CM_Followup_Status === "Proposal Sent" || l.Had_Proposal_Sent === 1 || l.Last_Visit_Status === "Proposal Sent").length : (summaryStats.proposalSent ?? leads.filter(l => l.CM_Lead_Status === "Proposal Sent" || l.CM_Followup_Status === "Proposal Sent" || l.Had_Proposal_Sent === 1 || l.Last_Visit_Status === "Proposal Sent").length)),
-            icon: Clock,
-            color: "text-amber-600",
-            bg: "bg-amber-50",
-            border: "border-amber-500",
-            onClick: () => { setStatusFilter("Proposal Sent"); setPage(1); }
-          },
-          {
-            label: "Not Interested",
-            value: ["Rejected", "Not Interested"].includes(statusFilter)
-              ? total
-              : (statusFilter ? leads.filter(l => ["Rejected", "Not Interested"].includes(l.CM_Lead_Status) || ["Rejected", "Not Interested"].includes(l.CM_Followup_Status) || l.Had_Not_Interested === 1 || ["Rejected", "Not Interested"].includes(l.Last_Visit_Status)).length : (summaryStats.notInterested ?? leads.filter(l => ["Rejected", "Not Interested"].includes(l.CM_Lead_Status) || ["Rejected", "Not Interested"].includes(l.CM_Followup_Status) || l.Had_Not_Interested === 1 || ["Rejected", "Not Interested"].includes(l.Last_Visit_Status)).length)),
-            icon: AlertCircle,
-            color: "text-red-600",
-            bg: "bg-red-50",
-            border: "border-red-500",
-            onClick: () => { setStatusFilter("Not Interested"); setPage(1); }
-          },
-        ].map((s, i) => (
-          <div key={i} onClick={s.onClick} className={`px-2 py-1.5 rounded-xl text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02] cursor-pointer`}>
-            <p className="text-[10px] font-bold text-gray-700 uppercase tracking-widest mb-0.5">{s.label}</p>
-            <div className="flex items-center justify-between">
-              <p className={`text-lg font-black ${s.color}`}>{s.value}</p>
-              <s.icon className={`h-4 w-4 ${s.color} opacity-40`} />
+        {/* Stats Cards for Leads */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 !-mt-2">
+          {[
+            {
+              label: "Total Leads",
+              value: statusFilter ? total : (summaryStats.total || total),
+              icon: Target,
+              color: "text-blue-600",
+              bg: "bg-blue-50",
+              border: "border-blue-500",
+              onClick: () => { setStatusFilter(""); setPage(1); }
+            },
+            {
+              label: "New Leads",
+              value: statusFilter === "New Lead"
+                ? total
+                : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "New Lead").length : (summaryStats.newLead ?? leads.filter(l => l.CM_Lead_Status === "New Lead").length)),
+              icon: Star,
+              color: "text-indigo-600",
+              bg: "bg-indigo-50",
+              border: "border-indigo-500",
+              onClick: () => { setStatusFilter("New Lead"); setPage(1); }
+            },
+            {
+              label: "Converted",
+              value: statusFilter === "Converted"
+                ? total
+                : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "Converted" || l.CM_Followup_Status === "Converted" || l.Last_Visit_Status === "Converted").length : (summaryStats.converted ?? leads.filter(l => l.CM_Lead_Status === "Converted" || l.CM_Followup_Status === "Converted" || l.Last_Visit_Status === "Converted").length)),
+              icon: CheckCircle2,
+              color: "text-emerald-600",
+              bg: "bg-emerald-50",
+              border: "border-emerald-500",
+              onClick: () => { setStatusFilter("Converted"); setPage(1); }
+            },
+            {
+              label: "Proposal Sent",
+              value: statusFilter === "Proposal Sent"
+                ? total
+                : (statusFilter ? leads.filter(l => l.CM_Lead_Status === "Proposal Sent" || l.CM_Followup_Status === "Proposal Sent" || l.Had_Proposal_Sent === 1 || l.Last_Visit_Status === "Proposal Sent").length : (summaryStats.proposalSent ?? leads.filter(l => l.CM_Lead_Status === "Proposal Sent" || l.CM_Followup_Status === "Proposal Sent" || l.Had_Proposal_Sent === 1 || l.Last_Visit_Status === "Proposal Sent").length)),
+              icon: Clock,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+              border: "border-amber-500",
+              onClick: () => { setStatusFilter("Proposal Sent"); setPage(1); }
+            },
+            {
+              label: "Not Interested",
+              value: ["Rejected", "Not Interested"].includes(statusFilter)
+                ? total
+                : (statusFilter ? leads.filter(l => ["Rejected", "Not Interested"].includes(l.CM_Lead_Status) || ["Rejected", "Not Interested"].includes(l.CM_Followup_Status) || l.Had_Not_Interested === 1 || ["Rejected", "Not Interested"].includes(l.Last_Visit_Status)).length : (summaryStats.notInterested ?? leads.filter(l => ["Rejected", "Not Interested"].includes(l.CM_Lead_Status) || ["Rejected", "Not Interested"].includes(l.CM_Followup_Status) || l.Had_Not_Interested === 1 || ["Rejected", "Not Interested"].includes(l.Last_Visit_Status)).length)),
+              icon: AlertCircle,
+              color: "text-red-600",
+              bg: "bg-red-50",
+              border: "border-red-500",
+              onClick: () => { setStatusFilter("Not Interested"); setPage(1); }
+            },
+          ].map((s, i) => (
+            <div key={i} onClick={s.onClick} className={`px-2 py-1.5 rounded-sm text-gray-800 border-l-4 ${s.border} ${s.bg} shadow-sm transition-transform hover:scale-[1.02] cursor-pointer`}>
+              <p className="text-[12px] font-bold text-gray-700 uppercase tracking-widest mb-0.5">{s.label}</p>
+              <div className="flex items-center justify-between">
+                <p className={`text-lg font-black ${s.color}`}>{s.value}</p>
+                <s.icon className={`h-4 w-4 ${s.color} opacity-40`} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters Card */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 border-b px-2 !-mt-3">
+          <form onSubmit={handleSearch} className="w-full">
+            <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Name, company, phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-sm focus:ring focus:ring-blue-500 focus:border-transparent transition-all outline-none h-9"
+              />
+            </div>
+          </form>
+
+          <div className="w-full">
+            <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-sm focus:ring focus:ring-blue-500 outline-none h-9"
+            >
+              <option value="">All Statuses</option>
+              {visitStatusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div className="w-full">
+            <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">Sales Executive</label>
+            <select
+              value={execFilter}
+              onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-sm focus:ring focus:ring-blue-500 outline-none h-9"
+            >
+              <option value="">All Executives</option>
+              {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
+            </select>
+          </div>
+
+          {/* Today / Yesterday Quick Filters (Visible by Default next to Sales Executive) */}
+          <div className="flex flex-col gap-1 w-full">
+            <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
+            <div className="grid grid-cols-2 gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => {
+                  const today = new Date();
+                  const todayStr = today.toISOString().split('T')[0];
+                  setFromDate(todayStr);
+                  setToDate(todayStr);
+                  setDateQuickFilter('today');
+                  setPage(1);
+                }}
+                className={`px-2 py-1.5 text-sm font-bold rounded-sm border transition-all h-9 flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
+                  }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  const yesterdayStr = yesterday.toISOString().split('T')[0];
+                  setFromDate(yesterdayStr);
+                  setToDate(yesterdayStr);
+                  setDateQuickFilter('yesterday');
+                  setPage(1);
+                }}
+                className={`px-2 py-1.5 text-sm font-bold rounded-sm border transition-all h-9 flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
+                  }`}
+              >
+                Y'day
+              </button>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Filters Card */}
-      <div className="bg-white grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-2 items-end text-gray-800 w-full overflow-visible pb-3 sticky top-0 z-20 shadow-sm border-b px-2 !-mt-3">
-        <form onSubmit={handleSearch} className="w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Name, company, phone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 focus:border-transparent transition-all outline-none h-9"
-            />
-          </div>
-        </form>
-
-        <div className="w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
-          >
-            <option value="">All Statuses</option>
-            {visitStatusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-
-        <div className="w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Sales Executive</label>
-          <select
-            value={execFilter}
-            onChange={(e) => { setExecFilter(e.target.value); setPage(1); }}
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
-          >
-            <option value="">All Executives</option>
-            {executives.map(e => <option key={e.CM_User_ID} value={e.CM_User_ID}>{e.CM_Full_Name}</option>)}
-          </select>
-        </div>
-
-        {/* Today / Yesterday Quick Filters (Visible by Default next to Sales Executive) */}
-        <div className="flex flex-col gap-1 w-full">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quick Filter</label>
-          <div className="grid grid-cols-2 gap-2 w-full">
+          {/* Compact Toggle Button */}
+          <div className="w-full">
             <button
               type="button"
-              onClick={() => {
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
-                setFromDate(todayStr);
-                setToDate(todayStr);
-                setDateQuickFilter('today');
-                setPage(1);
-              }}
-              className={`px-2 py-1.5 text-xs font-bold rounded-lg border transition-all h-9 flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'today'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
-                }`}
+              onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-sm hover:bg-indigo-100 transition-all font-semibold h-9 text-sm"
             >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = yesterday.toISOString().split('T')[0];
-                setFromDate(yesterdayStr);
-                setToDate(yesterdayStr);
-                setDateQuickFilter('yesterday');
-                setPage(1);
-              }}
-              className={`px-2 py-1.5 text-xs font-bold rounded-lg border transition-all h-9 flex-shrink-0 flex-1 sm:flex-none ${dateQuickFilter === 'yesterday'
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
-                }`}
-            >
-              Y'day
+              <Filter className="h-3.5 w-3.5" />
+              {isFiltersExpanded ? "Less" : "More"}
             </button>
           </div>
-        </div>
 
-        {/* Compact Toggle Button */}
-        <div className="w-full">
-          <button
-            type="button"
-            onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
-            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-all font-semibold h-9 text-xs"
-          >
-            <Filter className="h-3.5 w-3.5" />
-            {isFiltersExpanded ? "Less" : "More"}
-          </button>
-        </div>
+          {isFiltersExpanded && (
+            <>
+              <div className="w-full">
+                <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">Industrial</label>
+                <select
+                  value={industrialFilter}
+                  onChange={(e) => {
+                    setIndustrialFilter(e.target.value);
+                    setCategoryFilter("");
+                    setPage(1);
+                  }}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-sm focus:ring focus:ring-blue-500 outline-none h-9"
+                >
+                  <option value="">All Industrials</option>
+                  {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
+                </select>
+              </div>
 
-        {isFiltersExpanded && (
-          <>
-            <div className="w-full">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Industrial</label>
-              <select
-                value={industrialFilter}
-                onChange={(e) => {
-                  setIndustrialFilter(e.target.value);
+              <div className="w-full">
+                <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">Category</label>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-sm focus:ring focus:ring-blue-500 outline-none h-9"
+                >
+                  <option value="">All Categories</option>
+                  {filterCategories.map(c => (
+                    <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="w-full">
+                <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">From Date</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); }}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-sm focus:ring focus:ring-blue-500 outline-none text-sm h-9"
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-500 uppercase mb-1">
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setDateQuickFilter("");
+                  }}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-sm focus:ring focus:ring-blue-500 outline-none text-sm h-9"
+                />
+              </div>
+
+              {/* Reset Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setDebouncedSearch("");
+                  setStatusFilter("");
+                  setExecFilter("");
+                  setIndustrialFilter("");
                   setCategoryFilter("");
-                  setPage(1);
-                }}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
-              >
-                <option value="">All Industrials</option>
-                {industrials.map(i => <option key={i.CM_Industrial_ID} value={i.CM_Industrial_ID}>{i.CM_Industrial_Name}</option>)}
-              </select>
-            </div>
-
-            <div className="w-full">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Category</label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none h-9"
-              >
-                <option value="">All Categories</option>
-                {filterCategories.map(c => (
-                  <option key={c.CM_Category_ID} value={c.CM_Category_ID}>{c.CM_Category_Name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="w-full">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From Date</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => { setFromDate(e.target.value); setDateQuickFilter(""); }}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-9"
-              />
-            </div>
-
-            {/* To Date */}
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
                   setDateQuickFilter("");
+                  setFromDate("");
+                  setToDate("");
+                  if (page !== 1) {
+                    setPage(1);
+                  } else {
+                    fetchLeads("");
+                  }
                 }}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring focus:ring-blue-500 outline-none text-sm h-9"
-              />
-            </div>
+                className="flex items-center justify-center w-9 h-9 text-white bg-gray-600 hover:bg-gray-700 rounded-sm shadow-sm transition-all mb-[1px]"
+                title="Reset Filters"
+              >
+                <FiRotateCcw size={18} />
+              </button>
+            </>
+          )}
+        </div>
 
-            {/* Reset Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
-                setDebouncedSearch("");
-                setStatusFilter("");
-                setExecFilter("");
-                setIndustrialFilter("");
-                setCategoryFilter("");
-                setDateQuickFilter("");
-                setFromDate("");
-                setToDate("");
-                if (page !== 1) {
-                  setPage(1);
-                } else {
-                  fetchLeads("");
-                }
-              }}
-              className="flex items-center justify-center w-9 h-9 text-white bg-gray-600 hover:bg-gray-700 rounded-lg shadow-sm transition-all mb-[1px]"
-              title="Reset Filters"
-            >
-              <FiRotateCcw size={18} />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Content Section: Table (Desktop) & Grid (Mobile) */}
-      <div className="space-y-4 !-mt-3">
-        {/* Desktop View (Table) */}
-        <div className="hidden lg:block bg-white border border-gray-200 overflow-hidden shadow-sm rounded-lg flex flex-col">
-          <div className="overflow-auto h-[calc(100vh-325px)]">
-            <table className="w-full text-left border-collapse table-fixed">
-              <thead className="sticky top-0 z-10 shadow-sm">
-                <tr className="bg-gray-200 text-gray-700">
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-10 text-center border border-gray-300">#</th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-30 border border-gray-300">Client / Company</th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-20 border border-gray-300">Contact No</th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-32 border border-gray-300">Industrial </th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-30 border border-gray-300">Requirement</th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-18 border border-gray-300">Next Follow-up</th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 border border-gray-300">Status</th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 border border-gray-300">Follow-up Status</th>
-                  <th className="px-2 py-1.5 text-[11px] font-bold uppercase w-24 text-center border border-gray-300">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="9" className="px-6 py-12 text-center border border-gray-300"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
-                ) : leads.length === 0 ? (
-                  <tr><td colSpan="9" className="px-6 py-2 text-center text-gray-500 border border-gray-300">No leads found</td></tr>
-                ) : (
-                  Object.entries(
-                    leads.reduce((acc, lead) => {
-                      const execName = lead.Executive_Name || "Unassigned";
-                      if (!acc[execName]) acc[execName] = [];
-                      acc[execName].push(lead);
-                      return acc;
-                    }, {})
-                  ).map(([execName, execLeads]) => (
-                    <React.Fragment key={execName}>
-                      <tr className="bg-gray-100">
-                        <td colSpan="9" className="px-2 py-1.5 font-bold text-gray-800 border border-gray-300">
-                          <div className="flex items-center gap-1.5">
-                            <User className="h-3.5 w-3.5" />
-                            <span className="text-sm text-blue-600">{execName}</span> <span className="text-[10px] font-normal text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded-sm border border-gray-300">{execLeads.length} Leads</span>
-                          </div>
-                        </td>
-                      </tr>
-                      {execLeads.map((lead) => (
-                        <React.Fragment key={lead.CM_Lead_ID}>
-                          <tr
-                            onClick={() => openDetail(lead)}
-                            className={`hover:bg-blue-50/20 transition-colors cursor-pointer ${selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen ? 'bg-blue-50/40' : 'bg-white'}`}
-                          >
-                            <td className="px-2 py-1 text-[11px] text-gray-500 text-center border border-gray-300">{(page - 1) * limit + leads.indexOf(lead) + 1}</td>
-                            <td className="px-2 py-1 border border-gray-300">
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">{lead.CM_Client_Name}</p>
-                                <p className="text-[11px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
-                                <p className="flex items-center gap-1 text-[12px] text-gray-500">
-                                  <MapPin className="h-3 w-3" />
-                                  <span className="text-sm font-medium text-blue-500">{lead.CM_City || ""}</span>
-                                </p>                            </div>
-                            </td>
-                            <td className="px-2 py-1 border border-gray-300 text-sm font-medium text-gray-700" onClick={(e) => e.stopPropagation()}>
-                              {lead.CM_Phone}
-                            </td>
-                            <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
-                              <div className="line-clamp-1 text-blue-700">{lead.CM_Industrial_Name || "—"}</div>
-                              <div className="line-clamp-1">{lead.CM_Category_Name || "—"}</div>
-                              <div className="line-clamp-1">{lead.CM_Subcategory_Name || "—"}</div>
-                            </td>
-                            <td className="px-2 py-1 border border-gray-300 text-sm text-gray-600">
-                              <p className="line-clamp-2">{lead.CM_Product_Required || "—"}</p>
-                              {lead.CM_Expected_Budget && <p className="text-[11px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
-                            </td>
-                            <td className="px-2 py-1 border border-gray-300 text-[11px] text-gray-600">
-                              <div className="flex items-center gap-1 text-blue-600 font-semibold">
-                                <Calendar className="h-3 w-3" />
-                                <span>{formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-gray-600 mt-0.5">
-                                <Clock className="h-3 w-3" />
-                                <span>{formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}</span>
-                              </div>
-                            </td>
-                            <td className="px-2 py-1 border border-gray-300 text-center">
-                              <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
-                                {lead.CM_Lead_Status}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1 border border-gray-300 text-center">
-                              <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-bold border ${STATUS_COLORS[lead.CM_Followup_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
-                                {lead.CM_Followup_Status || "Follow Up"}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1 border border-gray-300 text-center" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex justify-center gap-1.5">
-                                <button onClick={() => openEditModal(lead)} className="text-gray-500 hover:text-blue-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => openDetail(lead)} className="text-gray-500 hover:text-indigo-600 transition-colors"><Eye className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => handleDelete(lead.CM_Lead_ID)} className="text-gray-500 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-                              </div>
-                            </td>
-                          </tr>
-                          {selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen && (
-                            <tr>
-                              <td colSpan="9" className="px-1 py-3 bg-gray-50 border border-gray-300">
-                                {renderDetailTabs(lead)}
+        {/* Content Section: Table (Desktop) & Grid (Mobile) */}
+        <div className="flex-1 min-h-0 flex flex-col !-mt-2">
+          {/* Desktop View (Table) */}
+          <div className="hidden lg:flex bg-white border border-gray-200 overflow-hidden shadow-sm rounded-sm flex-col flex-1 min-h-0">
+            <div className="overflow-auto flex-1 min-h-0">
+              <table className="w-full min-w-[1100px] text-left border-collapse table-fixed">
+                <thead className="sticky top-0 z-10 shadow-sm">
+                  <tr className="bg-[#eef2ff] text-blue-700">
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-12 text-center border border-slate-200 text-blue-700">#</th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-32 border border-slate-200 text-blue-700">Client / Company</th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-20 border border-slate-200 text-blue-700">Contact No</th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-32 border border-slate-200 text-blue-700">Industrial </th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-32 border border-slate-200 text-blue-700">Requirement</th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-20 border border-slate-200 text-blue-700">Next Follow-up</th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-24 border border-slate-200 text-blue-700">Status</th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-24 border border-slate-200 text-blue-700">Follow-up Status</th>
+                    <th className="px-2 py-2 text-[12px] font-bold uppercase w-28 text-center border border-slate-200 text-blue-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan="9" className="px-6 py-12 text-center border border-slate-200"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></td></tr>
+                  ) : leads.length === 0 ? (
+                    <tr><td colSpan="9" className="px-6 py-2 text-center text-gray-500 border border-slate-200">No leads found</td></tr>
+                  ) : (
+                    Object.entries(
+                      leads.reduce((acc, lead) => {
+                        const execName = lead.Executive_Name || "Unassigned";
+                        if (!acc[execName]) acc[execName] = [];
+                        acc[execName].push(lead);
+                        return acc;
+                      }, {})
+                    ).map(([execName, execLeads]) => (
+                      <React.Fragment key={execName}>
+                        <tr className="bg-gray-100">
+                          <td colSpan="9" className="px-2 py-1.5 font-bold text-gray-800 border border-slate-200">
+                            <div className="flex items-center gap-1.5">
+                              <User className="h-3.5 w-3.5" />
+                              <span className="text-sm text-blue-600">{execName}</span> <span className="text-[12px] font-normal text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded-sm border border-gray-300">{execLeads.length} Leads</span>
+                            </div>
+                          </td>
+                        </tr>
+                        {execLeads.map((lead, idx) => (
+                          <React.Fragment key={lead.CM_Lead_ID}>
+                            <tr
+                              onClick={() => openDetail(lead)}
+                              className={`hover:bg-blue-50/20 transition-colors cursor-pointer ${selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen ? 'bg-blue-100/50' : idx % 2 === 0 ? 'bg-[#f4f7ff]/50' : 'bg-white'}`}
+                            >
+                              <td className="px-2 py-2 text-[12px] text-gray-500 text-center border border-slate-200">{(page - 1) * limit + leads.indexOf(lead) + 1}</td>
+                              <td className="px-2 py-2 border border-slate-200">
+                                <div>
+                                  <div className="flex justify-between items-start gap-1">
+                                    <p className="text-sm font-bold text-gray-900 truncate max-w-[180px]">{lead.CM_Client_Name}</p>
+                                    {Number(lead.proposal_count || 0) > 0 && (
+                                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold shrink-0 shadow-xs" title={`${lead.proposal_count} Proposal(s)`}>
+                                        <FileText className="h-2.5 w-2.5" />
+                                        {lead.proposal_count}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[12px] text-gray-500">{lead.CM_Company_Name || "Individual"}</p>
+                                  <p className="flex items-center gap-1 text-[12px] text-gray-500">
+                                    <MapPin className="h-3 w-3" />
+                                    <span className="text-sm font-medium text-blue-500">{lead.CM_City || ""}</span>
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 border border-slate-200 text-sm font-medium text-gray-700" onClick={(e) => e.stopPropagation()}>
+                                {lead.CM_Phone}
+                              </td>
+                              <td className="px-2 py-2 border border-slate-200 text-sm text-gray-600">
+                                <div className="whitespace-normal break-words text-blue-700 font-semibold">{lead.CM_Industrial_Name || "—"}</div>
+                                <div className="whitespace-normal break-words">{lead.CM_Category_Name || "—"}</div>
+                                <div className="whitespace-normal break-words">{lead.CM_Subcategory_Name || "—"}</div>
+                              </td>
+                              <td className="px-2 py-2 border border-slate-200 text-sm text-gray-600">
+                                <p className="whitespace-normal break-words">{lead.CM_Product_Required || "—"}</p>
+                                {lead.CM_Expected_Budget && <p className="text-[12px] font-bold text-blue-600">₹{Number(lead.CM_Expected_Budget).toLocaleString()}</p>}
+                              </td>
+                              <td className="px-2 py-2 border border-slate-200 text-[12px] text-gray-600">
+                                <div className="flex items-center gap-1 text-blue-600 font-semibold">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-gray-600 mt-0.5">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 border border-slate-200 text-center">
+                                <span className={`px-1.5 py-0.5 rounded-sm text-[12px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
+                                  {lead.CM_Lead_Status}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 border border-slate-200 text-center">
+                                <span className={`px-1.5 py-0.5 rounded-sm text-[12px] font-bold border ${STATUS_COLORS[lead.CM_Followup_Status] || "bg-gray-100 text-gray-600 border-gray-300"}`}>
+                                  {lead.CM_Followup_Status || "Follow Up"}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 border border-slate-200 text-center" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-center gap-1.5">
+                                  <button
+                                    onClick={() => openEditModal(lead)}
+                                    className="w-7 h-7 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                    title="Edit"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => openDetail(lead)}
+                                    className="w-7 h-7 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                    title="View"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(lead.CM_Lead_ID)}
+                                    className="w-7 h-7 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-all hover:scale-105 shadow-sm"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </React.Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
+                            {selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen && (
+                              <tr>
+                                <td colSpan="9" className="px-1 py-3 bg-gray-50 border border-gray-300">
+                                  {renderDetailTabs(lead)}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </React.Fragment>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        {/* Mobile View (Cards Grid) */}
-        <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4 pb-20">
-          {loading ? (
-            <div className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></div>
-          ) : leads.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">No leads found</div>
-          ) : (
-            leads.map((lead) => (
-              <div key={lead.CM_Lead_ID} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-300 transition-all cursor-pointer" onClick={() => openDetail(lead)}>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3">
+          {/* Mobile View (Cards Grid) */}
+          <div className="lg:hidden flex-grow overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+            {loading ? (
+              <div className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /></div>
+            ) : leads.length === 0 ? (
+              <div className="py-12 text-center text-gray-500">No leads found</div>
+            ) : (
+              leads.map((lead) => (
+                <div key={lead.CM_Lead_ID} className="bg-white p-4 rounded-sm shadow-sm border border-gray-200 hover:border-blue-300 transition-all cursor-pointer" onClick={() => openDetail(lead)}>
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900 leading-none">{lead.CM_Client_Name}</h3>
+                        <p className="text-[12px] text-gray-500 mt-1">{lead.CM_Company_Name || "Individual"}</p>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[12px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      {lead.CM_Lead_Status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 py-3 border-t border-b border-gray-50 mb-3">
                     <div>
-                      <h3 className="font-bold text-gray-900 leading-none">{lead.CM_Client_Name}</h3>
-                      <p className="text-[11px] text-gray-500 mt-1">{lead.CM_Company_Name || "Individual"}</p>
+                      <p className="text-[12px] text-gray-400 uppercase font-bold">Product</p>
+                      <p className="text-sm font-semibold text-gray-700 truncate">{lead.CM_Product_Required || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[12px] text-gray-400 uppercase font-bold">Budget</p>
+                      <p className="text-sm font-semibold text-indigo-600 truncate">
+                        {lead.CM_Expected_Budget != null && Number(lead.CM_Expected_Budget) > 0
+                          ? `₹${Number(lead.CM_Expected_Budget).toLocaleString()}`
+                          : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[12px] text-gray-400 uppercase font-bold">Executive</p>
+                      <p className="text-sm font-semibold text-gray-700 truncate">{lead.Executive_Name || "Unassigned"}</p>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[lead.CM_Lead_Status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                    {lead.CM_Lead_Status}
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4 py-3 border-t border-b border-gray-50 mb-3">
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase font-bold">Product</p>
-                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.CM_Product_Required || "—"}</p>
+                  <div className="space-y-1 mb-3">
+                    <p className="text-[12px] text-gray-400 uppercase font-bold">Next Follow-up</p>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <Calendar className="h-3 w-3 text-blue-500" /> {formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <Clock className="h-3 w-3 text-amber-600" /> {formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase font-bold">Executive</p>
-                    <p className="text-xs font-semibold text-gray-700 truncate">{lead.Executive_Name || "Unassigned"}</p>
-                  </div>
-                </div>
 
-                <div className="space-y-1 mb-3">
-                  <p className="text-[10px] text-gray-400 uppercase font-bold">Next Follow-up</p>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                    <Calendar className="h-3 w-3 text-blue-500" /> {formatFollowUpDate(lead.CM_Next_Follow_Up_Date)}
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="flex items-center gap-2 text-sm font-bold text-blue-600">
+                      <Phone className="h-3 w-3" /> {lead.CM_Phone}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
+                        className="p-2 bg-gray-50 rounded-sm text-gray-500 border border-gray-100 hover:bg-amber-50 hover:text-amber-600"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDetail(lead); }}
+                        className="p-2 bg-blue-50 rounded-sm text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                    <Clock className="h-3 w-3 text-amber-600" /> {formatFollowUpTime(lead.CM_Next_Follow_Up_Time)}
-                  </div>
+                  {selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen && (
+                    <div className="mt-4 pt-4 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+                      {renderDetailTabs(lead)}
+                    </div>
+                  )}
                 </div>
-
-                <div className="flex items-center justify-between mt-auto">
-                  <div className="flex items-center gap-2 text-xs font-bold text-blue-600">
-                    <Phone className="h-3 w-3" /> {lead.CM_Phone}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
-                      className="p-2 bg-gray-50 rounded-lg text-gray-500 border border-gray-100 hover:bg-amber-50 hover:text-amber-600"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openDetail(lead); }}
-                      className="p-2 bg-blue-50 rounded-lg text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                {selectedLead?.CM_Lead_ID === lead.CM_Lead_ID && isDetailOpen && (
-                  <div className="mt-4 pt-4 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
-                    {renderDetailTabs(lead)}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
 
       {/* Pagination Controls */}
       {total > 0 && (
-        <div className="flex flex-wrap items-center justify-between px-4 py-1.5 bg-white shadow-sm rounded-lg border border-gray-200 gap-4 !-mt-2 mb-0">
+        <div className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between px-4 py-2 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.05)] rounded-sm border border-gray-200 gap-4 !-mt-2">
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-gray-500 font-medium">
+            <span className="text-[12px] text-gray-500 font-medium">
               Showing <span className="font-bold text-gray-900">{Math.min((page - 1) * limit + 1, total)}</span> to <span className="font-bold text-gray-900">{Math.min(page * limit, total)}</span> of <span className="font-bold text-gray-900">{total}</span> leads
             </span>
             <select
               value={limit}
               onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-              className="text-[11px] font-medium text-gray-800 bg-white border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 py-1 pl-2 pr-6 h-7"
+              className="text-[12px] font-medium text-gray-800 bg-white border-gray-300 rounded-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 py-1 pl-2 pr-6 h-7"
             >
               <option value={10}>10 per page</option>
               <option value={50}>50 per page</option>
@@ -1600,17 +1927,17 @@ export default function LeadsPage() {
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-gray-600"
+              className="p-1.5 border border-gray-300 rounded-sm hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-gray-600"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <div className="flex items-center px-3 h-7 rounded-md border border-gray-300 bg-gray-50 text-[11px] font-medium text-gray-700">
+            <div className="flex items-center px-3 h-7 rounded-sm border border-gray-300 bg-gray-50 text-[12px] font-medium text-gray-700">
               Page <span className="font-bold text-blue-600 mx-1">{page}</span> of <span className="font-bold text-gray-900 ml-1">{totalPages}</span>
             </div>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-gray-600"
+              className="p-1.5 border border-gray-300 rounded-sm hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-gray-600"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -1625,6 +1952,25 @@ export default function LeadsPage() {
         selectedLead={selectedLead}
         user={user}
         onSuccess={() => fetchLeads()}
+      />
+
+      {/* Lead Project Form Modal */}
+      <LeadProjectFormModal
+        isOpen={isLeadProjectModalOpen}
+        onClose={() => {
+          setIsLeadProjectModalOpen(false);
+          setSelectedLeadProject(null);
+        }}
+        selectedProject={selectedLeadProject}
+        leadId={selectedLead?.CM_Lead_ID}
+        leadName={selectedLead?.CM_Client_Name}
+        user={user}
+        onSuccess={() => {
+          if (selectedLead) {
+            fetchLeadProjects(selectedLead.CM_Lead_ID);
+          }
+          fetchLeads();
+        }}
       />
 
       {/* Detail Slide-over removed, details are rendered inline in expanded row */}
@@ -1647,55 +1993,55 @@ export default function LeadsPage() {
       {/* Payment Add/Edit Modal */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-gray-800">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-sm shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-500 text-white">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Receipt className="h-5 w-5" />
                 {selectedPayment ? "Edit Payment" : "Record New Payment"}
               </h2>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
+              <button onClick={() => setIsPaymentModalOpen(false)} className="hover:bg-white/10 p-1 rounded-sm transition-colors"><X className="h-6 w-6" /></button>
             </div>
 
             <form onSubmit={handlePaymentSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Lead Name</label>
+                <label className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">Lead Name</label>
                 <input
                   type="text"
                   readOnly
                   value={selectedLead?.CM_Client_Name || ""}
-                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl bg-gray-50 outline-none text-gray-500"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-sm bg-gray-50 outline-none text-gray-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Date *</label>
+                <label className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">Payment Date *</label>
                 <input
                   required
                   type="date"
                   value={paymentFormData.CM_Payment_Date || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Date: e.target.value })}
-                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-sm focus:ring focus:ring-blue-500 outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Amount *</label>
+                <label className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">Amount *</label>
                 <input
                   required
                   type="number"
                   value={paymentFormData.CM_Amount || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Amount: e.target.value })}
-                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-sm focus:ring focus:ring-blue-500 outline-none"
                   placeholder="e.g. 50000"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Type</label>
+                <label className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">Payment Type</label>
                 <select
                   value={paymentFormData.CM_Payment_Type || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Type: e.target.value })}
-                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-sm focus:ring focus:ring-blue-500 outline-none"
                 >
                   <option value="Advance">Advance</option>
                   <option value="Partial Payment">Partial Payment</option>
@@ -1706,11 +2052,11 @@ export default function LeadsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Mode</label>
+                <label className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">Payment Mode</label>
                 <select
                   value={paymentFormData.CM_Payment_Mode || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Mode: e.target.value })}
-                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-sm focus:ring focus:ring-blue-500 outline-none"
                 >
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cash">Cash</option>
@@ -1721,11 +2067,11 @@ export default function LeadsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Payment Status</label>
+                <label className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">Payment Status</label>
                 <select
                   value={paymentFormData.CM_Payment_Status || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Payment_Status: e.target.value })}
-                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-sm focus:ring focus:ring-blue-500 outline-none"
                 >
                   <option value="Paid">Paid</option>
                   <option value="Pending">Pending</option>
@@ -1734,21 +2080,21 @@ export default function LeadsPage() {
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Remarks</label>
+                <label className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">Remarks</label>
                 <textarea
                   rows="2"
                   value={paymentFormData.CM_Remarks || ""}
                   onChange={(e) => setPaymentFormData({ ...paymentFormData, CM_Remarks: e.target.value })}
-                  className="w-full px-4 py-1.5 border border-gray-200 rounded-xl focus:ring focus:ring-blue-500 outline-none resize-none"
+                  className="w-full px-4 py-1.5 border border-gray-200 rounded-sm focus:ring focus:ring-blue-500 outline-none resize-none"
                   placeholder="Transaction ID or notes..."
                 />
               </div>
 
               <div className="md:col-span-2 flex gap-3 mt-4">
-                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="flex-1 px-4 py-1.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-bold transition-colors">
+                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="flex-1 px-4 py-1.5 border border-gray-200 text-gray-600 rounded-sm hover:bg-gray-50 font-bold transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50">
+                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-sm hover:bg-blue-700 font-bold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   {selectedPayment ? "Update Payment" : "Save Payment"}
                 </button>
@@ -1772,7 +2118,7 @@ export default function LeadsPage() {
               </p>
 
               <div className="text-left space-y-2 mb-6">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Handover Remarks</label>
+                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest ml-1">Handover Remarks</label>
                 <textarea
                   rows="3"
                   value={conversionRemarks}
@@ -1830,15 +2176,15 @@ export default function LeadsPage() {
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all scale-100">
             {/* Top Indicator Bar */}
             <div className={`h-2.5 w-full ${confirmConfig.type === 'danger'
-                ? 'bg-gradient-to-r from-rose-500 to-red-600'
-                : 'bg-gradient-to-r from-amber-400 to-orange-500'
+              ? 'bg-gradient-to-r from-rose-500 to-red-600'
+              : 'bg-gradient-to-r from-amber-400 to-orange-500'
               }`} />
 
             <div className="p-6">
               <div className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${confirmConfig.type === 'danger'
-                    ? 'bg-rose-100 text-rose-600'
-                    : 'bg-amber-100 text-amber-600'
+                  ? 'bg-rose-100 text-rose-600'
+                  : 'bg-amber-100 text-amber-600'
                   }`}>
                   <AlertCircle size={26} />
                 </div>
@@ -1847,14 +2193,14 @@ export default function LeadsPage() {
                   <h3 className="text-base font-bold text-slate-900 leading-snug">
                     {confirmConfig.title}
                   </h3>
-                  <p className="mt-1.5 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  <p className="mt-1.5 text-sm sm:text-sm text-slate-600 leading-relaxed">
                     {confirmConfig.message}
                   </p>
                 </div>
 
                 <button
                   onClick={closeConfirm}
-                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-sm transition-colors"
                 >
                   <X size={18} />
                 </button>
@@ -1865,7 +2211,7 @@ export default function LeadsPage() {
                 <button
                   type="button"
                   onClick={closeConfirm}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-all"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-sm text-sm sm:text-sm font-semibold transition-all"
                 >
                   {confirmConfig.cancelText || "Cancel"}
                 </button>
@@ -1877,9 +2223,9 @@ export default function LeadsPage() {
                     closeConfirm();
                     if (action) action();
                   }}
-                  className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 text-white ${confirmConfig.type === 'danger'
-                      ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
-                      : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
+                  className={`px-5 py-2 rounded-sm text-sm sm:text-sm font-bold shadow-md transition-all active:scale-95 text-white ${confirmConfig.type === 'danger'
+                    ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                    : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
                     }`}
                 >
                   {confirmConfig.confirmText || "Confirm"}

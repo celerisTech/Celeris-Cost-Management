@@ -7,7 +7,7 @@ import {
   Calendar,
   MessageSquare,
   Bell,
-  HelpCircle,
+  CalendarCheck2,
   BarChart,
   Box,
   Briefcase,
@@ -100,6 +100,7 @@ const iconMap = {
   "Sales Leads": Target,
   "Visit Tracking": MapPin,
   "Sales Payments": CreditCard,
+  "Sales AMC": CalendarCheck2,
   "Sales Reports": BarChart3
 };
 

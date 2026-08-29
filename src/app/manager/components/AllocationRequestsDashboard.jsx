@@ -1,4 +1,5 @@
 'use client';
+import LoadingState from "@/app/components/LoadingState";
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -823,20 +824,7 @@ export default function AllocationRequestsDashboard() {
       {/* Desktop Table View */}
       <div className="hidden lg:block rounded-2xl overflow-hidden mb-8" style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}>
         {loading && requests.length === 0 ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20">
-              {/* Sun */}
-              <div className="absolute inset-0 rounded-full bg-yellow-400 animate-ping"></div>
-              {/* Orbit 1 */}
-              <div className="absolute inset-0 border-2 border-blue-300/30 rounded-full animate-spin">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full"></div>
-              </div>
-              {/* Orbit 2 */}
-              <div className="absolute inset-2 border-2 border-green-300/30 rounded-full animate-spin" style={{ animationDuration: '3s', animationDirection: 'reverse' }}>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-green-500 rounded-full"></div>
-              </div>
-            </div>
-          </div>
+          <LoadingState message="Loading..." />
         ) : requests.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 sm:h-96 px-4 sm:px-6 text-center">
             <div className="rounded-full p-4 sm:p-6 mb-4" style={{ backgroundColor: colors.background }}>

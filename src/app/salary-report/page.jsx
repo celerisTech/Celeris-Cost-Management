@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../components/Navbar';
@@ -492,24 +493,7 @@ const SalaryDashboard = () => {
         {/* Navbar */}
         <Navbar />
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 w-full items-center justify-center">
-          <div className="flex justify-center items-center h-64">
-            <div className="relative w-20 h-20">
-
-              {/* Core Server */}
-              <div className="absolute inset-6 bg-blue-600 rounded-lg animate-pulse shadow-lg"></div>
-
-              {/* Data Lines */}
-              <div className="absolute left-1/2 top-0 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-transparent via-blue-400 to-transparent animate-data-flow"></div>
-              <div className="absolute top-1/2 left-0 -translate-y-1/2 h-1 w-full bg-gradient-to-r from-transparent via-blue-300 to-transparent animate-data-flow-reverse"></div>
-
-              {/* Corner Nodes */}
-              <span className="absolute top-0 left-0 w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
-              <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-150"></span>
-              <span className="absolute bottom-0 left-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-300"></span>
-              <span className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 rounded-full animate-ping delay-500"></span>
-
-            </div>
-          </div>
+          <LoadingState message="Loading..." />
         </div>
       </div>
     );

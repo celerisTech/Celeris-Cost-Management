@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -493,20 +494,7 @@ const AddItemForm = () => {
         {/* Navbar */}
         <Navbar />
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 w-full items-center justify-center">
-          <div className="flex justify-center items-center h-64">
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20 mt-70">
-              {/* Sun */}
-              <div className="absolute inset-0 rounded-full bg-yellow-400 animate-ping"></div>
-              {/* Orbit 1 */}
-              <div className="absolute inset-0 border-2 border-blue-300/30 rounded-full animate-spin">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full"></div>
-              </div>
-              {/* Orbit 2 */}
-              <div className="absolute inset-2 border-2 border-green-300/30 rounded-full animate-spin" style={{ animationDuration: '3s', animationDirection: 'reverse' }}>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-green-500 rounded-full"></div>
-              </div>
-            </div>
-          </div>
+          <LoadingState message="Loading..." />
         </div>
       </div>
     );

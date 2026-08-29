@@ -186,6 +186,45 @@ export async function GET(request: NextRequest) {
   }
 }
 
+async function handleAmcRenewal(db: any, amcId: any, updatedBy: any) {
+  if (!amcId) return;
+  try {
+    const [rows]: any = await db.query(
+      `SELECT * FROM ccms_sales_amc WHERE CM_AMC_ID = ? AND CM_Is_Deleted = 0`,
+      [amcId]
+    );
+    if (!rows || rows.length === 0) return;
+    const oldAmc = rows[0];
+
+    if (oldAmc.CM_Status === 'Pending') {
+      await db.query(
+        `UPDATE ccms_sales_amc SET CM_Status = 'Paid', CM_Updated_By = ?, CM_Updated_At = NOW() WHERE CM_AMC_ID = ?`,
+        [updatedBy, amcId]
+      );
+
+      const nextStartDate = oldAmc.CM_Expiry_Date;
+      await db.query(
+        `INSERT INTO ccms_sales_amc (
+          CM_AMC_ID, CM_Lead_ID, CM_Domain_Link, CM_Start_Date,
+          CM_Expiry_Date, CM_Amount, CM_Status, CM_AMC_Type, CM_Created_By, CM_Created_At
+        ) VALUES (NULL, ?, ?, ?, DATE_ADD(?, INTERVAL 1 YEAR), ?, 'Pending', ?, ?, NOW())`,
+        [
+          oldAmc.CM_Lead_ID,
+          oldAmc.CM_Domain_Link,
+          nextStartDate,
+          nextStartDate,
+          oldAmc.CM_Amount,
+          oldAmc.CM_AMC_Type || 'Website',
+          updatedBy
+        ]
+      );
+      console.log(`✅ AMC ID ${amcId} renewed successfully. Next cycle scheduled.`);
+    }
+  } catch (err) {
+    console.error('Error handling AMC renewal:', err);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const method = request.nextUrl.searchParams.get('_method');
   if (method === 'PUT') return updatePayment(request);
@@ -203,8 +242,8 @@ export async function POST(request: NextRequest) {
       `INSERT INTO ccms_sales_payment (
         CM_Payment_ID, CM_Lead_ID, CM_Payment_Date, CM_Payment_Type,
         CM_Amount, CM_Payment_Mode, CM_Reference_Number, CM_Payment_Status,
-        CM_Receipt_URL, CM_Remarks, CM_Created_By, CM_Created_At
-      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        CM_Receipt_URL, CM_Remarks, CM_Created_By, CM_Created_At, CM_AMC_ID
+      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
       [
         body.CM_Lead_ID,
         formatDate(body.CM_Payment_Date),
@@ -215,7 +254,8 @@ export async function POST(request: NextRequest) {
         sanitize(body.CM_Payment_Status) || 'Pending',
         sanitize(body.CM_Receipt_URL),
         sanitize(body.CM_Remarks),
-        sanitize(body.CM_Created_By)
+        sanitize(body.CM_Created_By),
+        parseNum(body.CM_AMC_ID)
       ]
     );
 
@@ -223,6 +263,11 @@ export async function POST(request: NextRequest) {
     const newId = rows[0]?.CM_Payment_ID;
 
     await logActivity(db, body.CM_Lead_ID, 'Payment Added', `Payment ${newId} of ₹${body.CM_Amount} recorded`, body.CM_Created_By);
+
+    // Trigger AMC renewal logic if applicable
+    if (body.CM_Payment_Status === 'Paid' && body.CM_Payment_Type === 'AMC' && body.CM_AMC_ID) {
+      await handleAmcRenewal(db, body.CM_AMC_ID, body.CM_Created_By);
+    }
 
     return NextResponse.json({ success: true, CM_Payment_ID: newId }, { status: 201 });
   } catch (error: any) {
@@ -243,7 +288,7 @@ async function updatePayment(request: NextRequest) {
         CM_Payment_Date = ?, CM_Payment_Type = ?, CM_Amount = ?,
         CM_Payment_Mode = ?, CM_Reference_Number = ?, CM_Payment_Status = ?,
         CM_Receipt_URL = COALESCE(?, CM_Receipt_URL), CM_Remarks = ?,
-        CM_Updated_By = ?, CM_Updated_At = NOW()
+        CM_Updated_By = ?, CM_Updated_At = NOW(), CM_AMC_ID = ?
       WHERE CM_Payment_ID = ?`,
       [
         formatDate(body.CM_Payment_Date),
@@ -255,11 +300,18 @@ async function updatePayment(request: NextRequest) {
         sanitize(body.CM_Receipt_URL),
         sanitize(body.CM_Remarks),
         sanitize(body.CM_Updated_By),
+        parseNum(body.CM_AMC_ID),
         CM_Payment_ID
       ]
     );
 
     await logActivity(db, body.CM_Lead_ID, 'Payment Updated', `Payment ${CM_Payment_ID} updated`, body.CM_Updated_By);
+
+    // Trigger AMC renewal logic if applicable
+    if (body.CM_Payment_Status === 'Paid' && body.CM_Payment_Type === 'AMC' && body.CM_AMC_ID) {
+      await handleAmcRenewal(db, body.CM_AMC_ID, body.CM_Updated_By);
+    }
+
     return NextResponse.json({ success: true, message: 'Payment updated' });
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to update payment', details: error.sqlMessage || error.message }, { status: 500 });

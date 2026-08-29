@@ -26,6 +26,17 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
 
+const formatTime = (timeStr) => {
+    if (!timeStr) return "";
+    const parts = timeStr.split(":");
+    const hours = parseInt(parts[0], 10);
+    if (isNaN(hours)) return timeStr;
+    const mins = parts[1] || "00";
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const twelveHour = hours % 12 === 0 ? 12 : hours % 12;
+    return `${twelveHour}:${mins} ${ampm}`;
+};
+
 const StatusBadge = ({ status }) => {
     const statusConfig = {
         "Follow-up Needed": { color: "bg-blue-100 text-blue-700 border-blue-300", icon: <Clock size={14} className="text-blue-600" />, label: "Follow-up Needed" },
@@ -91,10 +102,10 @@ const FollowupCard = ({ item, index }) => {
             </div>
 
             <div className="mt-2 flex justify-between items-center text-xs bg-slate-50 p-1.5 rounded border border-slate-100">
-                <div>Visit: {format(new Date(item.CM_Visit_Date), "MMM d, yy")}</div>
+                <div>{item.source_type === 'lead' ? 'Created' : 'Visit'}: {format(new Date(item.CM_Visit_Date), "MMM d, yy")}</div>
                 {item.CM_Next_Followup_Date && (
-                    <div className="text-amber-700 font-bold">
-                        Next: {format(new Date(item.CM_Next_Followup_Date), "MMM d, yy")}
+                    <div className="text-amber-700 font-bold flex items-center gap-1">
+                        Next: {format(new Date(item.CM_Next_Followup_Date), "MMM d, yy")}{item.CM_Next_Followup_Time ? ` @ ${formatTime(item.CM_Next_Followup_Time)}` : ""}
                     </div>
                 )}
             </div>
@@ -429,56 +440,64 @@ export default function FollowupsOverviewModal({ isOpen, onClose }) {
                                             <tbody>
                                                 {filteredData.map((item, idx) => (
                                                     <tr key={item.CM_Visit_ID} className="hover:bg-blue-50/40 border-b border-slate-200 transition-colors">
-                                                        <td className="px-4 py-3 border-r border-slate-200 text-center text-slate-500 bg-slate-50 font-mono text-xs">{idx + 1}</td>
-                                                        <td className="px-4 py-3 border-r border-slate-200 whitespace-nowrap">
-                                                            <div className="font-semibold">
-                                                                {format(new Date(item.CM_Visit_Date), "dd-MMM-yyyy")}
-                                                            </div>
-                                                            <div className="text-[10px] text-slate-400">
-                                                                Logged: {item.CM_Created_At ? format(new Date(item.CM_Created_At), "HH:mm") : "-"}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 border-r border-slate-200">
-                                                            <p className="font-bold text-slate-800">{item.CM_Client_Name}</p>
-                                                            <p className="text-[11px] text-slate-500">{item.CM_Company_Name || "Individual"}</p>
-                                                            {item.CM_Phone && (
-                                                                <p className="text-[11px] text-blue-600 flex items-center gap-1.5 mt-0.5 font-medium">
-                                                                    <Phone size={10} /> {item.CM_Phone}
-                                                                </p>
-                                                            )}
-                                                            <p className="text-[11px] text-slate-500">{item.CM_City || "Individual"}</p>
-
-                                                        </td>
-                                                        <td className="px-4 py-3 border-r border-slate-200">
-                                                            <div className="font-bold text-indigo-700 text-xs mb-0.5">
-                                                                {item.CM_Purpose}
-                                                            </div>
-                                                            <div className="text-xs text-slate-600 whitespace-normal break-words max-w-lg">
-                                                                {item.CM_Remarks || <span className="text-slate-300 italic">No remarks recorded</span>}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 border-r border-slate-200">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
-                                                                    {(item.Executive_Name || "U")[0]}
+                                                            <td className="px-4 py-3 border-r border-slate-200 text-center text-slate-500 bg-slate-50 font-mono text-xs">{idx + 1}</td>
+                                                            <td className="px-4 py-3 border-r border-slate-200 whitespace-nowrap">
+                                                                <div className="font-semibold">
+                                                                    {format(new Date(item.CM_Visit_Date), "dd-MMM-yyyy")}
                                                                 </div>
-                                                                <span className="text-xs font-semibold text-slate-700">{item.Executive_Name || "Unassigned"}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 border-r border-slate-200 text-center">
-                                                            {item.CM_Next_Followup_Date ? (
-                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-55 text-amber-700 font-bold border border-amber-200 text-xs shadow-sm bg-amber-50">
-                                                                    <Clock size={12} />
-                                                                    {format(new Date(item.CM_Next_Followup_Date), "dd-MMM-yy")}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-slate-300">—</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <StatusBadge status={item.CM_Visit_Status} />
-                                                        </td>
-                                                    </tr>
+                                                                <div className="text-[10px] text-slate-400">
+                                                                    {item.source_type === 'lead' ? 'Lead Logged' : 'Visit Logged'}: {item.CM_Created_At ? format(new Date(item.CM_Created_At), "HH:mm") : "-"}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-4 py-3 border-r border-slate-200">
+                                                                <p className="font-bold text-slate-800">{item.CM_Client_Name}</p>
+                                                                <p className="text-[11px] text-slate-500">{item.CM_Company_Name || "Individual"}</p>
+                                                                {item.CM_Phone && (
+                                                                    <p className="text-[11px] text-blue-600 flex items-center gap-1.5 mt-0.5 font-medium">
+                                                                        <Phone size={10} /> {item.CM_Phone}
+                                                                    </p>
+                                                                )}
+                                                                <p className="text-[11px] text-slate-500">{item.CM_City || "Individual"}</p>
+
+                                                            </td>
+                                                            <td className="px-4 py-3 border-r border-slate-200">
+                                                                <div className="font-bold text-indigo-700 text-xs mb-0.5">
+                                                                    {item.CM_Purpose}
+                                                                </div>
+                                                                <div className="text-xs text-slate-600 whitespace-normal break-words max-w-lg">
+                                                                    {item.CM_Remarks || <span className="text-slate-300 italic">No remarks recorded</span>}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-4 py-3 border-r border-slate-200">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
+                                                                        {(item.Executive_Name || "U")[0]}
+                                                                    </div>
+                                                                    <span className="text-xs font-semibold text-slate-700">{item.Executive_Name || "Unassigned"}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-4 py-3 border-r border-slate-200 text-center">
+                                                                {item.CM_Next_Followup_Date ? (
+                                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-bold border border-amber-200 text-[11px] shadow-xs">
+                                                                            <CalendarIcon size={11} className="text-amber-600" />
+                                                                            {format(new Date(item.CM_Next_Followup_Date), "dd-MMM-yy")}
+                                                                        </span>
+                                                                        {item.CM_Next_Followup_Time && (
+                                                                            <span className="inline-flex items-center gap-1 text-[11px] text-gray-500 font-semibold">
+                                                                                <Clock size={10} className="text-amber-500" />
+                                                                                {formatTime(item.CM_Next_Followup_Time)}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-slate-300">—</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <StatusBadge status={item.CM_Visit_Status} />
+                                                            </td>
+                                                        </tr>
                                                 ))}
                                             </tbody>
                                         </table>

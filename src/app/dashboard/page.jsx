@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const userName = user?.name || user?.CM_Full_Name || "";
 
   return (
-    <div className="flex-1 p-3 sm:p-4 md:p-3 space-y-4 max-w-full bg-white overflow-y-auto min-h-0">
+    <div className="flex-1 p-3 sm:p-4 md:p-3 space-y-4 max-w-full bg-white">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="w-full sm:flex-1 min-w-0">

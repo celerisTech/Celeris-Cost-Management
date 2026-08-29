@@ -428,6 +428,24 @@ export async function GET(request: NextRequest) {
         payable: Math.max(0, Number(r.projectCost) - Number(r.paidAmount))
       }));
 
+      // Fetch expiring AMCs (Pending and expiring in next 10 days)
+      let expiringAmcRows: any[] = [];
+      try {
+        const [amcRows]: any = await db.query(`
+          SELECT sa.*, sl.CM_Client_Name, sl.CM_Company_Name
+          FROM ccms_sales_amc sa
+          LEFT JOIN ccms_sales_lead sl
+            ON sa.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci
+          WHERE sa.CM_Is_Deleted = 0 
+            AND sa.CM_Status = 'Pending' 
+            AND sa.CM_Expiry_Date <= DATE_ADD(CURDATE(), INTERVAL 10 DAY)
+          ORDER BY sa.CM_Expiry_Date ASC
+        `);
+        expiringAmcRows = amcRows || [];
+      } catch (err) {
+        console.error('Error fetching expiring AMCs for dashboard:', err);
+      }
+
       return safeJsonResponse({
         stats,
         pendingFollowups: followups || [],
@@ -437,7 +455,9 @@ export async function GET(request: NextRequest) {
         todayVisits: Number(todayVisitsRow?.[0]?.count || 0),
         trend: trendRows || [],
         productWise: productRows || [],
-        clientFinancials
+        clientFinancials,
+        expiringAmcCount: expiringAmcRows.length,
+        expiringAmcs: expiringAmcRows
       });
     }
 
@@ -852,6 +872,7 @@ export async function GET(request: NextRequest) {
           ind.CM_Industrial_Name, cat.CM_Category_Name, sub.CM_Subcategory_Name,
           (SELECT COUNT(*) FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0) AS visit_count,
           (SELECT COALESCE(SUM(CM_Amount), 0) FROM ccms_sales_payment sp WHERE sp.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sp.CM_Payment_Status = 'Paid' AND sp.CM_Payment_Type != 'Domain Payment' AND sp.CM_Is_Deleted = 0) AS total_paid,
+          (SELECT COUNT(*) FROM ccms_sales_lead_projects WHERE CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND CM_Is_Deleted = 0 AND CM_Proposal_Doc IS NOT NULL AND CM_Proposal_Doc != '') + (CASE WHEN sl.CM_Proposal_Doc IS NOT NULL AND sl.CM_Proposal_Doc != '' THEN 1 ELSE 0 END) AS proposal_count,
           (SELECT sv.CM_Visit_Status FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0 ORDER BY sv.CM_Visit_Date DESC, sv.CM_Visit_ID DESC LIMIT 1) AS Last_Visit_Status,
           (SELECT 1 FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0 AND sv.CM_Visit_Status = 'Proposal Sent' LIMIT 1) AS Had_Proposal_Sent,
           (SELECT 1 FROM ccms_sales_visit sv WHERE sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci AND sv.CM_Is_Deleted = 0 AND sv.CM_Visit_Status IN ('Rejected', 'Not Interested') LIMIT 1) AS Had_Not_Interested
@@ -935,8 +956,8 @@ export async function POST(request: NextRequest) {
         CM_Email, CM_Address, CM_City, CM_Lead_Source, CM_Product_Required,
         CM_Project_Type, CM_Expected_Budget, CM_Sales_Executive_ID, CM_Lead_Status, CM_Followup_Status,
         CM_Remarks, CM_Next_Follow_Up_Date, CM_Next_Follow_Up_Time, CM_Industrial_ID, CM_Category_ID, CM_Subcategory_ID,
-        CM_Created_By, CM_Created_At
-      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        CM_Created_By, CM_Created_At, CM_Proposal_Doc
+      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
       [
         body.CM_Client_Name.trim(),
         sanitize(body.CM_Company_Name),
@@ -958,7 +979,8 @@ export async function POST(request: NextRequest) {
         parseNum(body.CM_Industrial_ID),
         parseNum(body.CM_Category_ID),
         parseNum(body.CM_Subcategory_ID),
-        sanitize(body.CM_Created_By)
+        sanitize(body.CM_Created_By),
+        sanitize(body.CM_Proposal_Doc)
       ]
     );
 
@@ -968,6 +990,28 @@ export async function POST(request: NextRequest) {
 
     const newLeadId = rows[0]?.CM_Lead_ID;
     await logActivity(db, newLeadId, 'Lead Created', `New lead created for ${body.CM_Client_Name}`, body.CM_Created_By);
+
+    // Insert lead projects/products if supplied in body
+    if (Array.isArray(body.products) && body.products.length > 0) {
+      for (const p of body.products) {
+        if (!p.CM_Product_Name) continue;
+        await db.query(
+          `INSERT INTO ccms_sales_lead_projects (
+            CM_Lead_Project_ID, CM_Lead_ID, CM_Product_Name,
+            CM_Amount, CM_Proposal_Doc, CM_Status, CM_Created_By, CM_Created_At
+          ) VALUES (NULL, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            newLeadId,
+            p.CM_Product_Name.trim(),
+            parseNum(p.CM_Amount),
+            sanitize(p.CM_Proposal_Doc),
+            sanitize(p.CM_Status) || 'New Lead',
+            sanitize(body.CM_Created_By)
+          ]
+        );
+      }
+      await updateMainLeadStatus(db, newLeadId, body.CM_Created_By);
+    }
 
     // Automatically mark attendance for creator and assigned sales executive
     const activeUserId = body.CM_Created_By || body.CM_Sales_Executive_ID;
@@ -1007,7 +1051,7 @@ async function updateLead(request: NextRequest) {
         CM_Sales_Executive_ID = ?, CM_Lead_Status = ?, CM_Followup_Status = ?, CM_Remarks = ?,
         CM_Next_Follow_Up_Date = ?, CM_Next_Follow_Up_Time = ?,
         CM_Industrial_ID = ?, CM_Category_ID = ?, CM_Subcategory_ID = ?,
-        CM_Updated_By = ?, CM_Updated_At = NOW()
+        CM_Updated_By = ?, CM_Updated_At = NOW(), CM_Proposal_Doc = ?
       WHERE CM_Lead_ID = ?`,
       [
         body.CM_Client_Name?.trim(),
@@ -1031,9 +1075,80 @@ async function updateLead(request: NextRequest) {
         parseNum(body.CM_Category_ID),
         parseNum(body.CM_Subcategory_ID),
         sanitize(body.CM_Updated_By),
+        sanitize(body.CM_Proposal_Doc),
         CM_Lead_ID
       ]
     );
+
+    // Sync lead projects/products if supplied in body
+    if (Array.isArray(body.products)) {
+      // 1. Identify and soft delete removed projects
+      const [existingProjects]: any = await db.query(
+        `SELECT CM_Lead_Project_ID FROM ccms_sales_lead_projects WHERE CM_Lead_ID = ? AND CM_Is_Deleted = 0`,
+        [CM_Lead_ID]
+      );
+      const existingIds = existingProjects.map((p: any) => p.CM_Lead_Project_ID);
+      const incomingIds = body.products
+        .map((p: any) => p.CM_Lead_Project_ID)
+        .filter((id: any) => id != null);
+
+      const idsToDelete = existingIds.filter((id: any) => !incomingIds.includes(id));
+      if (idsToDelete.length > 0) {
+        await db.query(
+          `UPDATE ccms_sales_lead_projects SET CM_Is_Deleted = 1, CM_Updated_By = ?, CM_Updated_At = NOW() WHERE CM_Lead_Project_ID IN (?)`,
+          [body.CM_Updated_By, idsToDelete]
+        );
+      }
+
+      // 2. Insert or update incoming projects
+      for (const p of body.products) {
+        if (!p.CM_Product_Name) continue;
+        if (p.CM_Lead_Project_ID) {
+          const params = [
+            p.CM_Product_Name.trim(),
+            parseNum(p.CM_Amount),
+            sanitize(p.CM_Status) || 'New Lead',
+            sanitize(body.CM_Updated_By)
+          ];
+          
+          let proposalSql = '';
+          if ('CM_Proposal_Doc' in p) {
+            proposalSql = ', CM_Proposal_Doc = ?';
+            params.push(sanitize(p.CM_Proposal_Doc));
+          }
+          
+          params.push(p.CM_Lead_Project_ID);
+
+          await db.query(
+            `UPDATE ccms_sales_lead_projects SET
+              CM_Product_Name = ?,
+              CM_Amount = ?,
+              CM_Status = ?,
+              CM_Updated_By = ?,
+              CM_Updated_At = NOW()
+              ${proposalSql}
+            WHERE CM_Lead_Project_ID = ?`,
+            params
+          );
+        } else {
+          await db.query(
+            `INSERT INTO ccms_sales_lead_projects (
+              CM_Lead_Project_ID, CM_Lead_ID, CM_Product_Name,
+              CM_Amount, CM_Proposal_Doc, CM_Status, CM_Created_By, CM_Created_At
+            ) VALUES (NULL, ?, ?, ?, ?, ?, ?, NOW())`,
+            [
+              CM_Lead_ID,
+              p.CM_Product_Name.trim(),
+              parseNum(p.CM_Amount),
+              sanitize(p.CM_Proposal_Doc),
+              sanitize(p.CM_Status) || 'New Lead',
+              sanitize(body.CM_Updated_By)
+            ]
+          );
+        }
+      }
+      await updateMainLeadStatus(db, CM_Lead_ID, body.CM_Updated_By);
+    }
 
     const newStatus = body.CM_Lead_Status;
     if (oldStatus !== newStatus) {
@@ -1075,5 +1190,65 @@ async function deleteLead(request: NextRequest) {
   } catch (error: any) {
     console.error('Error deleting lead:', error);
     return NextResponse.json({ error: 'Failed to delete lead', details: error.message }, { status: 500 });
+  }
+}
+
+// Helper function to update the main lead status based on the statuses of its projects
+async function updateMainLeadStatus(db: any, leadId: string, userId: string) {
+  try {
+    const [projects]: any = await db.query(
+      `SELECT CM_Status FROM ccms_sales_lead_projects 
+       WHERE CM_Lead_ID = ? AND CM_Is_Deleted = 0`,
+      [leadId]
+    );
+
+    if (!projects || projects.length === 0) return;
+
+    let targetStatus = 'New Lead';
+    const statuses = projects.map((p: any) => p.CM_Status);
+
+    if (statuses.includes('Converted')) {
+      targetStatus = 'Converted';
+    } else if (statuses.includes('Proposal Sent')) {
+      targetStatus = 'Proposal Sent';
+    } else if (statuses.includes('Negotiation')) {
+      targetStatus = 'Negotiation';
+    } else if (statuses.includes('Demo Given')) {
+      targetStatus = 'Demo Given';
+    } else if (statuses.includes('Visited')) {
+      targetStatus = 'Visited';
+    } else if (statuses.includes('Follow-up Call') || statuses.includes('Follow Up')) {
+      targetStatus = 'Follow-up Call';
+    } else if (statuses.every((s: string) => s === 'Rejected' || s === 'Not Interested')) {
+      targetStatus = 'Rejected';
+    } else if (statuses.includes('On Hold')) {
+      targetStatus = 'On Hold';
+    } else {
+      targetStatus = statuses[0] || 'New Lead';
+    }
+
+    const [stats]: any = await db.query(
+      `SELECT GROUP_CONCAT(CM_Product_Name SEPARATOR ', ') as products, SUM(CM_Amount) as total_budget
+       FROM ccms_sales_lead_projects
+       WHERE CM_Lead_ID = ? AND CM_Is_Deleted = 0`,
+      [leadId]
+    );
+
+    const productsList = stats[0]?.products || '';
+    const totalBudget = stats[0]?.total_budget || 0;
+
+    await db.query(
+      `UPDATE ccms_sales_lead SET 
+        CM_Lead_Status = ?, 
+        CM_Followup_Status = ?, 
+        CM_Product_Required = ?, 
+        CM_Expected_Budget = ?,
+        CM_Updated_By = ?, 
+        CM_Updated_At = NOW() 
+       WHERE CM_Lead_ID = ?`,
+      [targetStatus, targetStatus, productsList, totalBudget, userId, leadId]
+    );
+  } catch (err) {
+    console.error('Error updating main lead status:', err);
   }
 }

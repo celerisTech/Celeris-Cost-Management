@@ -344,7 +344,7 @@ export default function ProjectPage() {
     <div className="flex h-screen">
       <Navbar />
       <div className="min-h-screen flex-1 overflow-y-auto p-2">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto px-4 sm:px-4 lg:px-4 py-4">
           <div className="mb-3">
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Project Management</h1>
           </div>

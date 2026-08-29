@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, DollarSign, CheckSquare, Square } from "lucide-react";
+import { PlusCircle, DollarSign, CheckSquare, Square, Pencil, Power, Trash2 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthScreenStore";
 
 export const LaborSidebar = ({ labors }) => {
@@ -10,7 +10,7 @@ export const LaborSidebar = ({ labors }) => {
   const { user } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [showMenu, setShowMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -153,6 +153,51 @@ export const LaborSidebar = ({ labors }) => {
 
   const goToEmployee = (labor) => {
     router.push(`/labors/employee-details/${labor.CM_Labor_Type_ID}`);
+  };
+
+  const handleToggleStatus = async (labor) => {
+    const newStatus = labor.CM_Status === 'Active' ? 'Inactive' : 'Active';
+    if (!confirm(`Are you sure you want to change this employee's status to ${newStatus}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/labor-details?laborId=${labor.CM_Labor_Type_ID}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          CM_Status: newStatus
+        })
+      });
+      if (res.ok) {
+        alert(`Employee status updated to ${newStatus} successfully.`);
+        window.location.reload();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to update status");
+      }
+    } catch (error) {
+      alert("Error updating status");
+    }
+  };
+
+  const handleDelete = async (laborId) => {
+    if (!confirm("Are you sure you want to permanently delete this employee? This action cannot be undone.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/labor-details?laborId=${laborId}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        alert("Employee deleted successfully.");
+        window.location.reload();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to delete employee");
+      }
+    } catch (error) {
+      alert("Error deleting employee");
+    }
   };
 
   const clearSelection = () => setSelectedIds(new Set());
@@ -346,7 +391,7 @@ export const LaborSidebar = ({ labors }) => {
       {/* Employee List */}
       <div className="rounded-lg sm:rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
         {/* Table Header - Desktop */}
-        <div className="hidden sm:grid sm:grid-cols-8 bg-slate-50 border-b border-slate-200 p-3 md:p-4 text-xs md:text-sm font-semibold text-slate-600 tracking-wider">
+        <div className="hidden sm:grid sm:grid-cols-9 bg-slate-50 border-b border-slate-200 p-3 md:p-4 text-xs md:text-sm font-semibold text-slate-600 tracking-wider">
           <label className="flex items-center cursor-pointer">
             <input
               type="checkbox"
@@ -363,6 +408,7 @@ export const LaborSidebar = ({ labors }) => {
           <span>Labor Type</span>
           <span>Status</span>
           <span className="ml-5">Mobile</span>
+          <span className="text-center">Actions</span>
         </div>
 
         {/* Mobile Header */}
@@ -486,11 +532,34 @@ export const LaborSidebar = ({ labors }) => {
                         <span className="font-medium">Mobile:</span>
                         <span>{labor.CM_Phone_Number || "—"}</span>
                       </div>
+                      <div className="pt-2 border-t border-slate-100 flex gap-4 justify-end" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => router.push(`/editlabor/${labor.CM_Labor_Type_ID}`)}
+                          className="p-1 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                          title="Edit"
+                        >
+                          <Pencil className="h-4 w-4 text-blue-600" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(labor)}
+                          className="p-1 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                          title={labor.CM_Status === 'Active' ? 'Deactivate' : 'Activate'}
+                        >
+                          <Power className={`h-4 w-4 ${labor.CM_Status === 'Active' ? 'text-green-600' : 'text-slate-400'}`} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(labor.CM_Labor_Type_ID)}
+                          className="p-1 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   {/* Desktop Layout */}
-                  <div className="hidden sm:grid sm:grid-cols-8 gap-2 md:gap-4">
+                  <div className="hidden sm:grid sm:grid-cols-9 gap-2 md:gap-4 items-center">
                     <div className="flex items-center">
                       <button
                         type="button"
@@ -549,6 +618,29 @@ export const LaborSidebar = ({ labors }) => {
                       </div>
                     </div>
                     <div className="text-slate-500 truncate">{labor.CM_Phone_Number || "—"}</div>
+                    <div className="flex items-center justify-center gap-4" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => router.push(`/editlabor/${labor.CM_Labor_Type_ID}`)}
+                        className="p-1 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4 text-blue-600" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(labor)}
+                        className="p-1 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                        title={labor.CM_Status === 'Active' ? 'Deactivate' : 'Activate'}
+                      >
+                        <Power className={`h-4 w-4 ${labor.CM_Status === 'Active' ? 'text-green-600' : 'text-slate-400'}`} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(labor.CM_Labor_Type_ID)}
+                        className="p-1 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

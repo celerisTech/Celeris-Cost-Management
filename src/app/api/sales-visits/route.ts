@@ -151,6 +151,102 @@ async function recalculateLeadStatuses(db: any, leadId: string) {
   );
 }
 
+async function ensureProductAssignedToLead(db: any, leadId: string, productName: string | null, userId: string | null, visitStatus: string | null) {
+  if (!leadId || !productName) return;
+  const prod = String(productName).trim();
+  if (prod === '' || prod.toLowerCase() === 'none') return;
+
+  const products = prod.split(',').map(p => p.trim()).filter(Boolean);
+  let updated = false;
+
+  for (const product of products) {
+    const [existing]: any = await db.query(
+      `SELECT CM_Lead_Project_ID FROM ccms_sales_lead_projects 
+       WHERE CM_Lead_ID = ? AND CM_Product_Name = ? AND CM_Is_Deleted = 0`,
+      [leadId, product]
+    );
+
+    if (!existing || existing.length === 0) {
+      await db.execute(
+        `INSERT INTO ccms_sales_lead_projects (
+          CM_Lead_Project_ID, CM_Lead_ID, CM_Product_Name,
+          CM_Amount, CM_Proposal_Doc, CM_Status, CM_Created_By, CM_Created_At
+        ) VALUES (NULL, ?, ?, 0, NULL, ?, ?, NOW())`,
+        [
+          leadId,
+          product,
+          visitStatus || 'Follow Up',
+          userId || null
+        ]
+      );
+      updated = true;
+    }
+  }
+
+  if (updated) {
+    await updateMainLeadStatus(db, leadId, userId || 'System');
+  }
+}
+
+async function updateMainLeadStatus(db: any, leadId: string, userId: string) {
+  try {
+    const [projects]: any = await db.query(
+      `SELECT CM_Status FROM ccms_sales_lead_projects 
+       WHERE CM_Lead_ID = ? AND CM_Is_Deleted = 0`,
+      [leadId]
+    );
+
+    if (!projects || projects.length === 0) return;
+
+    let targetStatus = 'New Lead';
+    const statuses = projects.map((p: any) => p.CM_Status);
+
+    if (statuses.includes('Converted')) {
+      targetStatus = 'Converted';
+    } else if (statuses.includes('Proposal Sent')) {
+      targetStatus = 'Proposal Sent';
+    } else if (statuses.includes('Negotiation')) {
+      targetStatus = 'Negotiation';
+    } else if (statuses.includes('Demo Given')) {
+      targetStatus = 'Demo Given';
+    } else if (statuses.includes('Visited')) {
+      targetStatus = 'Visited';
+    } else if (statuses.includes('Follow-up Call') || statuses.includes('Follow Up')) {
+      targetStatus = 'Follow-up Call';
+    } else if (statuses.every((s: string) => s === 'Rejected' || s === 'Not Interested')) {
+      targetStatus = 'Rejected';
+    } else if (statuses.includes('On Hold')) {
+      targetStatus = 'On Hold';
+    } else {
+      targetStatus = statuses[0] || 'New Lead';
+    }
+
+    const [stats]: any = await db.query(
+      `SELECT GROUP_CONCAT(CM_Product_Name SEPARATOR ', ') as products, SUM(CM_Amount) as total_budget
+       FROM ccms_sales_lead_projects
+       WHERE CM_Lead_ID = ? AND CM_Is_Deleted = 0`,
+      [leadId]
+    );
+
+    const productsList = stats[0]?.products || '';
+    const totalBudget = stats[0]?.total_budget || 0;
+
+    await db.query(
+      `UPDATE ccms_sales_lead SET 
+        CM_Lead_Status = ?, 
+        CM_Followup_Status = ?, 
+        CM_Product_Required = ?, 
+        CM_Expected_Budget = ?,
+        CM_Updated_By = ?, 
+        CM_Updated_At = NOW() 
+       WHERE CM_Lead_ID = ?`,
+      [targetStatus, targetStatus, productsList, totalBudget, userId, leadId]
+    );
+  } catch (err) {
+    console.error('Error updating main lead status in visits route:', err);
+  }
+}
+
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -176,22 +272,45 @@ export async function GET(request: NextRequest) {
 
     // ── Pending followups ──────────────────────────────────────────────────
     if (type === 'pending-followups') {
-      let extraCondition = '';
-      const params: any[] = [];
+      let extraConditionVisit = '';
+      let extraConditionLead = '';
+      const visitParams: any[] = [];
+      const leadParams: any[] = [];
+      
       if (fromDate) {
-        extraCondition += ' AND sv.CM_Next_Followup_Date >= ?';
-        params.push(fromDate);
+        extraConditionVisit += ' AND sv.CM_Next_Followup_Date >= ?';
+        extraConditionLead += ' AND sl.CM_Next_Follow_Up_Date >= ?';
+        visitParams.push(fromDate);
+        leadParams.push(fromDate);
       }
       if (toDate) {
-        extraCondition += ' AND sv.CM_Next_Followup_Date <= ?';
-        params.push(toDate);
+        extraConditionVisit += ' AND sv.CM_Next_Followup_Date <= ?';
+        extraConditionLead += ' AND sl.CM_Next_Follow_Up_Date <= ?';
+        visitParams.push(toDate);
+        leadParams.push(toDate);
       }
 
+      const combinedParams = [...visitParams, ...leadParams];
+
       const [rows]: any = await db.query(`
-        SELECT sv.*, sl.CM_Client_Name, sl.CM_Company_Name, sl.CM_Phone, sl.CM_City, sl.CM_Lead_Status,
+        SELECT 'visit' AS source_type,
+               CAST(sv.CM_Visit_ID AS CHAR) AS CM_Visit_ID,
+               sv.CM_Lead_ID,
+               sv.CM_Visit_Date,
+               sv.CM_Visit_Time,
+               sv.CM_Created_At,
+               sv.CM_Purpose,
+               sv.CM_Remarks,
+               sv.CM_Next_Followup_Date,
+               sv.CM_Next_Followup_Time,
+               sv.CM_Visit_Status,
+               sl.CM_Client_Name,
+               sl.CM_Company_Name,
+               sl.CM_Phone,
+               sl.CM_City,
+               sl.CM_Lead_Status,
                u.CM_Full_Name AS Executive_Name,
-               ind.CM_Industrial_Name, cat.CM_Category_Name,
-               (SELECT CM_Visit_Status FROM ccms_sales_visit WHERE CM_Lead_ID = sv.CM_Lead_ID AND CM_Is_Deleted = 0 ORDER BY CM_Visit_ID DESC LIMIT 1) AS Last_Visit_Status
+               ind.CM_Industrial_Name, cat.CM_Category_Name
         FROM   ccms_sales_visit sv
         JOIN   ccms_sales_lead  sl
                ON sv.CM_Lead_ID COLLATE utf8mb4_general_ci = sl.CM_Lead_ID COLLATE utf8mb4_general_ci
@@ -206,15 +325,53 @@ export async function GET(request: NextRequest) {
                  WHERE  sv2.CM_Is_Deleted = 0
                  GROUP BY sv2.CM_Lead_ID
                )
-          AND  sv.CM_Is_Deleted = 0
-          AND  sl.CM_Is_Deleted = 0
-          AND  sv.CM_Next_Followup_Date >= CURDATE()
-          AND  sv.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
-          AND  COALESCE(sl.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
-          AND  COALESCE(sl.CM_Followup_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
-          ${extraCondition}
-        ORDER BY sv.CM_Next_Followup_Date ASC
-      `, params);
+           AND  sv.CM_Is_Deleted = 0
+           AND  sl.CM_Is_Deleted = 0
+           AND  sv.CM_Next_Followup_Date >= CURDATE()
+           AND  sv.CM_Visit_Status IN ('Interested', 'Follow-up Needed')
+           AND  COALESCE(sl.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+           AND  COALESCE(sl.CM_Followup_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+           ${extraConditionVisit}
+
+        UNION ALL
+
+        SELECT 'lead' AS source_type,
+               CONCAT('L-', sl.CM_Lead_ID) AS CM_Visit_ID,
+               sl.CM_Lead_ID,
+               sl.CM_Created_At AS CM_Visit_Date,
+               sl.CM_Next_Follow_Up_Time AS CM_Visit_Time,
+               sl.CM_Created_At,
+               'Initial Intake Follow-up' AS CM_Purpose,
+               sl.CM_Remarks,
+               sl.CM_Next_Follow_Up_Date AS CM_Next_Followup_Date,
+               sl.CM_Next_Follow_Up_Time AS CM_Next_Followup_Time,
+               'Follow-up Needed' AS CM_Visit_Status,
+               sl.CM_Client_Name,
+               sl.CM_Company_Name,
+               sl.CM_Phone,
+               sl.CM_City,
+               sl.CM_Lead_Status,
+               u.CM_Full_Name AS Executive_Name,
+               ind.CM_Industrial_Name, cat.CM_Category_Name
+        FROM   ccms_sales_lead sl
+        LEFT JOIN ccms_industrial ind ON sl.CM_Industrial_ID = ind.CM_Industrial_ID
+        LEFT JOIN ccms_sales_category cat ON sl.CM_Category_ID = cat.CM_Category_ID
+        LEFT JOIN ccms_users    u
+               ON sl.CM_Sales_Executive_ID COLLATE utf8mb4_general_ci
+                = u.CM_User_ID             COLLATE utf8mb4_general_ci
+        WHERE  sl.CM_Is_Deleted = 0
+           AND  sl.CM_Next_Follow_Up_Date >= CURDATE()
+           AND  COALESCE(sl.CM_Lead_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+           AND  COALESCE(sl.CM_Followup_Status, '') NOT IN ('Converted', 'Not Interested', 'Closed', 'Rejected')
+           AND  sl.CM_Lead_ID COLLATE utf8mb4_general_ci NOT IN (
+                  SELECT DISTINCT CM_Lead_ID COLLATE utf8mb4_general_ci 
+                  FROM   ccms_sales_visit 
+                  WHERE  CM_Is_Deleted = 0
+                )
+           ${extraConditionLead}
+
+        ORDER BY CM_Next_Followup_Date ASC, CM_Next_Followup_Time ASC
+      `, combinedParams);
       return safeJson(rows ?? []);
     }
 
@@ -403,6 +560,9 @@ export async function POST(request: NextRequest) {
     );
     const newId = row?.CM_Visit_ID;
 
+    // Auto-link newly discussed product to lead
+    await ensureProductAssignedToLead(db, body.CM_Lead_ID, body.CM_Visit_Products, body.CM_Created_By, body.CM_Visit_Status);
+
     await recalculateLeadStatuses(db, body.CM_Lead_ID);
 
     await logActivity(db, body.CM_Lead_ID, 'Visit Logged', `Visit #${newId} recorded`, body.CM_Created_By);
@@ -471,6 +631,9 @@ async function updateVisit(request: NextRequest) {
         CM_Visit_ID,
       ]
     );
+
+    // Auto-link newly discussed product to lead if updated
+    await ensureProductAssignedToLead(db, body.CM_Lead_ID, body.CM_Visit_Products, body.CM_Updated_By, body.CM_Visit_Status);
 
     await recalculateLeadStatuses(db, body.CM_Lead_ID);
 

@@ -45,6 +45,7 @@ export default function CRMDashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFollowupsModalOpen, setIsFollowupsModalOpen] = useState(false);
+  const [isAmcModalOpen, setIsAmcModalOpen] = useState(false);
   
   const isAdminOrManager = user?.CM_Role_ID === "ROL000001" || user?.CM_Role_ID === "ROL000002";
 
@@ -382,6 +383,41 @@ export default function CRMDashboardPage() {
         )}
       </div>
 
+      {/* AMC Expiry Alert Section */}
+      {data?.expiringAmcCount > 0 && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-4">
+          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-500 to-yellow-500"></div>
+
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between relative">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 animate-pulse shadow-inner">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
+                  AMC Renewals Alert
+                  <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-[10px] font-bold rounded-full animate-pulse">
+                    {data.expiringAmcCount} Expiring
+                  </span>
+                </h3>
+                <p className="text-xs text-amber-700">
+                  You have <span className="font-bold text-amber-900">{data.expiringAmcCount}</span> AMCs expiring within the next 10 days. Please follow up for payments.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-row gap-2 w-full md:w-auto">
+              <button
+                onClick={() => setIsAmcModalOpen(true)}
+                className="flex-1 md:flex-none px-4 py-2 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 hover:scale-105 transition-all duration-200 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Calendar className="h-3.5 w-3.5" /> Manage Expiring AMCs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Urgent Alerts Section */}
       {(data?.pendingFollowups?.length > 0 || stats.pending_followups > 0) && (
         <div className="relative overflow-hidden bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
@@ -485,15 +521,6 @@ export default function CRMDashboardPage() {
             >
               Product Wise Distribution
             </button>
-            {/* <button
-              onClick={() => setActiveChartViewTab("financials")}
-              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${activeChartViewTab === "financials"
-                ? "border-indigo-600 text-indigo-600 font-bold"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
-            >
-              Client Financials
-            </button> */}
           </div>
 
           {/* FILTER label and main dropdown aligned to the right */}
@@ -855,6 +882,104 @@ export default function CRMDashboardPage() {
         isOpen={isFollowupsModalOpen}
         onClose={() => setIsFollowupsModalOpen(false)}
       />
+
+      {/* Expiring AMCs Modal */}
+      {isAmcModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+          <div className="relative w-full max-w-4xl bg-white rounded-sm shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between border-b border-slate-700 rounded-t-sm flex-shrink-0">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-400" />
+                AMCs Expiring in 10 Days
+              </h2>
+              <button 
+                onClick={() => setIsAmcModalOpen(false)} 
+                className="hover:bg-white/10 p-1.5 rounded-sm transition-colors cursor-pointer text-white font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1 min-h-0">
+              <div className="overflow-x-auto border border-slate-200 rounded-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#eef2ff] border-b border-slate-200">
+                      <th className="px-4 py-2.5 text-xs font-bold text-blue-700 uppercase tracking-wider">Client Name</th>
+                      <th className="px-4 py-2.5 text-xs font-bold text-blue-700 uppercase tracking-wider">Company Name</th>
+                      <th className="px-4 py-2.5 text-xs font-bold text-blue-700 uppercase tracking-wider">Domain Link</th>
+                      <th className="px-4 py-2.5 text-xs font-bold text-blue-700 uppercase tracking-wider">Expiry Date</th>
+                      <th className="px-4 py-2.5 text-xs font-bold text-blue-700 uppercase tracking-wider text-right">AMC Amount</th>
+                      <th className="px-4 py-2.5 text-xs font-bold text-blue-700 uppercase tracking-wider text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(!data?.expiringAmcs || data.expiringAmcs.length === 0) ? (
+                      <tr>
+                        <td colSpan="6" className="px-4 py-8 text-center text-gray-500 text-xs bg-white">
+                          No expiring AMCs found.
+                        </td>
+                      </tr>
+                    ) : (
+                      data.expiringAmcs.map((amc, idx) => {
+                        const daysLeft = Math.ceil((new Date(amc.CM_Expiry_Date).getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+                        return (
+                          <tr 
+                            key={amc.CM_AMC_ID} 
+                            className={`border-b border-slate-100 text-xs transition-colors hover:bg-slate-50 ${idx % 2 === 0 ? "bg-[#f4f7ff]/30" : "bg-white"}`}
+                          >
+                            <td className="px-4 py-3 font-semibold text-slate-800">{amc.CM_Client_Name}</td>
+                            <td className="px-4 py-3 text-slate-600">{amc.CM_Company_Name || "—"}</td>
+                            <td className="px-4 py-3 text-blue-600 break-all select-all font-mono">
+                              {amc.CM_Domain_Link ? (
+                                <a href={amc.CM_Domain_Link.startsWith('http') ? amc.CM_Domain_Link : `https://${amc.CM_Domain_Link}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                  {amc.CM_Domain_Link}
+                                </a>
+                              ) : "—"}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-700">
+                                  {new Date(amc.CM_Expiry_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                </span>
+                                <span className={`text-[10px] font-extrabold ${daysLeft < 0 ? "text-red-600 animate-pulse" : daysLeft <= 3 ? "text-orange-600 font-bold" : "text-amber-600"}`}>
+                                  {daysLeft < 0 ? `Expired (${Math.abs(daysLeft)}d ago)` : daysLeft === 0 ? "Expires Today" : `${daysLeft} days left`}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-slate-800">
+                              ₹{Number(amc.CM_Amount || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Link href={`/dashboard/crm/payments?leadId=${amc.CM_Lead_ID}&paymentType=AMC&amcId=${amc.CM_AMC_ID}`}>
+                                <button className="px-3 py-1.5 bg-blue-600 text-white font-bold rounded-sm hover:bg-blue-700 transition-colors shadow-sm cursor-pointer text-[10px]">
+                                  Collect AMC
+                                </button>
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end rounded-b-sm flex-shrink-0">
+              <button
+                onClick={() => setIsAmcModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 text-white font-bold rounded-sm hover:bg-slate-700 text-xs transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

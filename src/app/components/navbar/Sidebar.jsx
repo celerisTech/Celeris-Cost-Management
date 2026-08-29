@@ -84,24 +84,46 @@ const Sidebar = ({
 
   const orderedNavLinks = React.useMemo(() => {
     if (!navLinks) return null;
-    if (user?.CM_Role_ID !== "ROL000003") return navLinks;
 
-    let assignedSectionName = null;
     const reordered = JSON.parse(JSON.stringify(navLinks)); // deep clone
     
+    // Sort SALES section links by custom order
+    const salesOrder = {
+      "Sales Dashboard": 1,
+      "Sales Leads": 2,
+      "Visit Tracking": 3,
+      "Sales Payments": 4,
+      "Sales AMC": 5,
+      "Sales Reports": 6
+    };
+
     for (const section in reordered) {
-      const idx = reordered[section].findIndex(l => l.label === "Assigned Projects");
-      if (idx !== -1) {
-        assignedSectionName = section;
-        const link = reordered[section].splice(idx, 1)[0];
-        reordered[section].unshift(link); // Put it at the top of its section
+      if (section.toUpperCase() === "SALES") {
+        reordered[section].sort((a, b) => {
+          const orderA = salesOrder[a.label] || 99;
+          const orderB = salesOrder[b.label] || 99;
+          if (orderA !== orderB) return orderA - orderB;
+          return a.label.localeCompare(b.label);
+        });
       }
     }
-    
-    if (assignedSectionName) {
-      const topSection = { [assignedSectionName]: reordered[assignedSectionName] };
-      delete reordered[assignedSectionName];
-      return { ...topSection, ...reordered };
+
+    if (user?.CM_Role_ID === "ROL000003") {
+      let assignedSectionName = null;
+      for (const section in reordered) {
+        const idx = reordered[section].findIndex(l => l.label === "Assigned Projects");
+        if (idx !== -1) {
+          assignedSectionName = section;
+          const link = reordered[section].splice(idx, 1)[0];
+          reordered[section].unshift(link); // Put it at the top of its section
+        }
+      }
+      
+      if (assignedSectionName) {
+        const topSection = { [assignedSectionName]: reordered[assignedSectionName] };
+        delete reordered[assignedSectionName];
+        return { ...topSection, ...reordered };
+      }
     }
     
     return reordered;
@@ -181,7 +203,7 @@ const Sidebar = ({
       />
 
       <aside
-        className={`${isSidebarOpen ? "md:w-60 lg:w-65" : "md:w-20"
+        className={`${isSidebarOpen ? "md:w-55 lg:w-55" : "md:w-20"
           } fixed md:static inset-y-0 left-0 z-40 transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           } w-60 md:w-auto bg-white/90 backdrop-blur-lg shadow-xl transition-all duration-500 ease-out`}
         style={{
