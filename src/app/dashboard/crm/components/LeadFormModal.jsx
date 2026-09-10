@@ -24,7 +24,7 @@ const SearchableSelect = ({
   const [dropdownPosition, setDropdownPosition] = useState("bottom");
   const containerRef = useRef(null);
   const inputRef = useRef(null);
-
+ 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
