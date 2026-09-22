@@ -31,6 +31,35 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [isEditing, setIsEditing] = useState(false);
+  const [isGlobalCustomDateEnabled, setIsGlobalCustomDateEnabled] = useState(false);
+  const [isGlobalChatEditEnabled, setIsGlobalChatEditEnabled] = useState(false);
+  const [isGlobalChatDeleteEnabled, setIsGlobalChatDeleteEnabled] = useState(false);
+
+  const isOwner = user?.CM_Role_Description === "Owner" || user?.CM_Role_ID === "ROL000001";
+
+  // Fetch global setting
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const [dateRes, editRes, deleteRes] = await Promise.all([
+          fetch("/api/settings?key=custom_work_date_enabled"),
+          fetch("/api/settings?key=chat_edit_enabled"),
+          fetch("/api/settings?key=chat_delete_enabled")
+        ]);
+        
+        const dateData = await dateRes.json();
+        const editData = await editRes.json();
+        const deleteData = await deleteRes.json();
+        
+        if (dateData.success && dateData.value !== undefined) setIsGlobalCustomDateEnabled(dateData.value === "true");
+        if (editData.success && editData.value !== undefined) setIsGlobalChatEditEnabled(editData.value === "true");
+        if (deleteData.success && deleteData.value !== undefined) setIsGlobalChatDeleteEnabled(deleteData.value === "true");
+      } catch (err) {
+        console.warn("Failed to fetch settings:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   // Fetch user + company data once
   useEffect(() => {
@@ -589,6 +618,97 @@ export default function ProfilePage() {
                   )}
                 </ExcelRow>
               </div>
+
+              {/* SECTION: Global System Settings */}
+              {isOwner && (
+                <>
+                  <div className="bg-indigo-900 text-white px-4 py-2 text-sm font-semibold uppercase tracking-wider mt-4">
+                    Global System Settings
+                  </div>
+                  <div className="border-b border-gray-300">
+                    <ExcelRow label="Enable Work Date (Global)">
+                      <div className="px-3 py-2.5 flex items-center h-full w-full">
+                        <label className="flex items-center gap-2 cursor-pointer w-full">
+                          <input 
+                            type="checkbox" 
+                            checked={isGlobalCustomDateEnabled}
+                            onChange={async (e) => {
+                              const newValue = e.target.checked;
+                              setIsGlobalCustomDateEnabled(newValue);
+                              try {
+                                await fetch("/api/settings", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ key: "custom_work_date_enabled", value: String(newValue) })
+                                });
+                                window.dispatchEvent(new CustomEvent('customWorkDateChanged', { detail: newValue }));
+                              } catch (err) {
+                                console.warn("Failed to save setting:", err);
+                              }
+                            }}
+                            className="w-5 h-5 accent-indigo-600 cursor-pointer border-slate-300 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">Allow users to log work for past dates</span>
+                        </label>
+                      </div>
+                    </ExcelRow>
+                    
+                    <ExcelRow label="Enable Chat Message Editing (Global)">
+                      <div className="px-3 py-2.5 flex items-center h-full w-full">
+                        <label className="flex items-center gap-2 cursor-pointer w-full">
+                          <input 
+                            type="checkbox" 
+                            checked={isGlobalChatEditEnabled}
+                            onChange={async (e) => {
+                              const newValue = e.target.checked;
+                              setIsGlobalChatEditEnabled(newValue);
+                              try {
+                                await fetch("/api/settings", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ key: "chat_edit_enabled", value: String(newValue) })
+                                });
+                                window.dispatchEvent(new CustomEvent('chatEditEnabledChanged', { detail: newValue }));
+                              } catch (err) {
+                                console.warn("Failed to save setting:", err);
+                              }
+                            }}
+                            className="w-5 h-5 accent-indigo-600 cursor-pointer border-slate-300 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">Allow users to edit their sent messages</span>
+                        </label>
+                      </div>
+                    </ExcelRow>
+
+                    <ExcelRow label="Enable Chat Message Deletion (Global)">
+                      <div className="px-3 py-2.5 flex items-center h-full w-full">
+                        <label className="flex items-center gap-2 cursor-pointer w-full">
+                          <input 
+                            type="checkbox" 
+                            checked={isGlobalChatDeleteEnabled}
+                            onChange={async (e) => {
+                              const newValue = e.target.checked;
+                              setIsGlobalChatDeleteEnabled(newValue);
+                              try {
+                                await fetch("/api/settings", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ key: "chat_delete_enabled", value: String(newValue) })
+                                });
+                                window.dispatchEvent(new CustomEvent('chatDeleteEnabledChanged', { detail: newValue }));
+                              } catch (err) {
+                                console.warn("Failed to save setting:", err);
+                              }
+                            }}
+                            className="w-5 h-5 accent-indigo-600 cursor-pointer border-slate-300 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">Allow users to delete their sent messages</span>
+                        </label>
+                      </div>
+                    </ExcelRow>
+                  </div>
+                </>
+              )}
             </form>
           </div>
         </div>

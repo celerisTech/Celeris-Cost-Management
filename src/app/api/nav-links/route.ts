@@ -113,6 +113,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Append Work Logs globally to Operations section
+    if (!grouped["Operations"]) {
+      grouped["Operations"] = [];
+    }
+    // Prevent duplicate if already added via db
+    if (!grouped["Operations"].some(l => l.href === "/work-logs")) {
+      grouped["Operations"].push({ href: "/work-logs", label: "Work Logs" });
+    }
+
     // 6. Return with no-store cache headers
     const res = NextResponse.json(
       {

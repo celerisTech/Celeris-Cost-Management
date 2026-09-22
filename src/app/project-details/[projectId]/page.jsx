@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Loader2, ArrowLeft, LayoutDashboard, Calendar, DollarSign, Users, Package, Download, Clock, Zap } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutDashboard, Calendar, DollarSign, Users, Package, Download, Clock, Zap, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
+import ProjectInvoiceModal from "@/app/components/invoice/ProjectInvoiceModal";
 
 export default function ProjectDetails({ params }) {
   // Properly unwrap params with React.use()
@@ -13,6 +14,7 @@ export default function ProjectDetails({ params }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -242,14 +244,37 @@ export default function ProjectDetails({ params }) {
               </div>
             </div>
 
-            <button
-              onClick={exportCurrentTabData}
-              className="mt-3 md:mt-0 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center text-sm"
-            >
-              <Download size={16} className="mr-2" />
-              Export Data
-            </button>
+            <div className="mt-3 md:mt-0 flex items-center space-x-2">
+              <button
+                onClick={() => setIsInvoiceModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center text-sm font-medium shadow-sm"
+              >
+                <FileText size={16} className="mr-2" />
+                Generate Tax Invoice
+              </button>
+
+              <button
+                onClick={exportCurrentTabData}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center text-sm"
+              >
+                <Download size={16} className="mr-2" />
+                Export Data
+              </button>
+            </div>
           </div>
+
+          {/* Project Tax Invoice Modal */}
+          <ProjectInvoiceModal
+            isOpen={isInvoiceModalOpen}
+            onClose={() => setIsInvoiceModalOpen(false)}
+            initialData={{
+              project_name: projectData?.project?.CM_Project_Name,
+              project_code: projectData?.project?.CM_Project_Code,
+              estimated_cost: projectData?.project?.CM_Estimated_Cost,
+              client_name: projectData?.project?.CM_Client_Name,
+              client_company: projectData?.project?.CM_Company_Name,
+            }}
+          />
 
           {/* Progress Bar with Task-based Progress */}
           <div className="mb-6">

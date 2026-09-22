@@ -587,7 +587,7 @@ const CustomerStep = ({
 
               {/* Payment Terms */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-gray-700">Payment Terms <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-medium text-gray-700">Payment Terms</label>
                 <select
                   name="CM_Payment_Terms"
                   value={customerFormData.CM_Payment_Terms || ""}

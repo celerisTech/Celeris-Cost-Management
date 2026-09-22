@@ -55,6 +55,8 @@ const iconMap = {
   "Expenses": DollarSign,
   "Budgets": Calculator,
   "Invoices": Receipt,
+  "Project Invoices": Receipt,
+  "Create Invoice": FileText,
 
   // Resources
   "Projects": Briefcase,
@@ -67,6 +69,7 @@ const iconMap = {
   "Employees Attendance": Clock,
   "Stock Transfer": ArrowRightLeft,
   "Vendors": ShoppingCart,
+  "Work Logs": CalendarCheck2,
 
   // Document related
   "Documents": FileText,

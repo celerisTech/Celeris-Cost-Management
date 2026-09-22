@@ -12,7 +12,16 @@ export const fetcher = async (url) => {
     error.status = res.status;
     throw error;
   }
-  return res.json();
+  const contentType = res.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    try {
+      return await res.json();
+    } catch (e) {
+      console.warn("Failed to parse JSON response for URL:", url, e);
+      return {};
+    }
+  }
+  return {};
 };
 
 /**

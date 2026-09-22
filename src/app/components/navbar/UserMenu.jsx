@@ -47,7 +47,10 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
       if (!user?.CM_User_ID) return;
       try {
         const res = await fetch(`/api/users/${user.CM_User_ID}`);
-        const data = await res.json();
+        if (!res.ok) return;
+        const text = await res.text();
+        if (!text) return;
+        const data = JSON.parse(text);
         if (data) setUserInfo(data);
       } catch (err) {
         console.error("Failed to load user info", err);
@@ -55,6 +58,8 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
     };
     fetchUserInfo();
   }, [user]);
+
+
 
   // Click outside listener for smooth dropdown behavior
   useEffect(() => {
@@ -317,6 +322,8 @@ const UserMenu = ({ isSidebarOpen, isUserMenuOpen, setIsUserMenuOpen, onSignOut 
                   </Link>
                 </motion.div>
               </div>
+
+
 
               {/* Sign Out Section */}
               <div className="p-2 border-t border-slate-100 dark:border-slate-800">

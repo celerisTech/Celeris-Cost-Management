@@ -108,6 +108,22 @@ const Sidebar = ({
       }
     }
 
+    // Ensure Project Invoices link is present
+    const invoiceLink = { label: "Project Invoices", href: "/projects/invoice" };
+    let hasInvoiceLink = false;
+    for (const sec in reordered) {
+      if (reordered[sec].some(l => l.href === invoiceLink.href || l.label === "Project Invoices" || l.label === "Create Invoice")) {
+        hasInvoiceLink = true;
+        break;
+      }
+    }
+
+    if (!hasInvoiceLink) {
+      const targetSection = reordered["Operations"] ? "Operations" : Object.keys(reordered)[0] || "Operations";
+      if (!reordered[targetSection]) reordered[targetSection] = [];
+      reordered[targetSection].push(invoiceLink);
+    }
+
     if (user?.CM_Role_ID === "ROL000003") {
       let assignedSectionName = null;
       for (const section in reordered) {

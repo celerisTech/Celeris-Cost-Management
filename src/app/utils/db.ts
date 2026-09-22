@@ -60,6 +60,19 @@ async function getDb(): Promise<mysql.Pool> {
         throw new Error('Database connection test failed');
       }
 
+      // Auto-migrate: Create ccms_settings table
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS ccms_settings (
+            setting_key VARCHAR(50) PRIMARY KEY,
+            setting_value VARCHAR(255) NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch (settingsMigrationError) {
+        console.error('❌ Auto-migration error for ccms_settings:', settingsMigrationError);
+      }
+
       // Auto-migrate: Check/add CM_Proposal_Doc column in ccms_sales_lead table
       try {
         const [columns]: any = await pool.query(`SHOW COLUMNS FROM ccms_sales_lead LIKE 'CM_Proposal_Doc'`);
@@ -70,6 +83,18 @@ async function getDb(): Promise<mysql.Pool> {
         }
       } catch (migrationError) {
         console.error('❌ Auto-migration error for CM_Proposal_Doc:', migrationError);
+      }
+
+      // Auto-migrate: Add CM_Current_Project_ID to ccms_users
+      try {
+        const [columns]: any = await pool.query(`SHOW COLUMNS FROM ccms_users LIKE 'CM_Current_Project_ID'`);
+        if (!columns || columns.length === 0) {
+          console.log('Adding CM_Current_Project_ID column to ccms_users...');
+          await pool.query(`ALTER TABLE ccms_users ADD COLUMN CM_Current_Project_ID VARCHAR(50) DEFAULT NULL`);
+          console.log('✅ CM_Current_Project_ID column added successfully');
+        }
+      } catch (userMigrationError) {
+        console.error('❌ Auto-migration error for CM_Current_Project_ID:', userMigrationError);
       }
 
       // Auto-migrate: Create ccms_sales_lead_projects table if not exists, and seed data

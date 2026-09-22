@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import Sidebar from "./navbar/Sidebar";
 import MobileToggle from "./navbar/MobileToggle";
+import EmployeeChatWidget from "./EmployeeChatWidget";
 import { useAuthStore, useNotificationStore } from "../store/useAuthScreenStore";
 
 const Navbar = () => {
@@ -55,7 +56,7 @@ const Navbar = () => {
 
       try {
         setLoadingPrivileges(true);
-        const response = await fetch(`/api/user-privileges?userId=${userId}&roleId=${roleId}`);
+        const response = await fetch(`/api/user-privileges?userId=${encodeURIComponent(userId)}&roleId=${encodeURIComponent(roleId)}`);
         const data = await response.json();
 
         if (data.success) {
@@ -65,7 +66,7 @@ const Navbar = () => {
           setUserPrivileges([]);
         }
       } catch (error) {
-        console.error("Error fetching user privileges:", error);
+        console.warn("Error fetching user privileges (server may be restarting):", error.message);
         setUserPrivileges([]);
       } finally {
         setLoadingPrivileges(false);
@@ -84,7 +85,7 @@ const Navbar = () => {
 
     const fetchNotifications = async () => {
       try {
-        const response = await fetch(`/api/notifications/count?user_id=${UserId}`, {
+        const response = await fetch(`/api/notifications/count?user_id=${encodeURIComponent(UserId)}`, {
           cache: "no-store",
         });
         const data = await response.json();
@@ -94,7 +95,7 @@ const Navbar = () => {
           setUnreadCount(data.unread_count || 0);
         }
       } catch (error) {
-        console.error("Error fetching notifications:", error);
+        console.warn("Error fetching notifications:", error.message);
       }
     };
 
@@ -112,12 +113,21 @@ const Navbar = () => {
         const response = await fetch("/api/product-requests/count", {
           cache: "no-store",
         });
-        const data = await response.json();
-        if (data.success) {
+        if (!response.ok) return;
+        const text = await response.text();
+        if (!text) return;
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          return;
+        }
+        if (data && data.success) {
           setPendingCount(data.pendingCount || 0);
         }
       } catch (error) {
-        console.error("Error fetching pending products:", error);
+        // Silently ignore network errors during dev server hot reloads
+        // to prevent the Next.js error overlay from popping up.
       }
     };
 
@@ -196,6 +206,9 @@ const Navbar = () => {
           className="md:hidden fixed inset-0 z-30 bg-black/40 backdrop-blur-[1px]"
         />
       )}
+
+      {/* Floating Employee Chat Widget */}
+      <EmployeeChatWidget />
     </div>
   );
 };
