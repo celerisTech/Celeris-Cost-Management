@@ -1,0 +1,56 @@
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
+--
+-- Host: localhost    Database: celeris_ccms
+-- ------------------------------------------------------
+-- Server version	8.0.45
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `ccms_industrial`
+--
+
+DROP TABLE IF EXISTS `ccms_industrial`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ccms_industrial` (
+  `CM_Industrial_ID` int NOT NULL AUTO_INCREMENT,
+  `CM_Industrial_Name` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `CM_Description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
+  `CM_Created_By` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `CM_Created_At` datetime DEFAULT CURRENT_TIMESTAMP,
+  `CM_Updated_By` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `CM_Updated_At` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`CM_Industrial_ID`)
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ccms_industrial`
+--
+
+LOCK TABLES `ccms_industrial` WRITE;
+/*!40000 ALTER TABLE `ccms_industrial` DISABLE KEYS */;
+INSERT INTO `ccms_industrial` VALUES (1,'Healthcare',NULL,'USR000015','2026-05-21 17:33:41',NULL,'2026-05-21 17:33:41'),(3,'Retail/Wholesale',NULL,'USR000015','2026-05-21 17:45:47','USR000001','2026-06-05 15:47:35'),(4,'Manufacturing',NULL,'USR000015','2026-05-21 17:48:21',NULL,'2026-05-21 17:48:21'),(5,'Services',NULL,'USR000015','2026-05-21 18:05:39',NULL,'2026-05-21 18:05:39'),(7,'Food Industry',NULL,'USR000001','2026-06-21 10:19:17',NULL,'2026-06-21 10:19:17'),(8,'Solar Products, UPS, Batteries/Billing Machine',NULL,'USR000001','2026-06-25 21:30:12','USR000015','2026-07-24 11:53:59'),(9,'Garments',NULL,'USR000001','2026-07-01 16:26:37','USR000015','2026-07-07 18:31:31'),(10,'Construction',NULL,'USR000007','2026-07-01 17:30:44',NULL,'2026-07-01 17:30:44'),(12,'Wood and acrylic',NULL,'USR000022','2026-07-24 17:16:44',NULL,'2026-07-24 17:16:44'),(14,'IT',NULL,'USR000018','2026-08-07 12:01:04','USR000015','2026-08-20 23:54:00'),(15,'Franchise',NULL,'USR000008','2026-08-29 10:36:23',NULL,'2026-08-29 10:36:23');
+/*!40000 ALTER TABLE `ccms_industrial` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-09-22 16:07:56

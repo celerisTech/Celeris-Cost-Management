@@ -1,0 +1,59 @@
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
+--
+-- Host: localhost    Database: celeris_ccms
+-- ------------------------------------------------------
+-- Server version	8.0.45
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `ccms_project_work_logs`
+--
+
+DROP TABLE IF EXISTS `ccms_project_work_logs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ccms_project_work_logs` (
+  `WL_ID` int NOT NULL AUTO_INCREMENT,
+  `WL_Project_ID` varchar(50) NOT NULL,
+  `WL_User_ID` varchar(50) NOT NULL,
+  `WL_Date` date NOT NULL,
+  `WL_Hours` decimal(5,2) DEFAULT '0.00',
+  `WL_Description` text,
+  `WL_Created_At` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`WL_ID`),
+  KEY `idx_project` (`WL_Project_ID`),
+  KEY `idx_user` (`WL_User_ID`),
+  KEY `idx_date` (`WL_Date`)
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ccms_project_work_logs`
+--
+
+LOCK TABLES `ccms_project_work_logs` WRITE;
+/*!40000 ALTER TABLE `ccms_project_work_logs` DISABLE KEYS */;
+INSERT INTO `ccms_project_work_logs` VALUES (1,'PRJ000061','USR000001','2026-09-21',0.00,'wdfrtg','2026-09-21 05:39:18'),(2,'PRJ000061','USR000001','2026-09-21',0.00,'mfrjfb','2026-09-21 05:53:32'),(3,'PRJ000063','USR000001','2026-09-21',9.00,'namitha','2026-09-21 05:55:40'),(4,'PRJ000062','USR000001','2026-09-21',0.00,'mobile','2026-09-21 07:21:25'),(5,'PRJ000068','USR000003','2026-09-21',0.00,'vidhya','2026-09-21 07:30:01'),(6,'PRJ000065','USR000003','2026-09-01',0.00,'hello','2026-09-21 07:45:03'),(7,'PRJ000066','USR000003','2026-09-01',0.00,'rat','2026-09-21 07:50:48'),(8,'PRJ000058','USR000003','2026-09-02',0.00,'thyj','2026-09-21 07:54:33'),(9,'PRJ000063','USR000003','2026-09-01',0.00,'01-09-2026','2026-09-21 09:02:01'),(10,'PRJ000063','USR000003','2026-09-02',0.00,'sfegr','2026-09-21 09:11:11'),(11,'PRJ000063','USR000003','2026-09-02',0.00,'hgh','2026-09-21 09:11:33'),(12,'PRJ000060','USR000003','2026-09-21',0.00,'dvm','2026-09-21 10:45:26'),(13,'PRJ000060','USR000003','2026-09-21',0.00,'cd','2026-09-21 10:45:41'),(14,'PRJ000060','USR000003','2026-09-21',0.00,'sde','2026-09-21 11:22:15'),(15,'PRJ000066','USR000003','2026-09-21',0.00,'gf','2026-09-21 11:25:21'),(16,'PRJ000058','USR000003','2026-09-22',0.00,'bfyutk','2026-09-22 10:23:47');
+/*!40000 ALTER TABLE `ccms_project_work_logs` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-09-22 16:07:54

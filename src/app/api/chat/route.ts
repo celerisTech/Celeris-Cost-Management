@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import getDb from "@/app/utils/db";
+import { pusherServer } from "@/app/utils/pusher";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 
@@ -68,16 +69,7 @@ export async function GET(request: NextRequest) {
       AND u.CM_Is_Active = 'Active'
     `;
 
-    // Fetch the current user's role
-    const [currentUserRows] = await connection.execute(
-      `SELECT r.CM_Role_Description FROM ccms_users u LEFT JOIN ccms_roles_master r ON u.CM_Role_ID = r.CM_Role_ID WHERE u.CM_User_ID = ?`,
-      [userId]
-    );
-    const currentUserRole = (currentUserRows as any[])[0]?.CM_Role_Description;
 
-    if (currentUserRole !== 'Owner') {
-      userQuery += ` AND r.CM_Role_Description = 'Owner'`;
-    }
 
     const userParams: any[] = [userId];
 
@@ -124,8 +116,32 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Sort: employees with recent messages first
+    // Fetch latest group message
+    const [groupMsgRows] = await connection.query(
+      `SELECT CM_Message, CM_Image_URL, CM_Sender_ID, CM_Created_At 
+       FROM ccms_employee_chats 
+       WHERE CM_Receiver_ID = 'GROUP_ALL' 
+       ORDER BY CM_Created_At DESC LIMIT 1`
+    );
+    const groupLastMsg = (groupMsgRows as any[])[0] || null;
+
+    employeesWithChat.push({
+      CM_User_ID: "GROUP_ALL",
+      CM_Full_Name: "CS Squad",
+      CM_Role_Description: "Group Chat",
+      CM_Photo_URL: null,
+      isGroup: true,
+      lastMessage: groupLastMsg?.CM_Message || (groupLastMsg?.CM_Image_URL ? "📷 Attachment" : null),
+      lastMessageDate: groupLastMsg?.CM_Created_At || null,
+      lastMessageSender: groupLastMsg?.CM_Sender_ID || null,
+      unreadCount: 0,
+    });
+
+    // Sort: employees with recent messages first (Group chat always pinned to top)
     employeesWithChat.sort((a, b) => {
+      if (a.isGroup) return -1;
+      if (b.isGroup) return 1;
+
       if (a.lastMessageDate && b.lastMessageDate) {
         return new Date(b.lastMessageDate).getTime() - new Date(a.lastMessageDate).getTime();
       }
@@ -162,7 +178,6 @@ export async function POST(request: NextRequest) {
     }
 
     connection = await getDb();
-    await ensureChatTable(connection);
 
     let imageUrl: string | null = null;
     if (file) {
@@ -178,17 +193,8 @@ export async function POST(request: NextRequest) {
       imageUrl = `/uploads/chat/${fileName}`;
     }
 
-    // First, find the active project
-    let activeProject = null;
-    try {
-      const [userRows] = await connection.execute(
-        `SELECT CM_Current_Project_ID FROM ccms_users WHERE CM_User_ID = ?`,
-        [senderId]
-      );
-      activeProject = (userRows as any[])[0]?.CM_Current_Project_ID;
-    } catch (err) {
-      console.error("Error fetching active project:", err);
-    }
+    const providedProjectId = formData.get("projectId") as string;
+    let activeProject = providedProjectId || null;
 
     let createdAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let logDateOnly = new Date().toISOString().split("T")[0]; // default today for worklogs
@@ -233,6 +239,19 @@ export async function POST(request: NextRequest) {
       console.error("Error in chat-to-worklog bridge:", bridgeErr);
     }
     // ----------------------------------------------------------------------
+
+    // --- PUSHER TRIGGER ---
+    try {
+      const savedMessage = (newMsgRows as any[])[0];
+      await pusherServer.trigger(
+        `private-user-${receiverId}`,
+        "new_message",
+        { message: savedMessage }
+      );
+    } catch (pusherErr) {
+      console.error("Error triggering pusher event:", pusherErr);
+    }
+    // ----------------------
 
     const res = NextResponse.json({
       success: true,

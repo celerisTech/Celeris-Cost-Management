@@ -26,24 +26,53 @@ export async function GET(request: NextRequest) {
     );
 
     // Fetch conversation thread
-    const [messages] = await connection.execute(
-      `SELECT 
-        c.CM_Chat_ID,
-        c.CM_Sender_ID,
-        c.CM_Receiver_ID,
-        c.CM_Message,
-        c.CM_Project_ID,
-        c.CM_Image_URL,
-        c.CM_Is_Read,
-        c.CM_Created_At,
-        p.CM_Project_Name
-       FROM ccms_employee_chats c
-       LEFT JOIN ccms_projects p ON c.CM_Project_ID = p.CM_Project_ID
-       WHERE (c.CM_Sender_ID = ? AND c.CM_Receiver_ID = ?)
-          OR (c.CM_Sender_ID = ? AND c.CM_Receiver_ID = ?)
-       ORDER BY c.CM_Created_At ASC`,
-      [userId, targetId, targetId, userId]
-    );
+    let messagesQuery = "";
+    let queryParams = [];
+
+    if (targetId === "GROUP_ALL") {
+      messagesQuery = `
+        SELECT 
+          c.CM_Chat_ID,
+          c.CM_Sender_ID,
+          c.CM_Receiver_ID,
+          c.CM_Message,
+          c.CM_Project_ID,
+          c.CM_Image_URL,
+          c.CM_Is_Read,
+          c.CM_Created_At,
+          p.CM_Project_Name,
+          u.CM_Full_Name AS Sender_Name
+        FROM ccms_employee_chats c
+        LEFT JOIN ccms_projects p ON c.CM_Project_ID = p.CM_Project_ID
+        LEFT JOIN ccms_users u ON c.CM_Sender_ID = u.CM_User_ID
+        WHERE c.CM_Receiver_ID = ?
+        ORDER BY c.CM_Created_At ASC
+      `;
+      queryParams = [targetId];
+    } else {
+      messagesQuery = `
+        SELECT 
+          c.CM_Chat_ID,
+          c.CM_Sender_ID,
+          c.CM_Receiver_ID,
+          c.CM_Message,
+          c.CM_Project_ID,
+          c.CM_Image_URL,
+          c.CM_Is_Read,
+          c.CM_Created_At,
+          p.CM_Project_Name,
+          u.CM_Full_Name AS Sender_Name
+        FROM ccms_employee_chats c
+        LEFT JOIN ccms_projects p ON c.CM_Project_ID = p.CM_Project_ID
+        LEFT JOIN ccms_users u ON c.CM_Sender_ID = u.CM_User_ID
+        WHERE (c.CM_Sender_ID = ? AND c.CM_Receiver_ID = ?)
+           OR (c.CM_Sender_ID = ? AND c.CM_Receiver_ID = ?)
+        ORDER BY c.CM_Created_At ASC
+      `;
+      queryParams = [userId, targetId, targetId, userId];
+    }
+
+    const [messages] = await connection.execute(messagesQuery, queryParams);
 
     const res = NextResponse.json({
       success: true,

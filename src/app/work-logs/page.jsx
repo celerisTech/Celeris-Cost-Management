@@ -188,10 +188,10 @@ export default function WorkLogsPage() {
   });
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans">
+    <div className="flex flex-col sm:flex-row h-[100dvh] bg-slate-50 font-sans">
       <Navbar />
       
-      <div className="flex-1 overflow-y-auto p-6 md:p-8 w-full">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 w-full h-full">
         <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -204,8 +204,8 @@ export default function WorkLogsPage() {
 
         <div className="space-y-6">
             {/* Filter Bar */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-4">
-              <div className="flex items-center gap-2 flex-1 w-full">
+            <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center items-start gap-2 flex-1 w-full">
                 <div className="flex items-center gap-2 text-slate-700 font-bold whitespace-nowrap">
                   <Filter className="w-5 h-5 text-indigo-500" /> Project:
                 </div>
@@ -222,7 +222,7 @@ export default function WorkLogsPage() {
               </div>
 
               {isOwner && (
-                <div className="flex items-center gap-2 flex-1 w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center items-start gap-2 flex-1 w-full">
                   <div className="flex items-center gap-2 text-slate-700 font-bold whitespace-nowrap">
                     <User className="w-5 h-5 text-indigo-500" /> Employee:
                   </div>
@@ -239,7 +239,7 @@ export default function WorkLogsPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-4 flex-1 w-full">
+              <div className="flex flex-col sm:flex-row items-center gap-4 flex-1 w-full">
                 <div className="flex flex-col flex-1 w-full relative">
                   <div className="flex items-center gap-2 mb-2 text-slate-700 font-bold whitespace-nowrap">
                     <Calendar className="w-5 h-5 text-indigo-500" /> From Date:
