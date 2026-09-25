@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import getDb from "@/app/utils/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   let connection;
   try {
@@ -43,8 +45,8 @@ export async function GET(request: NextRequest) {
           p.CM_Project_Name,
           u.CM_Full_Name AS Sender_Name
         FROM ccms_employee_chats c
-        LEFT JOIN ccms_projects p ON c.CM_Project_ID = p.CM_Project_ID
-        LEFT JOIN ccms_users u ON c.CM_Sender_ID = u.CM_User_ID
+        LEFT JOIN ccms_projects p ON c.CM_Project_ID COLLATE utf8mb4_general_ci = p.CM_Project_ID COLLATE utf8mb4_general_ci
+        LEFT JOIN ccms_users u ON c.CM_Sender_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
         WHERE c.CM_Receiver_ID = ?
         ORDER BY c.CM_Created_At ASC
       `;
@@ -63,8 +65,8 @@ export async function GET(request: NextRequest) {
           p.CM_Project_Name,
           u.CM_Full_Name AS Sender_Name
         FROM ccms_employee_chats c
-        LEFT JOIN ccms_projects p ON c.CM_Project_ID = p.CM_Project_ID
-        LEFT JOIN ccms_users u ON c.CM_Sender_ID = u.CM_User_ID
+        LEFT JOIN ccms_projects p ON c.CM_Project_ID COLLATE utf8mb4_general_ci = p.CM_Project_ID COLLATE utf8mb4_general_ci
+        LEFT JOIN ccms_users u ON c.CM_Sender_ID COLLATE utf8mb4_general_ci = u.CM_User_ID COLLATE utf8mb4_general_ci
         WHERE (c.CM_Sender_ID = ? AND c.CM_Receiver_ID = ?)
            OR (c.CM_Sender_ID = ? AND c.CM_Receiver_ID = ?)
         ORDER BY c.CM_Created_At ASC

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import getDb from "@/app/utils/db";
 import { pusherServer } from "@/app/utils/pusher";
+
+export const dynamic = "force-dynamic";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 
